@@ -15,6 +15,44 @@ function Test-AulaGuardAppLockerSupport {
     }
 }
 
+
+function Sync-AulaGuardStudentsGroup {
+    $groupName = 'AulaGuardStudents'
+
+    if (-not (Get-LocalGroup -Name $groupName -ErrorAction SilentlyContinue)) {
+        New-LocalGroup -Name $groupName -Description 'Usuarios estándar administrados por AulaGuard' | Out-Null
+    }
+
+    $adminSids = @()
+    try {
+        $adminSids = @(Get-LocalGroupMember -Group 'Administrators' -ErrorAction Stop | ForEach-Object { $_.SID.Value })
+    } catch {}
+
+    $excluded = @('Administrator','Guest','DefaultAccount','WDAGUtilityAccount')
+    $users = @(Get-LocalUser | Where-Object {
+        $_.Enabled -and
+        $excluded -notcontains $_.Name -and
+        $adminSids -notcontains $_.SID.Value
+    })
+
+    $current = @()
+    try { $current = @(Get-LocalGroupMember -Group $groupName -ErrorAction Stop) } catch {}
+
+    foreach ($member in $current) {
+        try { Remove-LocalGroupMember -Group $groupName -Member $member -ErrorAction SilentlyContinue } catch {}
+    }
+
+    foreach ($user in $users) {
+        try { Add-LocalGroupMember -Group $groupName -Member $user.Name -ErrorAction Stop } catch {}
+    }
+
+    return [pscustomobject]@{
+        Group = $groupName
+        Users = @($users | Select-Object -ExpandProperty Name)
+        Count = $users.Count
+    }
+}
+
 function Enable-AulaGuardApplicationIdentity {
     $service = Get-Service -Name AppIDSvc -ErrorAction Stop
     try { Set-Service -Name AppIDSvc -StartupType Automatic -ErrorAction Stop }
@@ -60,6 +98,8 @@ function New-AulaGuardAppLockerPolicyXml {
     }
 
     $validPrograms = @($AllowedPrograms | Where-Object { $_ -and (Test-Path $_ -PathType Leaf) } | Select-Object -Unique)
+    $targetGroup = Sync-AulaGuardStudentsGroup
+    if ($targetGroup.Count -eq 0) { throw 'No se detectaron usuarios estándar para aplicar el control de aplicaciones.' }
 
     if ($Mode -eq 'Enabled' -and $validPrograms.Count -eq 0) {
         throw 'No se puede activar el bloqueo sin al menos un programa autorizado. Use Auditoría primero.'
@@ -71,7 +111,7 @@ function New-AulaGuardAppLockerPolicyXml {
             FileInformation = $fileInfo
             AllowWindows = $true
             RuleType = @('Publisher','Hash')
-            User = 'Everyone'
+            User = $targetGroup.Group
             Optimize = $true
             IgnoreMissingFileInformation = $true
             Xml = $true
@@ -81,7 +121,7 @@ function New-AulaGuardAppLockerPolicyXml {
         $params = @{
             AllowWindows = $true
             RuleType = @('Path')
-            User = 'Everyone'
+            User = $targetGroup.Group
             Optimize = $true
             Xml = $true
         }
@@ -96,7 +136,7 @@ function Test-AulaGuardGeneratedPolicy {
     param([Parameter(Mandatory=$true)][string]$Xml,[string[]]$Paths)
     $existing = @($Paths | Where-Object { $_ -and (Test-Path $_ -PathType Leaf) })
     if ($existing.Count -eq 0) { return @() }
-    return @(Test-AppLockerPolicy -XmlPolicy $Xml -Path $existing -User Everyone -Filter All)
+    return @(Test-AppLockerPolicy -XmlPolicy $Xml -Path $existing -User 'AulaGuardStudents' -Filter All)
 }
 
 function Set-AulaGuardAppControlPolicy {
