@@ -1,5 +1,5 @@
 {
-  "version": "0.2.0",
+  "version": "0.3.0",
   "profileName": "Aula principal",
   "policyMode": "Audit",
   "wallpaper": "",
@@ -16,6 +16,12 @@
     "blockTaskManager": false,
     "blockCommandPrompt": false,
     "blockPowerShell": false
+  },
+  "appControl": {
+    "mode": "AuditOnly",
+    "enabled": false,
+    "lastAppliedUtc": null,
+    "lastBackup": null
   },
   "auditEnabled": true,
   "lastAppliedUtc": null
