@@ -28,7 +28,7 @@ function Get-AulaGuardSettingsPath {
 
 function New-AulaGuardSettings {
     [pscustomobject]@{
-        version = '0.3.1'
+        version = '0.3.2'
         profileName = 'Aula principal'
         policyMode = 'Audit'
         wallpaper = ''
@@ -94,7 +94,7 @@ function Read-AulaGuardSettings {
             }
         }
 
-        $s.version = '0.3.1'
+        $s.version = '0.3.2'
         return $s
     }
     catch {
