@@ -1,4 +1,4 @@
-# AulaGuard v0.2.0
+# AulaGuard v0.3.0
 # Advanced classroom endpoint administration for Windows 10/11 Pro.
 
 $ErrorActionPreference = 'Stop'
@@ -10,6 +10,7 @@ try {
     Import-Module (Join-Path $PSScriptRoot 'AulaGuard.Core.psm1') -Force
     Import-Module (Join-Path $PSScriptRoot 'AulaGuard.Policy.psm1') -Force
     Import-Module (Join-Path $PSScriptRoot 'AulaGuard.Diagnostics.psm1') -Force
+    Import-Module (Join-Path $PSScriptRoot 'AulaGuard.AppControl.psm1') -Force
 
     if (-not (Test-AulaGuardAdministrator)) {
         [System.Windows.Forms.MessageBox]::Show(
@@ -80,7 +81,7 @@ try {
         }
 
         return [pscustomobject]@{
-            version = '0.2.0'
+            version = '0.3.0'
             profileName = $txtProfileName.Text.Trim()
             policyMode = if ($radEnforce.Checked) { 'Enforce' } else { 'Audit' }
             wallpaper = $txtWallpaper.Text.Trim()
@@ -88,6 +89,12 @@ try {
             allowedWebsites = @(Get-ListItems $lstWebsites)
             protectedShortcuts = @(Get-ListItems $lstShortcuts)
             protections = $p
+            appControl = [pscustomobject]@{
+                mode = if ($radAppEnforce.Checked) { 'Enabled' } else { 'AuditOnly' }
+                enabled = [bool]$settings.appControl.enabled
+                lastAppliedUtc = $settings.appControl.lastAppliedUtc
+                lastBackup = $settings.appControl.lastBackup
+            }
             auditEnabled = $true
             lastAppliedUtc = $settings.lastAppliedUtc
         }
@@ -128,7 +135,7 @@ try {
     }
 
     $form = New-Object System.Windows.Forms.Form
-    $form.Text = 'AulaGuard 0.2'
+    $form.Text = 'AulaGuard 0.3'
     $form.StartPosition = 'CenterScreen'
     $form.Size = New-Object System.Drawing.Size(1120,760)
     $form.MinimumSize = New-Object System.Drawing.Size(1000,680)
@@ -149,7 +156,7 @@ try {
     $tagline.ForeColor = [System.Drawing.Color]::FromArgb(215,232,247)
     $header.Controls.Add($tagline)
 
-    $badge = New-AGLabel 'v0.2.0' 1018 24 9 $true
+    $badge = New-AGLabel 'v0.3.0' 1018 24 9 $true
     $badge.ForeColor = [System.Drawing.Color]::White
     $badge.Anchor = 'Top,Right'
     $header.Controls.Add($badge)
@@ -350,6 +357,85 @@ try {
     $btnRemoveProgram.Anchor = 'Top,Right'
     $tabApps.Controls.Add($btnRemoveProgram)
 
+
+    $tabAppControl = New-Object System.Windows.Forms.TabPage
+    $tabAppControl.Text = 'Control de apps'
+    $tabAppControl.BackColor = [System.Drawing.Color]::White
+    $tabs.TabPages.Add($tabAppControl)
+
+    $tabAppControl.Controls.Add((New-AGLabel 'Control avanzado de aplicaciones' 22 18 13 $true))
+    $tabAppControl.Controls.Add((New-AGLabel 'AppLocker permite auditar primero y, cuando la política esté validada, bloquear programas no autorizados.' 22 48 9 $false))
+
+    $appSupport = Test-AulaGuardAppLockerSupport
+    $lblAppSupport = New-AGLabel '' 22 82 9 $true
+    if ($appSupport.Supported) {
+        $lblAppSupport.Text = "AppLocker disponible · Application Identity: $($appSupport.ServiceStatus)"
+        $lblAppSupport.ForeColor = [System.Drawing.Color]::FromArgb(22,101,52)
+    } else {
+        $lblAppSupport.Text = "AppLocker no disponible · revise compatibilidad del equipo"
+        $lblAppSupport.ForeColor = [System.Drawing.Color]::DarkRed
+    }
+    $tabAppControl.Controls.Add($lblAppSupport)
+
+    $radAppAudit = New-Object System.Windows.Forms.RadioButton
+    $radAppAudit.Text = 'Solo auditoría (recomendado)'
+    $radAppAudit.Location = New-Object System.Drawing.Point(22,120)
+    $radAppAudit.AutoSize = $true
+    $tabAppControl.Controls.Add($radAppAudit)
+
+    $radAppEnforce = New-Object System.Windows.Forms.RadioButton
+    $radAppEnforce.Text = 'Aplicar bloqueo'
+    $radAppEnforce.Location = New-Object System.Drawing.Point(245,120)
+    $radAppEnforce.AutoSize = $true
+    $tabAppControl.Controls.Add($radAppEnforce)
+
+    if ($settings.appControl.mode -eq 'Enabled') { $radAppEnforce.Checked = $true } else { $radAppAudit.Checked = $true }
+
+    $btnAppPreview = New-AGButton 'Validar política' 22 160 140 34
+    $tabAppControl.Controls.Add($btnAppPreview)
+
+    $btnAppApply = New-AGButton 'Aplicar AppLocker' 172 160 150 34
+    $btnAppApply.BackColor = [System.Drawing.Color]::FromArgb(15,76,129)
+    $btnAppApply.ForeColor = [System.Drawing.Color]::White
+    $tabAppControl.Controls.Add($btnAppApply)
+
+    $btnAppRestore = New-AGButton 'Restaurar anterior' 332 160 150 34
+    $tabAppControl.Controls.Add($btnAppRestore)
+
+    $btnAppRefresh = New-AGButton 'Actualizar eventos' 492 160 150 34
+    $tabAppControl.Controls.Add($btnAppRefresh)
+
+    $tabAppControl.Controls.Add((New-AGLabel 'Eventos recientes de AppLocker' 22 220 11 $true))
+
+    $gridAppEvents = New-Object System.Windows.Forms.DataGridView
+    $gridAppEvents.Location = New-Object System.Drawing.Point(22,255)
+    $gridAppEvents.Size = New-Object System.Drawing.Size(1010,310)
+    $gridAppEvents.Anchor = 'Top,Left,Right,Bottom'
+    $gridAppEvents.ReadOnly = $true
+    $gridAppEvents.AllowUserToAddRows = $false
+    $gridAppEvents.RowHeadersVisible = $false
+    $gridAppEvents.AutoSizeColumnsMode = 'Fill'
+    [void]$gridAppEvents.Columns.Add('Time','Fecha/Hora')
+    [void]$gridAppEvents.Columns.Add('Id','Evento')
+    [void]$gridAppEvents.Columns.Add('File','Archivo')
+    [void]$gridAppEvents.Columns.Add('Message','Detalle')
+    $gridAppEvents.Columns['Message'].FillWeight = 220
+    $tabAppControl.Controls.Add($gridAppEvents)
+
+    $loadAppEvents = {
+        $gridAppEvents.Rows.Clear()
+        foreach ($ev in @(Get-AulaGuardAppLockerEvents -MaxEvents 100)) {
+            $detail = $ev.Message
+            if ($detail.Length -gt 220) { $detail = $detail.Substring(0,220) + '…' }
+            [void]$gridAppEvents.Rows.Add(
+                $(if ($ev.TimeCreated) { $ev.TimeCreated.ToString('yyyy-MM-dd HH:mm:ss') } else { '' }),
+                $ev.EventId,
+                $(if ($ev.File) { $ev.File } else { '' }),
+                $detail
+            )
+        }
+    }
+
     $tabWeb = New-Object System.Windows.Forms.TabPage
     $tabWeb.Text = 'Internet'
     $tabWeb.BackColor = [System.Drawing.Color]::White
@@ -435,6 +521,243 @@ try {
         $txtAudit.SelectionStart = $txtAudit.TextLength
         $txtAudit.ScrollToCaret()
     }
+
+
+    $btnAppPreview.Add_Click({
+        try {
+            $mode = if ($radAppEnforce.Checked) { 'Enabled' } else { 'AuditOnly' }
+            $xml = New-AulaGuardAppLockerPolicyXml -AllowedPrograms @(Get-ListItems $lstPrograms) -Mode $mode
+            [xml]$doc = $xml
+            $collections = @($doc.AppLockerPolicy.RuleCollection).Count
+            $rules = 0
+            foreach ($collection in @($doc.AppLockerPolicy.RuleCollection)) {
+                $rules += @($collection.ChildNodes | Where-Object { $_.Name -match 'Rule
+        $dlg = New-Object System.Windows.Forms.OpenFileDialog
+        $dlg.Filter = 'Imágenes|*.jpg;*.jpeg;*.png;*.bmp'
+        if ($dlg.ShowDialog() -eq 'OK') {
+            $txtWallpaper.Text = $dlg.FileName
+            Write-AulaGuardAudit -Action 'WALLPAPER_SELECTED' -Detail $dlg.FileName -Root $root
+        }
+    })
+
+    $btnAddProgram.Add_Click({
+        $dlg = New-Object System.Windows.Forms.OpenFileDialog
+        $dlg.Filter = 'Aplicaciones (*.exe)|*.exe'
+        $dlg.Multiselect = $true
+        if ($dlg.ShowDialog() -eq 'OK') {
+            foreach ($f in $dlg.FileNames) {
+                if ($lstPrograms.Items -notcontains $f) { [void]$lstPrograms.Items.Add($f) }
+            }
+        }
+    })
+    $btnRemoveProgram.Add_Click({ while ($lstPrograms.SelectedIndices.Count -gt 0) { $lstPrograms.Items.RemoveAt($lstPrograms.SelectedIndices[0]) } })
+
+    $btnAddWebsite.Add_Click({
+        $v = $txtWebsite.Text.Trim()
+        if ($v -and $lstWebsites.Items -notcontains $v) {
+            [void]$lstWebsites.Items.Add($v)
+            $txtWebsite.Clear()
+        }
+    })
+    $btnRemoveWebsite.Add_Click({ while ($lstWebsites.SelectedIndices.Count -gt 0) { $lstWebsites.Items.RemoveAt($lstWebsites.SelectedIndices[0]) } })
+
+    $btnAddShortcut.Add_Click({
+        $dlg = New-Object System.Windows.Forms.OpenFileDialog
+        $dlg.Filter = 'Accesos directos (*.lnk)|*.lnk'
+        $dlg.Multiselect = $true
+        if ($dlg.ShowDialog() -eq 'OK') {
+            foreach ($f in $dlg.FileNames) {
+                if ($lstShortcuts.Items -notcontains $f) { [void]$lstShortcuts.Items.Add($f) }
+            }
+        }
+    })
+    $btnRemoveShortcut.Add_Click({ while ($lstShortcuts.SelectedIndices.Count -gt 0) { $lstShortcuts.Items.RemoveAt($lstShortcuts.SelectedIndices[0]) } })
+
+    $btnSave.Add_Click({
+        Save-FromUi
+        Refresh-Dashboard
+    })
+
+    $btnApply.Add_Click({
+        Save-FromUi
+        $simulation = -not $radEnforce.Checked
+        $answer = if ($simulation) {
+            'AulaGuard ejecutará una simulación y no modificará Windows. ¿Continuar?'
+        } else {
+            'Se aplicarán las protecciones a los perfiles de usuario estándar detectados. Las cuentas administradoras se excluyen. ¿Continuar?'
+        }
+
+        if ([System.Windows.Forms.MessageBox]::Show($answer,'AulaGuard','YesNo','Question') -ne 'Yes') { return }
+
+        try {
+            Set-Status 'Procesando políticas...'
+            $result = @(Apply-AulaGuardPolicies -Settings $settings -WhatIfMode:$simulation)
+
+            if (-not $simulation -and $settings.protections.protectPublicDesktop) {
+                Protect-AulaGuardPublicDesktop
+            }
+
+            $ok = @($result | Where-Object {$_.Status -in @('OK','SIMULADO')}).Count
+            $errors = @($result | Where-Object {$_.Status -eq 'ERROR'}).Count
+            $settings.lastAppliedUtc = (Get-Date).ToUniversalTime().ToString('o')
+            Save-AulaGuardSettings -Settings $settings -Root $root | Out-Null
+            Write-AulaGuardAudit -Action 'POLICIES_APPLIED' -Level 'SECURITY' -Detail "Simulacion=$simulation; OK=$ok; Error=$errors" -Root $root
+
+            $nl = [Environment]::NewLine
+            $summary = "Proceso finalizado.$nl$nlPerfiles procesados: $($result.Count)$nlCorrectos: $ok$nlErrores: $errors"
+            [System.Windows.Forms.MessageBox]::Show(
+                $summary,'AulaGuard','OK',$(if ($errors -gt 0) {'Warning'} else {'Information'})
+            ) | Out-Null
+            Set-Status 'Políticas procesadas'
+            Refresh-Dashboard
+            & $loadAudit
+        } catch {
+            Write-AulaGuardAudit -Action 'POLICY_ERROR' -Level 'ERROR' -Detail $_.Exception.Message -Root $root
+            [System.Windows.Forms.MessageBox]::Show($_.Exception.Message,'AulaGuard','OK','Error') | Out-Null
+            Set-Status 'Error al aplicar políticas'
+        }
+    })
+
+    $btnReset.Add_Click({
+        if ([System.Windows.Forms.MessageBox]::Show(
+            'Esto retirará las políticas que AulaGuard administra de los usuarios estándar. ¿Continuar?',
+            'AulaGuard','YesNo','Warning'
+        ) -ne 'Yes') { return }
+
+        try {
+            $r = @(Reset-AulaGuardPolicies)
+            Protect-AulaGuardPublicDesktop -Restore
+            Write-AulaGuardAudit -Action 'POLICIES_RESET' -Level 'SECURITY' -Detail "Perfiles=$($r.Count)" -Root $root
+            [System.Windows.Forms.MessageBox]::Show('Las políticas administradas por AulaGuard fueron retiradas.','AulaGuard','OK','Information') | Out-Null
+            & $loadAudit
+        } catch {
+            [System.Windows.Forms.MessageBox]::Show($_.Exception.Message,'AulaGuard','OK','Error') | Out-Null
+        }
+    })
+
+    $btnExport.Add_Click({
+        Save-FromUi
+        $dlg = New-Object System.Windows.Forms.SaveFileDialog
+        $dlg.Filter = 'Perfil AulaGuard (*.json)|*.json'
+        $dlg.FileName = 'AulaGuard-profile.json'
+        if ($dlg.ShowDialog() -eq 'OK') {
+            Export-AulaGuardProfile -Path $dlg.FileName -Root $root
+            Set-Status 'Perfil exportado'
+        }
+    })
+
+    $btnImport.Add_Click({
+        $dlg = New-Object System.Windows.Forms.OpenFileDialog
+        $dlg.Filter = 'Perfil AulaGuard (*.json)|*.json'
+        if ($dlg.ShowDialog() -eq 'OK') {
+            Import-AulaGuardProfile -Path $dlg.FileName -Root $root | Out-Null
+            [System.Windows.Forms.MessageBox]::Show(
+                'Perfil importado. Reinicie AulaGuard para cargar todos sus valores en la interfaz.',
+                'AulaGuard','OK','Information'
+            ) | Out-Null
+        }
+    })
+
+    $btnRefreshAudit.Add_Click($loadAudit)
+    $radAudit.Add_CheckedChanged({ Refresh-Dashboard })
+    $radEnforce.Add_CheckedChanged({ Refresh-Dashboard })
+
+    Write-AulaGuardAudit -Action 'APP_STARTED' -Detail 'v0.3.0' -Root $root
+    Refresh-Dashboard
+    & $loadAudit
+    & $loadAppEvents
+
+    $form.Add_FormClosed({
+        try { Write-AulaGuardAudit -Action 'APP_CLOSED' -Root $root } catch {}
+    })
+
+    [void]$form.ShowDialog()
+}
+catch {
+    try {
+        Add-Type -AssemblyName System.Windows.Forms -ErrorAction SilentlyContinue
+        $msg = $_.Exception.ToString()
+        $fallback = if ($PSScriptRoot) { Split-Path -Parent $PSScriptRoot } else { $env:TEMP }
+        Set-Content -Path (Join-Path $fallback 'startup-error.txt') -Value $msg -Encoding UTF8
+        $nl = [Environment]::NewLine
+        [System.Windows.Forms.MessageBox]::Show(
+            "AulaGuard no pudo iniciar.$nl$nl$($_.Exception.Message)$nl$nlRevise startup-error.txt.",
+            'AulaGuard - Error','OK','Error'
+        ) | Out-Null
+    } catch {}
+    exit 1
+}
+ }).Count
+            }
+            [System.Windows.Forms.MessageBox]::Show(
+                "Política válida.$([Environment]::NewLine)$([Environment]::NewLine)Modo: $mode$([Environment]::NewLine)Colecciones: $collections$([Environment]::NewLine)Reglas: $rules$([Environment]::NewLine)Programas autorizados registrados: $($lstPrograms.Items.Count)",
+                'AulaGuard · AppLocker','OK','Information'
+            ) | Out-Null
+        } catch {
+            [System.Windows.Forms.MessageBox]::Show($_.Exception.Message,'AulaGuard · AppLocker','OK','Error') | Out-Null
+        }
+    })
+
+    $btnAppApply.Add_Click({
+        try {
+            Save-FromUi
+            $mode = if ($radAppEnforce.Checked) { 'Enabled' } else { 'AuditOnly' }
+
+            if ($mode -eq 'Enabled') {
+                $warning = "ATENCIÓN: el modo de bloqueo entra en vigor inmediatamente.$([Environment]::NewLine)$([Environment]::NewLine)Antes de continuar debe haber probado la misma lista en modo auditoría y haber agregado todos los programas necesarios para el aula.$([Environment]::NewLine)$([Environment]::NewLine)¿Desea activar el bloqueo?"
+                if ([System.Windows.Forms.MessageBox]::Show($warning,'AulaGuard · Activar bloqueo','YesNo','Warning') -ne 'Yes') { return }
+            } else {
+                if ([System.Windows.Forms.MessageBox]::Show(
+                    'Se instalará la política en modo auditoría. Los programas no autorizados seguirán abriendo, pero quedarán registrados para revisión. ¿Continuar?',
+                    'AulaGuard · Auditoría','YesNo','Question'
+                ) -ne 'Yes') { return }
+            }
+
+            Set-Status 'Aplicando control de aplicaciones...'
+            $result = Set-AulaGuardAppControlPolicy -AllowedPrograms @(Get-ListItems $lstPrograms) -Mode $mode -BackupDirectory (Join-Path $root 'backup')
+            $settings.appControl.mode = $mode
+            $settings.appControl.enabled = $true
+            $settings.appControl.lastAppliedUtc = (Get-Date).ToUniversalTime().ToString('o')
+            $settings.appControl.lastBackup = $result.Backup
+            Save-AulaGuardSettings -Settings $settings -Root $root | Out-Null
+
+            Write-AulaGuardAudit -Action 'APPLOCKER_APPLIED' -Level 'SECURITY' -Detail "Mode=$mode; Allowed=$($lstPrograms.Items.Count); Backup=$($result.Backup)" -Root $root
+            Set-Status "AppLocker aplicado · $mode"
+            & $loadAppEvents
+
+            [System.Windows.Forms.MessageBox]::Show(
+                "Control de aplicaciones aplicado correctamente.$([Environment]::NewLine)$([Environment]::NewLine)Modo: $mode",
+                'AulaGuard · AppLocker','OK','Information'
+            ) | Out-Null
+        } catch {
+            Write-AulaGuardAudit -Action 'APPLOCKER_ERROR' -Level 'ERROR' -Detail $_.Exception.Message -Root $root
+            Set-Status 'Error en AppLocker'
+            [System.Windows.Forms.MessageBox]::Show($_.Exception.Message,'AulaGuard · AppLocker','OK','Error') | Out-Null
+        }
+    })
+
+    $btnAppRestore.Add_Click({
+        try {
+            if ([System.Windows.Forms.MessageBox]::Show(
+                'Se restaurará la copia de seguridad AppLocker más reciente. ¿Continuar?',
+                'AulaGuard · Restaurar','YesNo','Warning'
+            ) -ne 'Yes') { return }
+
+            $restored = Restore-AulaGuardAppLockerPolicy -BackupDirectory (Join-Path $root 'backup')
+            $settings.appControl.enabled = $false
+            Save-AulaGuardSettings -Settings $settings -Root $root | Out-Null
+            Write-AulaGuardAudit -Action 'APPLOCKER_RESTORED' -Level 'SECURITY' -Detail $restored.RestoredFrom -Root $root
+            & $loadAppEvents
+            [System.Windows.Forms.MessageBox]::Show(
+                "Política restaurada desde:$([Environment]::NewLine)$($restored.RestoredFrom)",
+                'AulaGuard · AppLocker','OK','Information'
+            ) | Out-Null
+        } catch {
+            [System.Windows.Forms.MessageBox]::Show($_.Exception.Message,'AulaGuard · AppLocker','OK','Error') | Out-Null
+        }
+    })
+
+    $btnAppRefresh.Add_Click($loadAppEvents)
 
     $btnWallpaper.Add_Click({
         $dlg = New-Object System.Windows.Forms.OpenFileDialog
@@ -567,7 +890,7 @@ try {
     $radAudit.Add_CheckedChanged({ Refresh-Dashboard })
     $radEnforce.Add_CheckedChanged({ Refresh-Dashboard })
 
-    Write-AulaGuardAudit -Action 'APP_STARTED' -Detail 'v0.2.0' -Root $root
+    Write-AulaGuardAudit -Action 'APP_STARTED' -Detail 'v0.3.0' -Root $root
     Refresh-Dashboard
     & $loadAudit
 
