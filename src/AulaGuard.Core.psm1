@@ -54,18 +54,36 @@ function New-AulaGuardSettings {
 function Read-AulaGuardSettings {
     param([string]$Root = (Get-AulaGuardRoot))
     Initialize-AulaGuardStorage -Root $Root | Out-Null
+    $defaults = New-AulaGuardSettings
     $path = Get-AulaGuardSettingsPath -Root $Root
-    if (Test-Path $path) {
-        try {
-            $s = Get-Content -Path $path -Raw -Encoding UTF8 | ConvertFrom-Json
-            if (-not $s.version) { $s | Add-Member NoteProperty version '0.2.0' }
-            if (-not $s.profileName) { $s | Add-Member NoteProperty profileName 'Aula principal' }
-            if (-not $s.policyMode) { $s | Add-Member NoteProperty policyMode 'Audit' }
-            if (-not $s.protections) { $s | Add-Member NoteProperty protections (New-AulaGuardSettings).protections }
-            return $s
-        } catch {}
+
+    if (-not (Test-Path $path)) { return $defaults }
+
+    try {
+        $s = Get-Content -Path $path -Raw -Encoding UTF8 | ConvertFrom-Json
+
+        foreach ($property in @('version','profileName','policyMode','wallpaper','allowedPrograms','allowedWebsites','protectedShortcuts','auditEnabled','lastAppliedUtc')) {
+            if (-not ($s.PSObject.Properties.Name -contains $property)) {
+                $s | Add-Member NoteProperty $property $defaults.$property
+            }
+        }
+
+        if (-not ($s.PSObject.Properties.Name -contains 'protections') -or $null -eq $s.protections) {
+            $s | Add-Member NoteProperty protections $defaults.protections -Force
+        } else {
+            foreach ($property in $defaults.protections.PSObject.Properties.Name) {
+                if (-not ($s.protections.PSObject.Properties.Name -contains $property)) {
+                    $s.protections | Add-Member NoteProperty $property $defaults.protections.$property
+                }
+            }
+        }
+
+        $s.version = '0.2.0'
+        return $s
     }
-    return New-AulaGuardSettings
+    catch {
+        return $defaults
+    }
 }
 
 function Save-AulaGuardSettings {
