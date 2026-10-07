@@ -1,38 +1,48 @@
 # Roadmap de AulaGuard
 
-## v0.1.x — Consola administrativa
+## v0.2.0 — Motor de políticas y administración avanzada
 
-- [x] Interfaz administrativa.
-- [x] Configuración de programas permitidos.
-- [x] Configuración de sitios permitidos.
-- [x] Selección de fondo de escritorio.
-- [x] Gestión de accesos directos protegidos.
-- [x] Bitácora local.
-- [x] Diagnóstico de errores de inicio.
-- [x] Instalador básico.
+- [x] Arquitectura modular: Core, Policy y Diagnostics.
+- [x] Panel de resumen del equipo.
+- [x] Inventario de perfiles de usuario locales.
+- [x] Identificación y exclusión de cuentas administradoras.
+- [x] Modo Auditoría / Simulación antes de aplicar cambios.
+- [x] Aplicación de políticas a perfiles estándar, incluso sin sesión iniciada.
+- [x] Bloqueo de cambio de fondo.
+- [x] Restricción de personalización.
+- [x] Bloqueo opcional de Panel de control.
+- [x] Bloqueo opcional de Editor del Registro.
+- [x] Bloqueo opcional de Administrador de tareas.
+- [x] Lista blanca web por usuario para Edge y Chrome.
+- [x] Protección de accesos del escritorio público.
+- [x] Importar y exportar perfiles JSON.
+- [x] Backups automáticos de configuración.
+- [x] Bitácora JSONL con nivel, equipo, usuario y fecha.
+- [x] Retirada controlada de las políticas administradas por AulaGuard.
+- [x] Diagnóstico de compatibilidad.
 
-## v0.2 — Motor de políticas
+## v0.2.x — Endurecimiento
 
-- [ ] Aplicar políticas solo a usuarios no administradores.
-- [ ] Bloquear aplicaciones no autorizadas con AppLocker/WDAC cuando sea compatible.
-- [ ] Bloquear cambios de fondo de escritorio mediante políticas de Windows.
-- [ ] Proteger accesos directos y evitar renombrado/eliminación por usuarios estándar.
-- [ ] Aplicar lista permitida/bloqueada de sitios.
-- [ ] Registrar intentos de ejecución o cambios prohibidos.
-- [ ] Restaurar automáticamente configuración del aula.
+- [ ] Restauración automática del fondo y accesos si son alterados.
+- [ ] Validación visual de cada política aplicada.
+- [ ] Programar aplicación de políticas al iniciar Windows.
+- [ ] Captura de eventos de seguridad relevantes.
+- [ ] Mejorar el sistema de actualización.
 
-## v0.3 — Administración de aula
+## v0.3 — Control de aplicaciones
 
-- [ ] Perfiles de configuración por laboratorio o grupo.
-- [ ] Exportar/importar políticas.
-- [ ] Inventario básico de equipos.
-- [ ] Historial de cambios.
-- [ ] Actualizaciones del agente.
+- [ ] Motor AppLocker/WDAC con modo auditoría.
+- [ ] Reglas seguras para componentes esenciales de Windows.
+- [ ] Lista de aplicaciones permitidas por ruta, editor o hash.
+- [ ] Registro de intentos de ejecución bloqueados.
+- [ ] Plantillas por laboratorio, grado o grupo.
 
-## Futuro
+## v0.4 — Administración central
 
-- Consola central.
-- Despliegue remoto.
-- Panel de equipos en línea.
-- Políticas por horario.
-- Reportes y alertas.
+- [ ] Consola central para múltiples computadoras.
+- [ ] Agente AulaGuard por equipo.
+- [ ] Estado en línea/offline.
+- [ ] Distribución remota de políticas.
+- [ ] Inventario de hardware/software.
+- [ ] Reportes y alertas.
+- [ ] Políticas por horario.
