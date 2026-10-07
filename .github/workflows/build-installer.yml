@@ -1,0 +1,49 @@
+name: Build AulaGuard Installer
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "src/**"
+      - "config/**"
+      - "docs/**"
+      - "build/**"
+      - "installer/**"
+      - ".github/workflows/build-installer.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Generate application icon
+        shell: powershell
+        run: .\build\GenerateIcon.ps1
+
+      - name: Build AulaGuard.exe
+        shell: powershell
+        run: .\build\Build-App.ps1
+
+      - name: Install Inno Setup
+        shell: powershell
+        run: choco install innosetup -y --no-progress
+
+      - name: Build installer
+        shell: powershell
+        run: |
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" ".\installer\AulaGuard.iss"
+
+      - name: Upload Windows installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: AulaGuard-Windows-Installer
+          path: dist/installer/AulaGuard-Setup-v0.3.0.exe
+          if-no-files-found: error
