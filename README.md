@@ -1,70 +1,85 @@
 # AulaGuard
 
-**AulaGuard** es una herramienta de administración para aulas de informática con Windows 10/11 Pro.
+**AulaGuard** es una herramienta para administrar y proteger computadoras de aulas de informática con Windows 10/11 Pro.
 
-Su objetivo es permitir que el administrador defina qué puede utilizar un usuario estándar dentro de los equipos del aula, manteniendo el escritorio controlado y registrando intentos de acciones no permitidas.
+## Versión actual
 
-## Estado actual
+**v0.2.0**
 
-Versión inicial reconstruida: **v0.1.1**
+La versión 0.2 introduce un motor modular de políticas, diagnóstico del equipo, administración de perfiles estándar, modo de simulación y controles reales de Windows.
 
-Esta versión incluye la consola de administración y la persistencia de configuración. La aplicación efectiva de políticas de Windows se desarrollará en la siguiente fase.
+## Funciones actuales
 
-## Funciones incluidas
+- Consola administrativa con panel de estado.
+- Detección de perfiles locales y separación entre administradores y usuarios estándar.
+- Modo **Auditoría / Simulación** antes de modificar Windows.
+- Bloqueo de cambio de fondo de escritorio.
+- Restricción de personalización.
+- Bloqueo opcional de Panel de control.
+- Bloqueo opcional del Editor del Registro.
+- Bloqueo opcional del Administrador de tareas.
+- Lista blanca de sitios web para Microsoft Edge y Google Chrome.
+- Protección de accesos directos del escritorio público.
+- Perfil configurable por aula.
+- Importación y exportación de configuraciones JSON.
+- Backups automáticos antes de guardar cambios.
+- Bitácora estructurada JSONL.
+- Diagnóstico de compatibilidad.
+- Función para retirar las políticas administradas por AulaGuard.
 
-- Ejecución exclusiva para administradores.
-- Lista de programas permitidos.
-- Lista de sitios web permitidos.
-- Selección de fondo de escritorio institucional.
-- Definición de accesos directos protegidos.
-- Configuración almacenada en JSON.
-- Bitácora local de acciones administrativas.
-- Diagnóstico de inicio mediante `startup-error.txt`.
-- Instalador básico para Windows.
+## Seguridad operativa
 
-## Objetivo funcional
+AulaGuard aplica las políticas a perfiles de usuario estándar y excluye las cuentas identificadas como administradoras locales.
 
-AulaGuard está diseñado para evolucionar hacia un sistema que pueda:
+La aplicación inicia en modo **Auditoría / Simulación**. Para modificar Windows el administrador debe seleccionar explícitamente **Aplicar protección** y confirmar la operación.
 
-- Bloquear juegos y aplicaciones no autorizadas.
-- Limitar el acceso web.
-- Impedir cambios de fondo de escritorio.
-- Evitar que estudiantes renombren o eliminen accesos directos protegidos.
-- Aplicar políticas a usuarios no administradores.
-- Registrar intentos de acciones prohibidas.
-- Permitir al administrador cambiar programas, accesos, sitios y fondo sin reinstalar el sistema.
+Antes de desplegar una política en todas las computadoras del laboratorio, se recomienda probarla en un equipo de prueba.
 
-## Requisitos
+## Instalación
 
-- Windows 10 Pro o Windows 11 Pro.
-- PowerShell 5.1 o posterior.
-- Cuenta con privilegios de administrador para configurar AulaGuard.
+1. Descargue o clone el repositorio.
+2. Ejecute `Instalar.cmd` como administrador.
+3. AulaGuard se instalará en `%ProgramData%\AulaGuard`.
+4. Se creará un acceso directo en el escritorio público.
+5. Abra AulaGuard como administrador.
+6. Configure las protecciones.
+7. Pruebe primero en modo Auditoría.
+8. Cambie a Aplicar protección cuando la configuración esté validada.
 
-## Ejecutar
-
-1. Descarga o clona el repositorio.
-2. Ejecuta `Instalar.cmd` como administrador.
-3. Inicia AulaGuard desde la ruta instalada o ejecuta `src\AulaGuard.ps1` con PowerShell.
-
-## Estructura
+## Arquitectura
 
 ```
 aulaguard/
-├─ src/
-│  └─ AulaGuard.ps1
-├─ config/
-│  └─ default.json
-├─ docs/
-│  └─ ROADMAP.md
-├─ Instalar.cmd
-├─ .gitignore
-└─ README.md
+├── src/
+│   ├── AulaGuard.ps1
+│   ├── AulaGuard.Core.psm1
+│   ├── AulaGuard.Policy.psm1
+│   └── AulaGuard.Diagnostics.psm1
+├── config/
+│   └── default.json
+├── docs/
+│   └── ROADMAP.md
+├── Instalar.cmd
+├── .gitignore
+└── README.md
 ```
 
-## Seguridad
+### Core
 
-AulaGuard no debe utilizarse como sustituto de las cuentas estándar de Windows, permisos NTFS, AppLocker/WDAC, directivas de grupo u otras funciones de seguridad del sistema. Su propósito es centralizar y simplificar la administración de un aula.
+Configuración, almacenamiento, backups, perfiles y auditoría.
 
-## Proyecto
+### Policy
 
-Desarrollado para la administración de equipos de aulas de informática.
+Aplicación y retirada de políticas de Windows sobre perfiles estándar.
+
+### Diagnostics
+
+Inventario básico del equipo, usuarios y comprobaciones de compatibilidad.
+
+## Próxima fase
+
+El siguiente componente importante será el **motor de control de aplicaciones** mediante AppLocker/WDAC con modo auditoría, reglas seguras para Windows y registro de intentos bloqueados.
+
+## Alcance
+
+AulaGuard está pensado para laboratorios escolares, aulas TIC y equipos compartidos donde el administrador necesita mantener un entorno estable sin impedir la administración legítima del equipo.
