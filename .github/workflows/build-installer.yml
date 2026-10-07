@@ -24,9 +24,29 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Validate PowerShell syntax
+        shell: powershell
+        run: |
+          $files = Get-ChildItem .\src -Include *.ps1,*.psm1 -Recurse
+          $failed = $false
+          foreach ($file in $files) {
+            $tokens = $null
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile($file.FullName, [ref]$tokens, [ref]$errors) | Out-Null
+            if ($errors.Count -gt 0) {
+              $failed = $true
+              Write-Host "::error file=$($file.FullName)::$($errors -join '; ')"
+            }
+          }
+          if ($failed) { exit 1 }
+
       - name: Generate application icon
         shell: powershell
         run: .\build\GenerateIcon.ps1
+
+      - name: Generate installer branding
+        shell: powershell
+        run: .\build\GenerateBranding.ps1
 
       - name: Build AulaGuard.exe
         shell: powershell
@@ -45,5 +65,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: AulaGuard-Windows-Installer
-          path: dist/installer/AulaGuard-Setup-v0.3.1.exe
+          path: dist/installer/AulaGuard-Setup-v0.3.2.exe
           if-no-files-found: error
