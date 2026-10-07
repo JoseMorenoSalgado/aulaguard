@@ -25,7 +25,7 @@ function Sync-AulaGuardStudentsGroup {
 
     $adminSids = @()
     try {
-        $adminSids = @(Get-LocalGroupMember -Group 'Administrators' -ErrorAction Stop | ForEach-Object { $_.SID.Value })
+        $adminSids = @(Get-LocalGroupMember -Group (Get-LocalGroup -SID 'S-1-5-32-544').Name -ErrorAction Stop | ForEach-Object { $_.SID.Value })
     } catch {}
 
     $excluded = @('Administrator','Guest','DefaultAccount','WDAGUtilityAccount')
