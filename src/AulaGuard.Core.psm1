@@ -28,7 +28,7 @@ function Get-AulaGuardSettingsPath {
 
 function New-AulaGuardSettings {
     [pscustomobject]@{
-        version = '0.2.0'
+        version = '0.3.0'
         profileName = 'Aula principal'
         policyMode = 'Audit'
         wallpaper = ''
@@ -46,6 +46,12 @@ function New-AulaGuardSettings {
             blockCommandPrompt = $false
             blockPowerShell = $false
         }
+        appControl = [pscustomobject]@{
+            mode = 'AuditOnly'
+            enabled = $false
+            lastAppliedUtc = $null
+            lastBackup = $null
+        }
         auditEnabled = $true
         lastAppliedUtc = $null
     }
@@ -62,7 +68,7 @@ function Read-AulaGuardSettings {
     try {
         $s = Get-Content -Path $path -Raw -Encoding UTF8 | ConvertFrom-Json
 
-        foreach ($property in @('version','profileName','policyMode','wallpaper','allowedPrograms','allowedWebsites','protectedShortcuts','auditEnabled','lastAppliedUtc')) {
+        foreach ($property in @('version','profileName','policyMode','wallpaper','allowedPrograms','allowedWebsites','protectedShortcuts','appControl','auditEnabled','lastAppliedUtc')) {
             if (-not ($s.PSObject.Properties.Name -contains $property)) {
                 $s | Add-Member NoteProperty $property $defaults.$property
             }
@@ -78,7 +84,17 @@ function Read-AulaGuardSettings {
             }
         }
 
-        $s.version = '0.2.0'
+        if (-not ($s.PSObject.Properties.Name -contains 'appControl') -or $null -eq $s.appControl) {
+            $s | Add-Member NoteProperty appControl $defaults.appControl -Force
+        } else {
+            foreach ($property in $defaults.appControl.PSObject.Properties.Name) {
+                if (-not ($s.appControl.PSObject.Properties.Name -contains $property)) {
+                    $s.appControl | Add-Member NoteProperty $property $defaults.appControl.$property
+                }
+            }
+        }
+
+        $s.version = '0.3.0'
         return $s
     }
     catch {
