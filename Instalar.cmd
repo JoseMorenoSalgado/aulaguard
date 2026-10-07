@@ -13,7 +13,7 @@ set "TARGET=%ProgramData%\AulaGuard"
 set "SRC=%~dp0"
 
 echo.
-echo Instalando AulaGuard v0.2.0 en:
+echo Instalando AulaGuard v0.3.0 en:
 echo %TARGET%
 echo.
 
@@ -28,6 +28,8 @@ copy /Y "%SRC%src\AulaGuard.ps1" "%TARGET%\src\AulaGuard.ps1" >nul
 copy /Y "%SRC%src\AulaGuard.Core.psm1" "%TARGET%\src\AulaGuard.Core.psm1" >nul
 copy /Y "%SRC%src\AulaGuard.Policy.psm1" "%TARGET%\src\AulaGuard.Policy.psm1" >nul
 copy /Y "%SRC%src\AulaGuard.Diagnostics.psm1" "%TARGET%\src\AulaGuard.Diagnostics.psm1" >nul
+copy /Y "%SRC%src\AulaGuard.AppControl.psm1" "%TARGET%\src\AulaGuard.AppControl.psm1" >nul
+copy /Y "%SRC%src\AulaGuard.Startup.ps1" "%TARGET%\src\AulaGuard.Startup.ps1" >nul
 copy /Y "%SRC%config\default.json" "%TARGET%\config\default.json" >nul
 
 if not exist "%TARGET%\config\settings.json" (
@@ -39,8 +41,10 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -Command ^
   "$ws = New-Object -ComObject WScript.Shell; $s = $ws.CreateShortcut('%LINK%'); $s.TargetPath = 'powershell.exe'; $s.Arguments = '-NoProfile -ExecutionPolicy Bypass -File ""%TARGET%\src\AulaGuard.ps1""'; $s.WorkingDirectory = '%TARGET%'; $s.IconLocation = 'shell32.dll,47'; $s.Save()"
 
 echo.
+schtasks /Create /TN "AulaGuard\PolicySync" /SC ONSTART /RU SYSTEM /RL HIGHEST /TR "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"%TARGET%\src\AulaGuard.Startup.ps1\"" /F >nul 2>&1
+
 echo Instalacion completada.
-echo AulaGuard fue instalado con su motor modular de politicas y diagnostico.
+echo AulaGuard fue instalado con politicas, diagnostico, AppLocker y sincronizacion al iniciar Windows.
 echo.
 pause
 endlocal
