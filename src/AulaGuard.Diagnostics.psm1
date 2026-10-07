@@ -20,7 +20,7 @@ function Get-AulaGuardSystemInfo {
 function Get-AulaGuardLocalUsers {
     $adminSids = @()
     try {
-        $admins = Get-LocalGroupMember -Group 'Administrators' -ErrorAction Stop
+        $admins = Get-LocalGroupMember -Group (Get-LocalGroup -SID 'S-1-5-32-544').Name -ErrorAction Stop
         $adminSids = @($admins | ForEach-Object { $_.SID.Value })
     } catch {}
 
