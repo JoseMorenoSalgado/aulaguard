@@ -4,9 +4,9 @@
 
 ## Versión actual
 
-**v0.3.0**
+**v0.3.2**
 
-La versión 0.3 incorpora control avanzado de aplicaciones con AppLocker, auditoría previa al bloqueo, eventos de ejecución, aislamiento de cuentas administradoras y sincronización automática de políticas al iniciar Windows.
+La versión 0.3.2 incorpora una interfaz más profesional con navegación lateral, panel de inicio educativo y un instalador gráfico con identidad AulaGuard. Mantiene el control avanzado de aplicaciones con AppLocker, auditoría previa al bloqueo, eventos de ejecución, aislamiento de cuentas administradoras y sincronización automática de políticas al iniciar Windows.
 
 ## Funciones actuales
 
@@ -97,3 +97,24 @@ La primera implantación debe realizarse en un equipo de prueba antes de despleg
 - Agente central y consola multi-equipo.
 - Distribución remota de políticas.
 - Reportes consolidados.
+
+
+## Instalador profesional
+
+El proyecto genera un instalador de Windows:
+
+`AulaGuard-Setup-v0.3.2.exe`
+
+Características del instalador:
+
+- Identidad visual propia de AulaGuard.
+- Asistente en español.
+- Acceso directo opcional en escritorio.
+- Acceso directo opcional en menú Inicio.
+- Apertura de AulaGuard al finalizar.
+- Conservación de la configuración de `ProgramData` durante actualizaciones.
+- Registro automático de la tarea `AulaGuard\PolicySync`.
+- Desinstalador desde Aplicaciones instaladas de Windows.
+- Validación automática de sintaxis antes de compilar.
+
+El instalador se genera desde GitHub Actions mediante el flujo **Build AulaGuard Installer**.
