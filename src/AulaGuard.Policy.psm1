@@ -3,7 +3,7 @@ Set-StrictMode -Version Latest
 function Get-TargetUserProfiles {
     $adminSids = @()
     try {
-        $adminSids = @(Get-LocalGroupMember -Group 'Administrators' -ErrorAction Stop | ForEach-Object { $_.SID.Value })
+        $adminSids = @(Get-LocalGroupMember -Group (Get-LocalGroup -SID 'S-1-5-32-544').Name -ErrorAction Stop | ForEach-Object { $_.SID.Value })
     } catch {}
 
     Get-CimInstance Win32_UserProfile | Where-Object {
@@ -191,7 +191,7 @@ function Protect-AulaGuardPublicDesktop {
     $desktop = [Environment]::GetFolderPath('CommonDesktopDirectory')
     if (-not (Test-Path $desktop)) { return }
 
-    $users = New-Object System.Security.Principal.NTAccount('BUILTIN','Users')
+    $users = New-Object System.Security.Principal.SecurityIdentifier('S-1-5-32-545')
     Get-ChildItem $desktop -Filter '*.lnk' -File -ErrorAction SilentlyContinue | ForEach-Object {
         $acl = Get-Acl $_.FullName
         if ($Restore) {
