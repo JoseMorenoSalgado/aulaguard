@@ -1,4 +1,4 @@
-# AulaGuard v0.3.1
+# AulaGuard v0.3.2
 # Friendly educational administration console for Windows classrooms.
 
 $ErrorActionPreference = 'Stop'
@@ -103,6 +103,23 @@ try {
         return $b
     }
 
+    function New-NavButton {
+        param([string]$TextValue,[int]$Y)
+        $b = New-Object System.Windows.Forms.Button
+        $b.Text = $TextValue
+        $b.Location = New-Object System.Drawing.Point(12,$Y)
+        $b.Size = New-Object System.Drawing.Size(160,44)
+        $b.FlatStyle = 'Flat'
+        $b.FlatAppearance.BorderSize = 0
+        $b.TextAlign = 'MiddleLeft'
+        $b.Padding = New-Object System.Windows.Forms.Padding(14,0,0,0)
+        $b.Cursor = 'Hand'
+        $b.Font = New-Object System.Drawing.Font('Segoe UI Semibold',9)
+        $b.BackColor = [System.Drawing.Color]::White
+        $b.ForeColor = $Muted
+        return $b
+    }
+
     function New-Card {
         param(
             [int]$X,[int]$Y,[int]$W,[int]$H,
@@ -183,7 +200,7 @@ try {
         }
 
         return [pscustomobject]@{
-            version = '0.3.1'
+            version = '0.3.2'
             profileName = $txtProfileName.Text.Trim()
             policyMode = if ($radEnforce.Checked) {'Enforce'} else {'Audit'}
             wallpaper = $txtWallpaper.Text.Trim()
@@ -213,8 +230,11 @@ try {
     $form = New-Object System.Windows.Forms.Form
     $form.Text = 'AulaGuard · Centro de control del aula'
     $form.StartPosition = 'CenterScreen'
-    $form.Size = New-Object System.Drawing.Size(1180,800)
-    $form.MinimumSize = New-Object System.Drawing.Size(1080,720)
+    $workingArea = [System.Windows.Forms.Screen]::PrimaryScreen.WorkingArea
+    $formWidth = [Math]::Min(1320, [Math]::Max(1120, $workingArea.Width - 40))
+    $formHeight = [Math]::Min(820, [Math]::Max(700, $workingArea.Height - 40))
+    $form.Size = New-Object System.Drawing.Size($formWidth,$formHeight)
+    $form.MinimumSize = New-Object System.Drawing.Size(1080,680)
     $form.Font = New-Object System.Drawing.Font('Segoe UI',9)
     $form.BackColor = $Bg
 
@@ -242,7 +262,7 @@ try {
     $header.Controls.Add((New-Label 'Protege el aula sin complicaciones' 94 48 10 $false ([System.Drawing.Color]::FromArgb(219,234,254))))
 
     $version = New-Object System.Windows.Forms.Label
-    $version.Text = 'v0.3.1'
+    $version.Text = 'v0.3.2'
     $version.TextAlign = 'MiddleCenter'
     $version.Location = New-Object System.Drawing.Point(1060,26)
     $version.Size = New-Object System.Drawing.Size(82,30)
@@ -269,12 +289,58 @@ try {
     $btnApply.Anchor = 'Top,Right'
     $footer.Controls.Add($btnApply)
 
+    $workspace = New-Object System.Windows.Forms.Panel
+    $workspace.Dock = 'Fill'
+    $workspace.BackColor = $Bg
+    $form.Controls.Add($workspace)
+    $workspace.BringToFront()
+
     $tabs = New-Object System.Windows.Forms.TabControl
     $tabs.Dock = 'Fill'
-    $tabs.Padding = New-Object System.Drawing.Point(18,8)
-    $tabs.Font = New-Object System.Drawing.Font('Segoe UI Semibold',9)
-    $form.Controls.Add($tabs)
-    $tabs.BringToFront()
+    $tabs.Appearance = 'FlatButtons'
+    $tabs.SizeMode = 'Fixed'
+    $tabs.ItemSize = New-Object System.Drawing.Size(0,1)
+    $tabs.Padding = New-Object System.Drawing.Point(0,0)
+    $tabs.Font = New-Object System.Drawing.Font('Segoe UI',9)
+    $workspace.Controls.Add($tabs)
+
+    $sidebar = New-Object System.Windows.Forms.Panel
+    $sidebar.Dock = 'Left'
+    $sidebar.Width = 185
+    $sidebar.BackColor = [System.Drawing.Color]::White
+    $workspace.Controls.Add($sidebar)
+    $sidebar.BringToFront()
+
+    $sidebar.Controls.Add((New-Label 'NAVEGACIÓN' 24 18 8 $true $Muted))
+
+    $navHome = New-NavButton 'Inicio' 46
+    $navProtection = New-NavButton 'Protección' 92
+    $navPrograms = New-NavButton 'Programas' 138
+    $navAppControl = New-NavButton 'Control de apps' 184
+    $navInternet = New-NavButton 'Internet' 230
+    $navDesktop = New-NavButton 'Escritorio' 276
+    $navLog = New-NavButton 'Registro' 322
+
+    foreach ($nav in @($navHome,$navProtection,$navPrograms,$navAppControl,$navInternet,$navDesktop,$navLog)) {
+        $sidebar.Controls.Add($nav)
+    }
+
+    $sideInfo = New-Card 12 392 160 120 $SoftBlue
+    $sideInfo.Controls.Add((New-Label 'Aula protegida' 12 12 9 $true $PrimaryDark))
+    $sideInfo.Controls.Add((New-Label 'Configura primero' 12 42 8 $false $Muted))
+    $sideInfo.Controls.Add((New-Label 'en auditoría y luego' 12 62 8 $false $Muted))
+    $sideInfo.Controls.Add((New-Label 'activa la protección.' 12 82 8 $false $Muted))
+    $sidebar.Controls.Add($sideInfo)
+
+    function Set-NavActive {
+        param($Active)
+        foreach ($nav in @($navHome,$navProtection,$navPrograms,$navAppControl,$navInternet,$navDesktop,$navLog)) {
+            $nav.BackColor = [System.Drawing.Color]::White
+            $nav.ForeColor = $Muted
+        }
+        $Active.BackColor = $SoftBlue
+        $Active.ForeColor = $PrimaryDark
+    }
 
     # HOME
     $tabHome = New-Object System.Windows.Forms.TabPage
@@ -711,6 +777,24 @@ try {
     $btnGoProtect.Add_Click({$tabs.SelectedTab = $tabProtection})
     $btnGoApps.Add_Click({$tabs.SelectedTab = $tabPrograms})
 
+    $navHome.Add_Click({$tabs.SelectedTab = $tabHome})
+    $navProtection.Add_Click({$tabs.SelectedTab = $tabProtection})
+    $navPrograms.Add_Click({$tabs.SelectedTab = $tabPrograms})
+    $navAppControl.Add_Click({$tabs.SelectedTab = $tabAppControl})
+    $navInternet.Add_Click({$tabs.SelectedTab = $tabWeb})
+    $navDesktop.Add_Click({$tabs.SelectedTab = $tabDesktop})
+    $navLog.Add_Click({$tabs.SelectedTab = $tabAudit})
+
+    $tabs.Add_SelectedIndexChanged({
+        if ($tabs.SelectedTab -eq $tabHome) {Set-NavActive $navHome}
+        elseif ($tabs.SelectedTab -eq $tabProtection) {Set-NavActive $navProtection}
+        elseif ($tabs.SelectedTab -eq $tabPrograms) {Set-NavActive $navPrograms}
+        elseif ($tabs.SelectedTab -eq $tabAppControl) {Set-NavActive $navAppControl}
+        elseif ($tabs.SelectedTab -eq $tabWeb) {Set-NavActive $navInternet}
+        elseif ($tabs.SelectedTab -eq $tabDesktop) {Set-NavActive $navDesktop}
+        elseif ($tabs.SelectedTab -eq $tabAudit) {Set-NavActive $navLog}
+    })
+
     $btnWallpaper.Add_Click({
         $d = New-Object System.Windows.Forms.OpenFileDialog
         $d.Filter = 'Imágenes|*.jpg;*.jpeg;*.png;*.bmp'
@@ -964,7 +1048,12 @@ try {
     $radAudit.Add_CheckedChanged({Refresh-Dashboard})
     $radEnforce.Add_CheckedChanged({Refresh-Dashboard})
 
-    Write-AulaGuardAudit -Action 'APP_STARTED' -Detail 'v0.3.1' -Root $root
+    foreach ($page in $tabs.TabPages) {
+        $page.AutoScroll = $true
+    }
+
+    Set-NavActive $navHome
+    Write-AulaGuardAudit -Action 'APP_STARTED' -Detail 'v0.3.2' -Root $root
     Refresh-Dashboard
     & $loadAudit
     & $loadAppEvents
