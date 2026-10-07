@@ -1,0 +1,16 @@
+# AulaGuard runtime files
+logs/
+startup-error.txt
+*.log
+
+# Windows / IDE
+Thumbs.db
+Desktop.ini
+.vs/
+.vscode/
+*.user
+*.suo
+
+# Build output
+dist/
+build/
