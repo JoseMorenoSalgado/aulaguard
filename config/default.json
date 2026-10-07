@@ -1,8 +1,22 @@
 {
-  "version": "0.1.1",
+  "version": "0.2.0",
+  "profileName": "Aula principal",
+  "policyMode": "Audit",
   "wallpaper": "",
   "allowedPrograms": [],
   "allowedWebsites": [],
   "protectedShortcuts": [],
-  "auditEnabled": true
+  "protections": {
+    "lockWallpaper": true,
+    "disablePersonalization": true,
+    "protectPublicDesktop": true,
+    "browserWhitelist": false,
+    "blockControlPanel": false,
+    "blockRegistryTools": false,
+    "blockTaskManager": false,
+    "blockCommandPrompt": false,
+    "blockPowerShell": false
+  },
+  "auditEnabled": true,
+  "lastAppliedUtc": null
 }
