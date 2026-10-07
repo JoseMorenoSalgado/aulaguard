@@ -4,47 +4,63 @@
 
 ## Versión actual
 
-**v0.2.0**
+**v0.3.0**
 
-La versión 0.2 introduce un motor modular de políticas, diagnóstico del equipo, administración de perfiles estándar, modo de simulación y controles reales de Windows.
+La versión 0.3 incorpora control avanzado de aplicaciones con AppLocker, auditoría previa al bloqueo, eventos de ejecución, aislamiento de cuentas administradoras y sincronización automática de políticas al iniciar Windows.
 
 ## Funciones actuales
 
 - Consola administrativa con panel de estado.
-- Detección de perfiles locales y separación entre administradores y usuarios estándar.
-- Modo **Auditoría / Simulación** antes de modificar Windows.
-- Bloqueo de cambio de fondo de escritorio.
+- Detección de perfiles locales.
+- Identificación de administradores por SID, compatible con Windows en distintos idiomas.
+- Aplicación de políticas únicamente sobre usuarios estándar.
+- Grupo local administrado por AulaGuard: `AulaGuardStudents`.
+- Modo Auditoría / Simulación.
+- Bloqueo del cambio de fondo de escritorio.
 - Restricción de personalización.
 - Bloqueo opcional de Panel de control.
 - Bloqueo opcional del Editor del Registro.
 - Bloqueo opcional del Administrador de tareas.
-- Lista blanca de sitios web para Microsoft Edge y Google Chrome.
+- Lista blanca de sitios para Microsoft Edge y Google Chrome.
 - Protección de accesos directos del escritorio público.
-- Perfil configurable por aula.
-- Importación y exportación de configuraciones JSON.
-- Backups automáticos antes de guardar cambios.
-- Bitácora estructurada JSONL.
-- Diagnóstico de compatibilidad.
-- Función para retirar las políticas administradas por AulaGuard.
+- Importación y exportación de perfiles JSON.
+- Backups automáticos.
+- Bitácora JSONL.
+- Diagnóstico del sistema.
+- Sincronización de políticas en el arranque mediante tarea programada.
 
-## Seguridad operativa
+## Control de aplicaciones v0.3
 
-AulaGuard aplica las políticas a perfiles de usuario estándar y excluye las cuentas identificadas como administradoras locales.
+AulaGuard utiliza AppLocker para construir políticas de control de aplicaciones.
 
-La aplicación inicia en modo **Auditoría / Simulación**. Para modificar Windows el administrador debe seleccionar explícitamente **Aplicar protección** y confirmar la operación.
+### Flujo recomendado
 
-Antes de desplegar una política en todas las computadoras del laboratorio, se recomienda probarla en un equipo de prueba.
+1. Agregue los programas autorizados en la pestaña **Programas**.
+2. Abra **Control de apps**.
+3. Seleccione **Solo auditoría**.
+4. Valide y aplique la política.
+5. Utilice normalmente el equipo de prueba.
+6. Revise los eventos de AppLocker en AulaGuard.
+7. Agregue cualquier programa legítimo que falte.
+8. Solo después de validar el aula, cambie a **Aplicar bloqueo**.
+
+En modo auditoría los programas no autorizados siguen ejecutándose, pero AppLocker registra los eventos. En modo de bloqueo, las aplicaciones no permitidas por la política pueden ser impedidas de ejecutar.
+
+AulaGuard crea una copia de seguridad de la política AppLocker local antes de sustituirla y permite restaurar la copia más reciente desde la interfaz.
+
+## Protección del administrador
+
+Las reglas de control de aplicaciones no se crean para `Everyone`. AulaGuard mantiene un grupo local denominado `AulaGuardStudents` con las cuentas locales estándar habilitadas y excluye las cuentas que pertenecen al grupo integrado de administradores.
 
 ## Instalación
 
 1. Descargue o clone el repositorio.
 2. Ejecute `Instalar.cmd` como administrador.
 3. AulaGuard se instalará en `%ProgramData%\AulaGuard`.
-4. Se creará un acceso directo en el escritorio público.
-5. Abra AulaGuard como administrador.
-6. Configure las protecciones.
-7. Pruebe primero en modo Auditoría.
-8. Cambie a Aplicar protección cuando la configuración esté validada.
+4. Se copiarán los módulos de políticas, diagnóstico y control de aplicaciones.
+5. Se registrará la tarea `AulaGuard\PolicySync` para revalidar las políticas generales al iniciar Windows.
+6. Abra AulaGuard como administrador.
+7. Pruebe primero en modo auditoría.
 
 ## Arquitectura
 
@@ -54,32 +70,30 @@ aulaguard/
 │   ├── AulaGuard.ps1
 │   ├── AulaGuard.Core.psm1
 │   ├── AulaGuard.Policy.psm1
-│   └── AulaGuard.Diagnostics.psm1
+│   ├── AulaGuard.Diagnostics.psm1
+│   ├── AulaGuard.AppControl.psm1
+│   └── AulaGuard.Startup.ps1
 ├── config/
 │   └── default.json
 ├── docs/
-│   └── ROADMAP.md
+│   ├── ROADMAP.md
+│   └── APP_CONTROL.md
 ├── Instalar.cmd
 ├── .gitignore
 └── README.md
 ```
 
-### Core
+## Seguridad operativa
 
-Configuración, almacenamiento, backups, perfiles y auditoría.
+El modo de auditoría es el valor predeterminado. AppLocker puede afectar inmediatamente la ejecución de aplicaciones cuando una colección está en modo `Enabled`, por lo que AulaGuard exige una confirmación adicional antes de activar el bloqueo.
 
-### Policy
+La primera implantación debe realizarse en un equipo de prueba antes de desplegarla en todo el laboratorio.
 
-Aplicación y retirada de políticas de Windows sobre perfiles estándar.
+## Próximas fases
 
-### Diagnostics
-
-Inventario básico del equipo, usuarios y comprobaciones de compatibilidad.
-
-## Próxima fase
-
-El siguiente componente importante será el **motor de control de aplicaciones** mediante AppLocker/WDAC con modo auditoría, reglas seguras para Windows y registro de intentos bloqueados.
-
-## Alcance
-
-AulaGuard está pensado para laboratorios escolares, aulas TIC y equipos compartidos donde el administrador necesita mantener un entorno estable sin impedir la administración legítima del equipo.
+- Reglas por carpeta/editor/hash configurables desde la UI.
+- Plantillas por laboratorio y grado.
+- Restauración automática de accesos directos.
+- Agente central y consola multi-equipo.
+- Distribución remota de políticas.
+- Reportes consolidados.
