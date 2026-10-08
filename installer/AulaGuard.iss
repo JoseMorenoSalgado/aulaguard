@@ -1,5 +1,5 @@
 #define MyAppName "AulaGuard"
-#define MyAppVersion "0.3.2"
+#define MyAppVersion "0.3.3"
 #define MyAppPublisher "Elearning Cloud"
 #define MyAppURL "https://elearningcloud.io"
 #define MyAppExeName "AulaGuard.exe"
@@ -38,7 +38,7 @@ RestartApplications=yes
 UsePreviousAppDir=yes
 UsePreviousTasks=yes
 ShowLanguageDialog=no
-VersionInfoVersion=0.3.2.0
+VersionInfoVersion=0.3.3.0
 VersionInfoCompany={#MyAppPublisher}
 VersionInfoDescription=Instalador de AulaGuard para aulas Windows
 VersionInfoProductName={#MyAppName}
@@ -50,6 +50,7 @@ Name: "spanish"; MessagesFile: "compiler:Languages\Spanish.isl"
 [Tasks]
 Name: "desktopicon"; Description: "Crear un acceso directo en el escritorio"; GroupDescription: "Accesos directos:"; Flags: checkedonce
 Name: "startmenuicon"; Description: "Crear acceso directo en el menú Inicio"; GroupDescription: "Accesos directos:"; Flags: checkedonce
+Name: "migratelegacy"; Description: "Migrar una configuración anterior REVISADA (la deja en modo auditoría)"; GroupDescription: "Seguridad de actualización:"; Flags: unchecked
 
 [Dirs]
 Name: "{app}\src"
@@ -62,6 +63,8 @@ Name: "{commonappdata}\AulaGuard\profiles"
 
 [Files]
 Source: "..\dist\AulaGuard.exe"; DestDir: "{app}\src"; Flags: ignoreversion
+Source: "..\src\AulaGuard.Security.psm1"; DestDir: "{app}\src"; Flags: ignoreversion
+Source: "..\src\AulaGuard.Initialize.ps1"; DestDir: "{app}\src"; Flags: ignoreversion
 Source: "..\src\AulaGuard.Core.psm1"; DestDir: "{app}\src"; Flags: ignoreversion
 Source: "..\src\AulaGuard.Policy.psm1"; DestDir: "{app}\src"; Flags: ignoreversion
 Source: "..\src\AulaGuard.Diagnostics.psm1"; DestDir: "{app}\src"; Flags: ignoreversion
@@ -76,8 +79,9 @@ Name: "{group}\AulaGuard"; Filename: "{app}\src\AulaGuard.exe"; WorkingDir: "{ap
 Name: "{group}\Desinstalar AulaGuard"; Filename: "{uninstallexe}"; Tasks: startmenuicon
 
 [Run]
-Filename: "{cmd}"; Parameters: "/C if not exist ""{commonappdata}\AulaGuard\config\settings.json"" copy /Y ""{app}\config\default.json"" ""{commonappdata}\AulaGuard\config\settings.json"""; Flags: runhidden waituntilterminated
-Filename: "{sys}\schtasks.exe"; Parameters: "/Create /TN ""AulaGuard\PolicySync"" /SC ONSTART /RU SYSTEM /RL HIGHEST /TR ""powershell.exe -NoProfile -ExecutionPolicy Bypass -File \""{app}\src\AulaGuard.Startup.ps1\"""" /F"; Flags: runhidden waituntilterminated
+Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy RemoteSigned -File ""{app}\src\AulaGuard.Initialize.ps1"""; Flags: runhidden waituntilterminated; Tasks: not migratelegacy
+Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy RemoteSigned -File ""{app}\src\AulaGuard.Initialize.ps1"" -MigrateLegacy"; Flags: runhidden waituntilterminated; Tasks: migratelegacy
+Filename: "{sys}\schtasks.exe"; Parameters: "/Create /TN ""AulaGuard\PolicySync"" /SC ONSTART /RU SYSTEM /RL HIGHEST /TR ""powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File \""{app}\src\AulaGuard.Startup.ps1\"""" /F"; Flags: runhidden waituntilterminated
 Filename: "{app}\src\AulaGuard.exe"; Description: "Abrir AulaGuard ahora"; Flags: postinstall nowait skipifsilent
 
 [UninstallRun]
