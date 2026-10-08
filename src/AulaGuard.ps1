@@ -1,4 +1,4 @@
-# AulaGuard v0.4.1
+# AulaGuard v0.4.2
 # Friendly educational administration console for Windows classrooms.
 
 $ErrorActionPreference = 'Stop'
@@ -238,7 +238,7 @@ try {
         }
 
         return [pscustomobject]@{
-            version = '0.4.1'
+            version = '0.4.2'
             profileName = $txtProfileName.Text.Trim()
             policyMode = if ($radEnforce.Checked) {'Enforce'} else {'Audit'}
             wallpaper = $txtWallpaper.Text.Trim()
@@ -278,6 +278,7 @@ try {
     $form.Size = New-Object System.Drawing.Size($formWidth,$formHeight)
     $form.MinimumSize = New-Object System.Drawing.Size(1080,680)
     $form.Font = New-Object System.Drawing.Font('Segoe UI',9)
+    $form.AutoScaleMode = 'Dpi'
     $form.BackColor = $Bg
 
     $toolTip = New-Object System.Windows.Forms.ToolTip
@@ -304,7 +305,7 @@ try {
     $header.Controls.Add((New-Label 'Protege el aula sin complicaciones' 94 48 10 $false ([System.Drawing.Color]::FromArgb(219,234,254))))
 
     $version = New-Object System.Windows.Forms.Label
-    $version.Text = 'v0.4.1'
+    $version.Text = 'v0.4.2'
     $version.TextAlign = 'MiddleCenter'
     $version.Location = New-Object System.Drawing.Point(1060,26)
     $version.Size = New-Object System.Drawing.Size(82,30)
@@ -727,9 +728,9 @@ try {
         foreach ($app in @($script:programCatalog)) {
             $allowed = ($app.ExecutablePath -and $script:allowedProgramMap.ContainsKey([string]$app.ExecutablePath))
             if ($query -and -not (
-                $app.Name.Contains($query,[StringComparison]::OrdinalIgnoreCase) -or
-                $app.Publisher.Contains($query,[StringComparison]::OrdinalIgnoreCase) -or
-                $app.ExecutablePath.Contains($query,[StringComparison]::OrdinalIgnoreCase)
+                ($app.Name.IndexOf($query,[StringComparison]::OrdinalIgnoreCase) -ge 0) -or
+                ($app.Publisher.IndexOf($query,[StringComparison]::OrdinalIgnoreCase) -ge 0) -or
+                ($app.ExecutablePath.IndexOf($query,[StringComparison]::OrdinalIgnoreCase) -ge 0)
             )) { continue }
             if ($filter -eq 'Permitidas' -and -not $allowed) { continue }
             if ($filter -eq 'Sin permitir' -and ($allowed -or -not $app.CanAllow)) { continue }
@@ -796,7 +797,7 @@ try {
                 $e.Graphics.FillEllipse($white,$x+6,$y+4,20,20)
             } else {
                 [System.Windows.Forms.TextRenderer]::DrawText($e.Graphics,'—',
-                    (New-Object System.Drawing.Font('Segoe UI',12)),(New-Object System.Drawing.Rectangle($x+20,$y,26,28)),$Muted)
+                    (New-Object System.Drawing.Font('Segoe UI',12)),([System.Drawing.Rectangle]::new($x+20,$y,26,28)),$Muted)
             }
         } finally { $brush.Dispose(); $white.Dispose() }
         $e.Handled = $true
@@ -1193,7 +1194,10 @@ try {
 
     $navHome.Add_Click({$tabs.SelectedTab = $tabHome})
     $navProtection.Add_Click({$tabs.SelectedTab = $tabProtection})
-    $navPrograms.Add_Click({$tabs.SelectedTab = $tabPrograms})
+    $navPrograms.Add_Click({
+        $tabs.SelectedTab = $tabPrograms
+        if (-not $script:inventoryLoaded) { & $loadPrograms }
+    })
     $navAppControl.Add_Click({$tabs.SelectedTab = $tabAppControl})
     $navInternet.Add_Click({$tabs.SelectedTab = $tabWeb})
     $navDesktop.Add_Click({$tabs.SelectedTab = $tabDesktop})
@@ -1223,26 +1227,100 @@ try {
         }
     })
 
+    # Clicking a green switch only changes the local allow list. Windows remains
+    # unchanged until the administrator explicitly uses Aplicar control.
+    $toggleProgramRow = {
+        param([int]$Index)
+        if ($Index -lt 0 -or $Index -ge $gridPrograms.Rows.Count) { return }
+        $row = $gridPrograms.Rows[$Index]
+        $app = $row.Tag
+        if (-not $app -or -not $app.CanAllow) {
+            Set-Status 'Esta aplicación necesita una regla Store o un EXE verificable; no se aplicó ningún cambio.' 'Warning'
+            return
+        }
+        $path = [string]$app.ExecutablePath
+        if ($script:allowedProgramMap.ContainsKey($path)) {
+            [void]$script:allowedProgramMap.Remove($path)
+        } else {
+            if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
+                Set-Status 'No se encontró el ejecutable; vuelve a detectar programas.' 'Warning'
+                return
+            }
+            $script:allowedProgramMap[$path] = $path
+        }
+        & $syncProgramSelection
+        & $renderPrograms
+        Set-Status 'Selección modificada. Guarda y valida antes de aplicar restricciones.' 'Warning'
+        Refresh-Dashboard
+    }
+    $gridPrograms.Add_CellClick({
+        param($sender,$e)
+        if ($e.ColumnIndex -eq 0 -and $e.RowIndex -ge 0) {
+            & $toggleProgramRow $e.RowIndex
+        }
+    })
+    $gridPrograms.Add_KeyDown({
+        param($sender,$e)
+        if ($e.KeyCode -eq [System.Windows.Forms.Keys]::Space -and
+            $gridPrograms.CurrentCell -and $gridPrograms.CurrentCell.ColumnIndex -eq 0) {
+            & $toggleProgramRow $gridPrograms.CurrentCell.RowIndex
+            $e.Handled = $true
+            $e.SuppressKeyPress = $true
+        }
+    })
+    $txtProgramSearch.Add_TextChanged({ & $renderPrograms })
+    $cmbPrograms.Add_SelectedIndexChanged({ & $renderPrograms })
+    $btnRefreshPrograms.Add_Click({ & $loadPrograms })
+
     $btnAddProgram.Add_Click({
         $d = New-Object System.Windows.Forms.OpenFileDialog
-        $d.Filter = 'Aplicaciones (*.exe)|*.exe'
+        $d.Filter = 'Programas de Windows (*.exe)|*.exe'
         $d.Multiselect = $true
         if ($d.ShowDialog() -eq 'OK') {
-            foreach ($f in $d.FileNames) {
-                if ($lstPrograms.Items -notcontains $f) {
-                    [void]$lstPrograms.Items.Add($f)
+            foreach ($file in $d.FileNames) {
+                $path = Resolve-AulaGuardExecutablePath -Candidate $file
+                if (-not $path) { continue }
+                $script:allowedProgramMap[$path] = $path
+                if (@($script:programCatalog | Where-Object { $_.ExecutablePath -eq $path }).Count -eq 0) {
+                    $script:programCatalog += [pscustomobject]@{
+                        Name=[IO.Path]::GetFileNameWithoutExtension($path)
+                        Publisher='Seleccionado por administrador'
+                        Version=''
+                        Type='Win32'
+                        ExecutablePath=$path
+                        CanAllow=$true
+                        Reason=''
+                        Source='Manual'
+                    }
                 }
             }
+            & $syncProgramSelection
+            & $renderPrograms
+            Set-Status 'Programa agregado; guarda la selección para conservarla.' 'Success'
             Refresh-Dashboard
-            Set-Status 'Programas agregados' 'Success'
+        }
+    })
+    $btnRemoveProgram.Add_Click({
+        if ($gridPrograms.SelectedRows.Count -eq 0) {
+            Set-Status 'Selecciona una aplicación de la tabla.' 'Warning'
+            return
+        }
+        $record = $gridPrograms.SelectedRows[0].Tag
+        if ($record -and $record.ExecutablePath) {
+            [void]$script:allowedProgramMap.Remove([string]$record.ExecutablePath)
+            & $syncProgramSelection
+            & $renderPrograms
+            Set-Status 'Programa retirado de la selección. Guarda los cambios.' 'Warning'
+            Refresh-Dashboard
         }
     })
 
-    $btnRemoveProgram.Add_Click({
-        while ($lstPrograms.SelectedIndices.Count -gt 0) {
-            $lstPrograms.Items.RemoveAt($lstPrograms.SelectedIndices[0])
-        }
-        Refresh-Dashboard
+    # Radio buttons are in separate visual cards: enforce mutual exclusion.
+    $radAppAudit.Add_CheckedChanged({
+        if ($radAppAudit.Checked) { $radAppEnforce.Checked = $false }
+    })
+    $radAppEnforce.Add_CheckedChanged({
+        if ($radAppEnforce.Checked) { $radAppAudit.Checked = $false }
     })
 
     $btnAddWebsite.Add_Click({
@@ -1500,7 +1578,7 @@ try {
     }
 
     Set-NavActive $navHome
-    Write-AulaGuardAudit -Action 'APP_STARTED' -Detail 'v0.4.1' -Root $root
+    Write-AulaGuardAudit -Action 'APP_STARTED' -Detail 'v0.4.2' -Root $root
     Refresh-Dashboard
     & $loadAudit
     & $loadAppEvents
