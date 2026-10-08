@@ -39,11 +39,31 @@ function Assert-AulaGuardDataRoot {
     }
 }
 
+function Assert-AulaGuardTrustedOwner {
+    param([Parameter(Mandatory=$true)][string]$Path)
+    $owner = (Get-Acl -LiteralPath $Path -ErrorAction Stop).GetOwner(
+        [Security.Principal.SecurityIdentifier]).Value
+    $trusted = @('S-1-5-18','S-1-5-32-544',
+        [Security.Principal.WindowsIdentity]::GetCurrent().User.Value)
+    try {
+        $localAdmins = Get-LocalGroupMember -Group (
+            Get-LocalGroup -SID 'S-1-5-32-544' -ErrorAction Stop).Name -ErrorAction Stop
+        $trusted += @($localAdmins | ForEach-Object { $_.SID.Value })
+    } catch {
+        # Current elevated identity plus built-in Administrators and SYSTEM remain accepted.
+    }
+    if ($trusted -notcontains $owner) {
+        throw "El propietario de $Path no es un administrador confiable. Se rechaza la instalación."
+    }
+}
+
 function Protect-AulaGuardDataAcl {
     param([Parameter(Mandatory=$true)][string]$Root)
     Assert-AulaGuardElevated
     Assert-AulaGuardDataRoot -Root $Root
-    if (-not (Test-Path -LiteralPath $Root)) {
+    if (Test-Path -LiteralPath $Root) {
+        Assert-AulaGuardTrustedOwner -Path $Root
+    } else {
         [void](New-Item -ItemType Directory -Path $Root -Force)
     }
     $admins = New-Object Security.Principal.SecurityIdentifier('S-1-5-32-544')
@@ -56,6 +76,7 @@ function Protect-AulaGuardDataAcl {
         if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
             throw "Ruta insegura: punto de redirección detectado en $($item.FullName)."
         }
+        Assert-AulaGuardTrustedOwner -Path $item.FullName
         $isDir = $item.PSIsContainer
         $acl = if ($isDir) {
             New-Object Security.AccessControl.DirectorySecurity
@@ -63,6 +84,7 @@ function Protect-AulaGuardDataAcl {
             New-Object Security.AccessControl.FileSecurity
         }
         $acl.SetAccessRuleProtection($true,$false)
+        $acl.SetOwner($admins)
         $inheritance = if ($isDir) {
             [Security.AccessControl.InheritanceFlags]'ContainerInherit, ObjectInherit'
         } else { [Security.AccessControl.InheritanceFlags]::None }
