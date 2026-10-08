@@ -2,11 +2,15 @@ name: Build AulaGuard Installer
 
 on:
   workflow_dispatch:
+  pull_request:
+    branches:
+      - main
   push:
     branches:
       - main
     paths:
       - "src/**"
+      - "tests/**"
       - "config/**"
       - "docs/**"
       - "build/**"
@@ -40,6 +44,10 @@ jobs:
           }
           if ($failed) { exit 1 }
 
+      - name: Verify cryptographic security and tamper resistance
+        shell: powershell
+        run: .\tests\Security.Tests.ps1
+
       - name: Generate application icon
         shell: powershell
         run: .\build\GenerateIcon.ps1
@@ -61,9 +69,18 @@ jobs:
         run: |
           & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" ".\installer\AulaGuard.iss"
 
+      - name: Record SHA-256 installer checksum
+        shell: powershell
+        run: |
+          $exe = 'dist/installer/AulaGuard-Setup-v0.3.3.exe'
+          $hash = (Get-FileHash -Path $exe -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  AulaGuard-Setup-v0.3.3.exe" | Set-Content dist/installer/SHA256SUMS.txt -Encoding ASCII
+
       - name: Upload Windows installer
         uses: actions/upload-artifact@v4
         with:
           name: AulaGuard-Windows-Installer
-          path: dist/installer/AulaGuard-Setup-v0.3.2.exe
+          path: |
+            dist/installer/AulaGuard-Setup-v0.3.3.exe
+            dist/installer/SHA256SUMS.txt
           if-no-files-found: error
