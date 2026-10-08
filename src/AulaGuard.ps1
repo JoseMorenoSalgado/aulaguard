@@ -52,8 +52,8 @@ try {
     Initialize-AulaGuardSecurity -Root $root
     $settings = Read-AulaGuardSettings -Root $root
 
-    # GitHub Actions executes the actual compiled EXE to check bootstrap, imports
-    # and settings; never suppress security checks in the self-test.
+    # Diagnostic mode verifies module imports, integrity checks and protected settings
+    # before exiting; it never skips a security validation.
     if ($script:AulaGuardBootstrapTest) {
         Write-AulaGuardAudit -Action 'EXE_BOOTSTRAP_VERIFIED' -Level 'SECURITY' -Root $root
         exit 0
@@ -1109,7 +1109,7 @@ try {
         } catch {}
     })
 
-    # Exercise full WinForms construction in CI without requiring a human to close it.
+    # Optional WinForms construction self-test; do not show a blocking dialog.
     if ($script:AulaGuardUiTest) {
         $form.Dispose()
         exit 0
