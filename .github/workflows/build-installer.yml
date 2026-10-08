@@ -119,3 +119,68 @@ jobs:
             dist/installer/AulaGuard-Setup-v0.3.3.exe
             dist/installer/SHA256SUMS.txt
           if-no-files-found: error
+
+
+  release:
+    name: Publish downloadable installer
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout source and version
+        uses: actions/checkout@v4
+
+      - name: Download tested Windows installer
+        uses: actions/download-artifact@v4
+        with:
+          name: AulaGuard-Windows-Installer
+          path: release
+
+      - name: Publish GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          version="$(sed -n 's/^#define MyAppVersion "\([^"]*\)"/\1/p' installer/AulaGuard.iss)"
+          if [[ -z "$version" ]]; then
+            echo "::error::No se pudo leer la versión del instalador."
+            exit 1
+          fi
+          tag="v${version}"
+          installer="release/AulaGuard-Setup-v${version}.exe"
+          test -s "$installer"
+          test -s release/SHA256SUMS.txt
+          (cd release && sha256sum --check SHA256SUMS.txt)
+
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "La versión $tag ya tiene una publicación. No se reemplazan binarios existentes."
+            exit 0
+          fi
+
+          cat > RELEASE_NOTES.md <<EOF
+          ## AulaGuard v${version} — Control de aulas Windows
+
+          Instalador para Windows 10/11 Pro con asistente en español.
+
+          Esta versión incorpora autenticación HMAC-SHA-256 para la configuración y bitácora,
+          protección DPAPI de clave local y permisos NTFS restrictivos.
+
+          Descargue **AulaGuard-Setup-v${version}.exe** y ejecútelo como administrador.
+          Antes de actualizar una versión previa, revise docs/SECURITY.md para migrar la
+          configuración. Pruebe el bloqueo AppLocker en una sola PC primero.
+
+          **Seguridad:** El checksum SHA-256 permite comprobar integridad, pero no certifica
+          la identidad del editor. Si el archivo no tiene una firma Authenticode válida,
+          Windows puede presentar una advertencia de editor desconocido.
+          EOF
+
+          gh release create "$tag" "$installer" release/SHA256SUMS.txt \
+            --title "AulaGuard $tag" \
+            --notes-file RELEASE_NOTES.md \
+            --target "$GITHUB_SHA" \
+            --latest
+          gh release view "$tag" --json url,assets --jq '{url:.url,assets:[.assets[].name]}'
