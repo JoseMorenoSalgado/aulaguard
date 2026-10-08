@@ -100,6 +100,30 @@ jobs:
           if (-not $task) { throw 'SYSTEM policy synchronization task missing.' }
           Write-Host '[OK] Protected installer smoke test passed'
 
+      - name: Launch installed EXE and verify bootstrap and UI
+        shell: powershell
+        run: |
+          $exe = Join-Path $env:ProgramFiles 'AulaGuard\src\AulaGuard.exe'
+          if (-not (Test-Path -LiteralPath $exe -PathType Leaf)) { throw "Installed EXE missing: $exe" }
+          foreach ($mode in @('AULAGUARD_EXE_SELFTEST', 'AULAGUARD_UI_SELFTEST')) {
+            [Environment]::SetEnvironmentVariable($mode, '1', 'Process')
+            try {
+              $process = Start-Process -FilePath $exe -WorkingDirectory $env:TEMP -PassThru -ErrorAction Stop
+              if (-not $process.WaitForExit(30000)) {
+                $process.Kill()
+                throw "Timed out after 30s in selftest $mode"
+              }
+              if ($process.ExitCode -ne 0) {
+                $log = Join-Path $env:TEMP 'AulaGuard-startup-error.txt'
+                if (Test-Path $log) { Get-Content $log | Write-Host }
+                throw "Installed AulaGuard EXE failed ($mode), exit=$($process.ExitCode)"
+              }
+              Write-Host "[OK] Compiled application launched: $mode"
+            } finally {
+              [Environment]::SetEnvironmentVariable($mode, $null, 'Process')
+            }
+          }
+
       - name: Sign installer when trusted certificate is configured
         if: github.event_name != 'pull_request'
         shell: powershell
