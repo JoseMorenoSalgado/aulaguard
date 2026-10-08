@@ -59,6 +59,8 @@ Name: "{app}\docs"
 
 [Files]
 Source: "..\dist\AulaGuard.exe"; DestDir: "{app}\src"; Flags: ignoreversion
+Source: "..\src\AulaGuard.ps1"; DestDir: "{app}\src"; Flags: ignoreversion
+Source: "..\src\AulaGuard.Launcher.ps1"; DestDir: "{app}\src"; Flags: ignoreversion
 Source: "..\src\AulaGuard.Security.psm1"; DestDir: "{app}\src"; Flags: ignoreversion
 Source: "..\src\AulaGuard.Initialize.ps1"; DestDir: "{app}\src"; Flags: ignoreversion
 Source: "..\src\AulaGuard.Core.psm1"; DestDir: "{app}\src"; Flags: ignoreversion
@@ -72,6 +74,7 @@ Source: "..\docs\*"; DestDir: "{app}\docs"; Flags: ignoreversion recursesubdirs 
 [Icons]
 Name: "{commondesktop}\AulaGuard"; Filename: "{app}\src\AulaGuard.exe"; WorkingDir: "{app}"; IconFilename: "{app}\src\AulaGuard.exe"; Tasks: desktopicon
 Name: "{group}\AulaGuard"; Filename: "{app}\src\AulaGuard.exe"; WorkingDir: "{app}"; IconFilename: "{app}\src\AulaGuard.exe"; Tasks: startmenuicon
+Name: "{group}\AulaGuard (inicio alternativo)"; Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy RemoteSigned -WindowStyle Hidden -File ""{app}\src\AulaGuard.Launcher.ps1"""; WorkingDir: "{app}\src"; IconFilename: "{app}\src\AulaGuard.exe"; Tasks: startmenuicon
 Name: "{group}\Desinstalar AulaGuard"; Filename: "{uninstallexe}"; Tasks: startmenuicon
 
 [Run]
