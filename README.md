@@ -60,7 +60,7 @@ Las reglas de control de aplicaciones no se crean para `Everyone`. AulaGuard man
 
 En **Assets** elija `AulaGuard-Setup-v0.3.5.exe`. No es necesario compilar ni descargar el código fuente. También se publica `SHA256SUMS.txt` para verificar la integridad de la descarga.
 
-Si la aplicación no abre, consulte `%TEMP%\\AulaGuard-startup-error.txt` desde la cuenta administradora. El repositorio `main` contiene **código fuente**; los instaladores se distribuyen en **Releases** para evitar incluir ejecutables generados en Git. Una compilación verificada de GitHub Actions publica automáticamente cada nueva versión.
+Si el acceso directo del EXE no funciona, abra **AulaGuard (inicio alternativo)** desde el menú Inicio. Este lanzador también requiere permisos de administrador y no reduce la seguridad del aula. Si aún no abre, consulte `%TEMP%\\AulaGuard-startup-error.txt` desde la cuenta administradora. El repositorio `main` contiene **código fuente**; los instaladores se distribuyen en **Releases** para evitar incluir ejecutables generados en Git. Una compilación verificada de GitHub Actions publica automáticamente cada nueva versión.
 
 ## Instalación
 
@@ -129,6 +129,7 @@ Características del instalador:
 - Acceso directo opcional en escritorio.
 - Acceso directo opcional en menú Inicio.
 - Apertura de AulaGuard al finalizar con el token elevado del instalador (evita error 740).
+- Acceso alternativo desde el menú Inicio para ejecutar la interfaz como script PowerShell, con elevación UAC, si el ejecutable empaquetado no abre.
 - Conservación de la configuración de `ProgramData` durante actualizaciones.
 - Registro automático de la tarea `AulaGuard\PolicySync`.
 - Desinstalador desde Aplicaciones instaladas de Windows.
