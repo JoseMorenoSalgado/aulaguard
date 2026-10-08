@@ -16,6 +16,7 @@ on:
       - "build/**"
       - "installer/**"
       - ".github/workflows/build-installer.yml"
+      - ".github/workflows/release-verified.yml"
 
 concurrency:
   group: aula-guard-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
