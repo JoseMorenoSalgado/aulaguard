@@ -88,7 +88,7 @@ jobs:
       - name: Smoke test protected Windows installation
         shell: powershell
         run: |
-          $setup = (Resolve-Path 'dist/installer/AulaGuard-Setup-v0.3.5.exe').Path
+          $setup = (Resolve-Path 'dist/installer/AulaGuard-Setup-v0.3.6.exe').Path
           $process = Start-Process -FilePath $setup -ArgumentList '/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-' -Wait -PassThru
           if ($process.ExitCode -ne 0) { throw "Installer failed with $($process.ExitCode)" }
           $installedRoot = Join-Path $env:ProgramFiles 'AulaGuard'
@@ -139,21 +139,21 @@ jobs:
         env:
           AULAGUARD_PFX_BASE64: ${{ secrets.AULAGUARD_PFX_BASE64 }}
           AULAGUARD_PFX_PASSWORD: ${{ secrets.AULAGUARD_PFX_PASSWORD }}
-        run: .\build\Sign-Artifact.ps1 -Path .\dist\installer\AulaGuard-Setup-v0.3.5.exe
+        run: .\build\Sign-Artifact.ps1 -Path .\dist\installer\AulaGuard-Setup-v0.3.6.exe
 
       - name: Record SHA-256 installer checksum
         shell: powershell
         run: |
-          $exe = 'dist/installer/AulaGuard-Setup-v0.3.5.exe'
+          $exe = 'dist/installer/AulaGuard-Setup-v0.3.6.exe'
           $hash = (Get-FileHash -Path $exe -Algorithm SHA256).Hash.ToLowerInvariant()
-          "$hash  AulaGuard-Setup-v0.3.5.exe" | Set-Content dist/installer/SHA256SUMS.txt -Encoding ASCII
+          "$hash  AulaGuard-Setup-v0.3.6.exe" | Set-Content dist/installer/SHA256SUMS.txt -Encoding ASCII
 
       - name: Upload Windows installer
         uses: actions/upload-artifact@v4
         with:
           name: AulaGuard-Windows-Installer
           path: |
-            dist/installer/AulaGuard-Setup-v0.3.5.exe
+            dist/installer/AulaGuard-Setup-v0.3.6.exe
             dist/installer/SHA256SUMS.txt
           if-no-files-found: error
 
