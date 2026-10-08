@@ -157,6 +157,10 @@ jobs:
             dist/installer/SHA256SUMS.txt
           if-no-files-found: error
 
+      - name: Verify Windows uninstallation and residual cleanup
+        shell: powershell
+        run: .\tests\Uninstall.Tests.ps1
+
 
   release:
     name: Publish downloadable installer
