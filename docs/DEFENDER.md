@@ -20,6 +20,10 @@ Si Windows bloquea AulaGuard, no desactive Defender, no agregue exclusiones y no
 
 4. Si el archivo aún existe, compare su SHA-256 con SHA256SUMS.txt de la misma versión y compruebe la firma Authenticode mediante Get-AuthenticodeSignature. Coincidir con el hash publicado no prueba que el archivo sea seguro.
 
+## Limitación verificada del ejecutor de GitHub Actions
+
+La ejecución de comprobación del 8 de octubre de 2026 detectó que Microsoft Defender no estaba activo en el runner `windows-latest` de GitHub. **No se analizó el archivo y no se puede considerar que haya pasado una verificación antivirus.** Por seguridad, el proceso falló y no produjo una nueva publicación. La revisión deberá repetirse en una máquina Windows de compilación con Defender activo, firmas recientes y controles de integridad auditables. No se debe marcar la comprobación como superada ni saltarla.
+
 ## Comprobaciones automáticas para nuevas versiones
 
 El script build/Test-DefenderArtifacts.ps1 analiza los archivos finales compilados utilizando Microsoft Defender activo, con firmas recientes. Si está inactivo, no hay firmas, ocurre un error, se detecta amenaza o el archivo se elimina durante el análisis, GitHub Actions falla y bloquea la publicación automática. NO se crean exclusiones ni se desactiva Defender.
