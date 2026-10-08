@@ -7,6 +7,7 @@ try {
     Import-Module (Join-Path $src 'AulaGuard.Security.psm1') -Force
     Import-Module (Join-Path $src 'AulaGuard.Core.psm1') -Force
     Import-Module (Join-Path $src 'AulaGuard.Policy.psm1') -Force
+    Import-Module (Join-Path $src 'AulaGuard.USB.psm1') -Force
     Import-Module (Join-Path $src 'AulaGuard.AppControl.psm1') -Force
 
     # Do not create a new trust key or downgrade settings during unattended startup.
@@ -14,10 +15,15 @@ try {
 
     if ($settings.policyMode -eq 'Enforce') {
         $result = @(Apply-AulaGuardPolicies -Settings $settings)
+        $usbResult = @(Sync-AulaGuardUsbPolicy -BlockStorage ([bool]$settings.usb.blockStorage) -Root $root)
+        $usbErrors = @($usbResult | Where-Object {$_.Status -eq 'ERROR'})
+        if ($usbErrors.Count -gt 0) {
+            throw "Falló la sincronización USB para $($usbErrors.Count) perfil(es): $($usbErrors[0].Detail)"
+        }
         if ($settings.protections.protectPublicDesktop) {
             Protect-AulaGuardPublicDesktop
         }
-        Write-AulaGuardAudit -Action 'STARTUP_POLICIES_SYNC' -Level 'SECURITY' -Detail "Profiles=$($result.Count)" -Root $root
+        Write-AulaGuardAudit -Action 'STARTUP_POLICIES_SYNC' -Level 'SECURITY' -Detail "Profiles=$($result.Count);USB=$($usbResult.Count)" -Root $root
     } else {
         Write-AulaGuardAudit -Action 'STARTUP_AUDIT_MODE' -Detail 'Las políticas generales permanecen en modo auditoría.' -Root $root
     }
