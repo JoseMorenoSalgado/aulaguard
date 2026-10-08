@@ -77,6 +77,25 @@ jobs:
         run: |
           & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" ".\installer\AulaGuard.iss"
 
+      - name: Smoke test protected Windows installation
+        shell: powershell
+        run: |
+          $setup = (Resolve-Path 'dist/installer/AulaGuard-Setup-v0.3.3.exe').Path
+          $process = Start-Process -FilePath $setup -ArgumentList '/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-' -Wait -PassThru
+          if ($process.ExitCode -ne 0) { throw "Installer failed with $($process.ExitCode)" }
+          $installedRoot = Join-Path $env:ProgramFiles 'AulaGuard'
+          if (-not (Test-Path (Join-Path $installedRoot 'src/AulaGuard.exe'))) {
+            throw 'Expected executable missing from Program Files.'
+          }
+          Import-Module (Join-Path $installedRoot 'src/AulaGuard.Security.psm1') -Force
+          Import-Module (Join-Path $installedRoot 'src/AulaGuard.Core.psm1') -Force
+          $dataRoot = Join-Path $env:ProgramData 'AulaGuard'
+          $settings = Read-AulaGuardSettings -Root $dataRoot
+          if ($settings.policyMode -ne 'Audit') { throw 'Fresh installation is not in Audit mode.' }
+          $task = Get-ScheduledTask -TaskName 'PolicySync' -TaskPath '\AulaGuard\' -ErrorAction Stop
+          if (-not $task) { throw 'SYSTEM policy synchronization task missing.' }
+          Write-Host '[OK] Protected installer smoke test passed'
+
       - name: Sign installer when trusted certificate is configured
         if: github.event_name != 'pull_request'
         shell: powershell
