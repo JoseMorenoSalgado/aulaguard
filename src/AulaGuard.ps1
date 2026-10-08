@@ -747,6 +747,152 @@ try {
     $btnRemoveShortcut.Anchor = 'Top,Right'
     $tabDesktop.Controls.Add($btnRemoveShortcut)
 
+    # USB REMOVABLE STORAGE CONTROL — per-user, never the entire USB controller.
+    $tabUsb = New-Object System.Windows.Forms.TabPage
+    $tabUsb.Text = 'Memorias USB'
+    $tabUsb.BackColor = $Bg
+    $tabs.TabPages.Add($tabUsb)
+
+    $usbView = New-Object System.Windows.Forms.TableLayoutPanel
+    $usbView.Dock = 'Fill'
+    $usbView.Padding = New-Object System.Windows.Forms.Padding(24,18,24,18)
+    $usbView.ColumnCount = 1
+    $usbView.RowCount = 4
+    [void]$usbView.RowStyles.Add((New-Object System.Windows.Forms.RowStyle('Absolute',70)))
+    [void]$usbView.RowStyles.Add((New-Object System.Windows.Forms.RowStyle('Absolute',184)))
+    [void]$usbView.RowStyles.Add((New-Object System.Windows.Forms.RowStyle('Absolute',70)))
+    [void]$usbView.RowStyles.Add((New-Object System.Windows.Forms.RowStyle('Percent',100)))
+    $tabUsb.Controls.Add($usbView)
+
+    $usbTitle = New-Object System.Windows.Forms.Panel
+    $usbTitle.Dock = 'Fill'
+    $usbTitle.Controls.Add((New-Label 'Control de memorias USB' 0 0 16 $true $Text))
+    $usbTitle.Controls.Add((New-Label 'Restringe lectura y escritura de discos extraíbles SOLO a las cuentas estándar.' 0 32 9 $false $Muted))
+    $usbView.Controls.Add($usbTitle,0,0)
+
+    $usbCard = New-Object System.Windows.Forms.Panel
+    $usbCard.Dock = 'Fill'
+    $usbCard.Margin = New-Object System.Windows.Forms.Padding(0,0,0,12)
+    $usbCard.Padding = New-Object System.Windows.Forms.Padding(16)
+    $usbCard.BackColor = [System.Drawing.Color]::White
+    $usbCard.BorderStyle = 'FixedSingle'
+    $usbView.Controls.Add($usbCard,0,1)
+    $usbCard.Controls.Add((New-Label 'Permitir / restringir memorias externas' 18 16 12 $true $Text))
+    $usbCard.Controls.Add((New-Label 'Bloquear el acceso a discos USB extraíbles para estudiantes' 18 50 10 $false $Text))
+    $toggleUsb = New-Object System.Windows.Forms.CheckBox
+    $toggleUsb.Appearance = 'Button'
+    $toggleUsb.FlatStyle = 'Flat'
+    $toggleUsb.FlatAppearance.BorderSize = 0
+    $toggleUsb.Size = New-Object System.Drawing.Size(120,38)
+    $toggleUsb.Location = New-Object System.Drawing.Point(18,82)
+    $toggleUsb.Font = New-Object System.Drawing.Font('Segoe UI Semibold',10)
+    $toggleUsb.TextAlign = 'MiddleCenter'
+    $toggleUsb.Cursor = 'Hand'
+    $toggleUsb.Checked = [bool]$settings.usb.blockStorage
+    $usbCard.Controls.Add($toggleUsb)
+    $toggleUsb.Add_CheckedChanged({
+        if ($toggleUsb.Checked) {
+            $toggleUsb.Text = '● BLOQUEAR'
+            $toggleUsb.BackColor = $Primary
+            $toggleUsb.ForeColor = [System.Drawing.Color]::White
+        } else {
+            $toggleUsb.Text = '○ PERMITIR'
+            $toggleUsb.BackColor = [System.Drawing.Color]::FromArgb(226,232,240)
+            $toggleUsb.ForeColor = $Text
+        }
+    })
+    if ($toggleUsb.Checked) {
+        $toggleUsb.Text = '● BLOQUEAR'
+        $toggleUsb.BackColor = $Primary
+        $toggleUsb.ForeColor = [System.Drawing.Color]::White
+    } else {
+        $toggleUsb.Text = '○ PERMITIR'
+        $toggleUsb.BackColor = [System.Drawing.Color]::FromArgb(226,232,240)
+        $toggleUsb.ForeColor = $Text
+    }
+    $usbHint = New-Label 'Guarda y aplica en modo Protección. No desactiva puertos, teclados, ratones ni el acceso del administrador.' 158 92 9 $false $Muted
+    $usbHint.MaximumSize = New-Object System.Drawing.Size(680,0)
+    $usbCard.Controls.Add($usbHint)
+
+    $usbActions = New-Object System.Windows.Forms.FlowLayoutPanel
+    $usbActions.Dock = 'Fill'
+    $usbActions.FlowDirection = 'LeftToRight'
+    $usbActions.WrapContents = $true
+    $usbActions.Margin = New-Object System.Windows.Forms.Padding(0,0,0,12)
+    $usbView.Controls.Add($usbActions,0,2)
+    $btnUsbRestore = New-Button 'Restaurar acceso USB' 0 0 188 40 'Secondary'
+    $btnUsbRefresh = New-Button 'Actualizar dispositivos' 0 0 190 40 'Primary'
+    $usbActions.Controls.Add($btnUsbRestore)
+    $usbActions.Controls.Add($btnUsbRefresh)
+
+    $usbListCard = New-Object System.Windows.Forms.Panel
+    $usbListCard.Dock = 'Fill'
+    $usbListCard.BackColor = [System.Drawing.Color]::White
+    $usbListCard.BorderStyle = 'FixedSingle'
+    $usbListCard.Padding = New-Object System.Windows.Forms.Padding(12,42,12,12)
+    $usbView.Controls.Add($usbListCard,0,3)
+    $usbListCard.Controls.Add((New-Label 'Unidades extraíbles detectadas en este equipo' 16 12 11 $true $Text))
+    $usbGrid = New-Object System.Windows.Forms.ListView
+    $usbGrid.Dock = 'Fill'
+    $usbGrid.View = 'Details'
+    $usbGrid.FullRowSelect = $true
+    $usbGrid.GridLines = $false
+    $usbGrid.HeaderStyle = 'Nonclickable'
+    [void]$usbGrid.Columns.Add('Unidad',90)
+    [void]$usbGrid.Columns.Add('Etiqueta',260)
+    [void]$usbGrid.Columns.Add('Sistema de archivos',180)
+    $usbListCard.Controls.Add($usbGrid)
+    $usbGrid.BringToFront()
+    $refreshUsb = {
+        $usbGrid.Items.Clear()
+        foreach ($device in @(Get-AulaGuardRemovableDrives)) {
+            $item = New-Object System.Windows.Forms.ListViewItem([string]$device.Letter)
+            [void]$item.SubItems.Add([string]$device.Name)
+            [void]$item.SubItems.Add([string]$device.FileSystem)
+            [void]$usbGrid.Items.Add($item)
+        }
+    }
+
+    # PREMIUM / CENTRAL SERVER — informational only, no invented live connectivity.
+    $tabPremium = New-Object System.Windows.Forms.TabPage
+    $tabPremium.Text = 'Servidor Premium'
+    $tabPremium.BackColor = $Bg
+    $tabs.TabPages.Add($tabPremium)
+    $premiumPage = New-Object System.Windows.Forms.TableLayoutPanel
+    $premiumPage.Dock = 'Fill'
+    $premiumPage.Padding = New-Object System.Windows.Forms.Padding(24,18,24,18)
+    $premiumPage.ColumnCount = 1
+    $premiumPage.RowCount = 3
+    [void]$premiumPage.RowStyles.Add((New-Object System.Windows.Forms.RowStyle('Absolute',86)))
+    [void]$premiumPage.RowStyles.Add((New-Object System.Windows.Forms.RowStyle('Absolute',200)))
+    [void]$premiumPage.RowStyles.Add((New-Object System.Windows.Forms.RowStyle('Percent',100)))
+    $tabPremium.Controls.Add($premiumPage)
+
+    $premiumHeader = New-Object System.Windows.Forms.Panel
+    $premiumHeader.Dock = 'Fill'
+    $premiumHeader.Controls.Add((New-Label 'Servidor de monitoreo · Premium' 0 0 16 $true $Text))
+    $premiumHeader.Controls.Add((New-Label 'Preparamos AulaGuard para administrar varios equipos desde una PC central.' 0 35 9 $false $Muted))
+    $premiumPage.Controls.Add($premiumHeader,0,0)
+    $premiumInfo = New-Object System.Windows.Forms.Panel
+    $premiumInfo.Dock = 'Fill'
+    $premiumInfo.Margin = New-Object System.Windows.Forms.Padding(0,0,0,14)
+    $premiumInfo.BackColor = $SoftGreen
+    $premiumPage.Controls.Add($premiumInfo,0,1)
+    $premiumInfo.Controls.Add((New-Label 'ESTADO ACTUAL · VERSIÓN LOCAL' 18 16 10 $true $PrimaryDark))
+    $premiumInfo.Controls.Add((New-Label 'Sin conexión a servidores. No se envían datos de alumnos ni del equipo.' 18 55 11 $true $Text))
+    $premiumInfo.Controls.Add((New-Label 'El enlace con un servidor Premium todavía no está disponible.' 18 90 9 $false $Muted))
+    $premiumInfo.Controls.Add((New-Label 'En una versión futura habrá inscripción segura, estado online/offline y políticas centralizadas.' 18 116 9 $false $Muted))
+    $premiumInfo.Controls.Add((New-Label 'No se solicitan claves o contraseñas hasta disponer de un servicio verificado.' 18 142 9 $false $Muted))
+    $premiumCapabilities = New-Object System.Windows.Forms.TextBox
+    $premiumCapabilities.Multiline = $true
+    $premiumCapabilities.ReadOnly = $true
+    $premiumCapabilities.Dock = 'Fill'
+    $premiumCapabilities.ScrollBars = 'Vertical'
+    $premiumCapabilities.Font = New-Object System.Drawing.Font('Segoe UI',10)
+    $premiumCapabilities.BackColor = [System.Drawing.Color]::White
+    $premiumCapabilities.Text = "Funcionalidades previstas para Premium:$([Environment]::NewLine)$([Environment]::NewLine)• Panel central de laboratorios, equipos y estado de conexión.$([Environment]::NewLine)• Alertas de acciones bloqueadas y dispositivos de almacenamiento.$([Environment]::NewLine)• Asignación de políticas por aula y por grupo de computadoras.$([Environment]::NewLine)• Historial de auditoría con permisos y retención configurables.$([Environment]::NewLine)• Comunicación cifrada TLS y registro de dispositivos autorizado.$([Environment]::NewLine)$([Environment]::NewLine)Esta pantalla es informativa: las conexiones remotas no están implementadas."
+    $premiumPage.Controls.Add($premiumCapabilities,0,2)
+
     # LOG
     $tabAudit = New-Object System.Windows.Forms.TabPage
     $tabAudit.Text = 'Registro'
@@ -849,6 +995,8 @@ try {
     $navAppControl.Add_Click({$tabs.SelectedTab = $tabAppControl})
     $navInternet.Add_Click({$tabs.SelectedTab = $tabWeb})
     $navDesktop.Add_Click({$tabs.SelectedTab = $tabDesktop})
+    $navUsb.Add_Click({$tabs.SelectedTab = $tabUsb})
+    $navPremium.Add_Click({$tabs.SelectedTab = $tabPremium})
     $navLog.Add_Click({$tabs.SelectedTab = $tabAudit})
 
     $tabs.Add_SelectedIndexChanged({
@@ -858,6 +1006,8 @@ try {
         elseif ($tabs.SelectedTab -eq $tabAppControl) {Set-NavActive $navAppControl}
         elseif ($tabs.SelectedTab -eq $tabWeb) {Set-NavActive $navInternet}
         elseif ($tabs.SelectedTab -eq $tabDesktop) {Set-NavActive $navDesktop}
+        elseif ($tabs.SelectedTab -eq $tabUsb) {Set-NavActive $navUsb}
+        elseif ($tabs.SelectedTab -eq $tabPremium) {Set-NavActive $navPremium}
         elseif ($tabs.SelectedTab -eq $tabAudit) {Set-NavActive $navLog}
     })
 
@@ -928,6 +1078,27 @@ try {
         }
     })
 
+    $btnUsbRefresh.Add_Click({
+        & $refreshUsb
+        Set-Status 'Discos extraíbles actualizados' 'Success'
+    })
+    $btnUsbRestore.Add_Click({
+        if ([System.Windows.Forms.MessageBox]::Show(
+            'Se restaurarán las restricciones USB administradas por AulaGuard en las cuentas estándar. ¿Continuar?',
+            'AulaGuard · USB','YesNo','Question') -ne 'Yes') { return }
+        try {
+            $result = @(Sync-AulaGuardUsbPolicy -BlockStorage $false -Root $root)
+            $errors = @($result | Where-Object { $_.Status -eq 'ERROR' })
+            if ($errors.Count -gt 0) { throw "No se pudo restaurar en $($errors.Count) perfil(es): $($errors[0].Detail)" }
+            $toggleUsb.Checked = $false
+            Save-FromUi
+            Write-AulaGuardAudit -Action 'USB_POLICY_RESTORED' -Level 'SECURITY' -Detail "Profiles=$($result.Count)" -Root $root
+            Set-Status 'Acceso USB administrado restaurado; cierra y abre la sesión del estudiante.' 'Success'
+        } catch {
+            [System.Windows.Forms.MessageBox]::Show($_.Exception.Message,'AulaGuard · USB','OK','Error') | Out-Null
+        }
+    })
+
     $btnSave.Add_Click({
         Save-FromUi
         Refresh-Dashboard
@@ -949,6 +1120,9 @@ try {
         try {
             Set-Status 'Aplicando protección...' 'Warning'
             $result = @(Apply-AulaGuardPolicies -Settings $settings -WhatIfMode:$simulation)
+            $usbResults = @(Sync-AulaGuardUsbPolicy -BlockStorage ([bool]$settings.usb.blockStorage) -Root $root -WhatIfMode:$simulation)
+            $result += $usbResults
+
 
             if (-not $simulation -and $settings.protections.protectPublicDesktop) {
                 Protect-AulaGuardPublicDesktop
@@ -987,6 +1161,11 @@ try {
 
         try {
             $r = @(Reset-AulaGuardPolicies)
+            $usbRestored = @(Sync-AulaGuardUsbPolicy -BlockStorage $false -Root $root)
+            $usbErrors = @($usbRestored | Where-Object {$_.Status -eq 'ERROR'})
+            if ($usbErrors.Count -gt 0) { throw "Error restaurando USB: $($usbErrors[0].Detail)" }
+            $toggleUsb.Checked = $false
+            Save-FromUi
             Protect-AulaGuardPublicDesktop -Restore
             Write-AulaGuardAudit -Action 'POLICIES_RESET' -Level 'SECURITY' -Detail "Profiles=$($r.Count)" -Root $root
             Set-Status 'Políticas retiradas' 'Success'
@@ -1123,6 +1302,7 @@ try {
     Refresh-Dashboard
     & $loadAudit
     & $loadAppEvents
+    & $refreshUsb
 
     $form.Add_FormClosed({
         try {
