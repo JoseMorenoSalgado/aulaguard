@@ -74,6 +74,8 @@ jobs:
 
       - name: Build application from reviewed source
         shell: powershell
+        env:
+          AULAGUARD_OFFLINE_RELEASE: '1'
         run: |
           .\build\GenerateIcon.ps1
           .\build\GenerateBranding.ps1
