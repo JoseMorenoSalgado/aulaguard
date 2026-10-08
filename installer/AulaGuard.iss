@@ -94,7 +94,7 @@ Type: filesandordirs; Name: "{app}\config"
 
 [UninstallRun]
 Filename: "{sys}\schtasks.exe"; Parameters: "/Delete /TN ""AulaGuard\PolicySync"" /F"; Flags: runhidden waituntilterminated; RunOnceId: "DeletePolicySync"
-Filename: "{sys}\schtasks.exe"; Parameters: "/Delete /TN ""AulaGuard\PolicySyncLogon"" /F"; Flags: runhidden waituntilterminated; RunOnceId: "DeletePolicySyncLogonLogon"
+Filename: "{sys}\schtasks.exe"; Parameters: "/Delete /TN ""AulaGuard\PolicySyncLogon"" /F"; Flags: runhidden waituntilterminated; RunOnceId: "DeletePolicySyncLogon"
 
 [Code]
 procedure InitializeWizard;
