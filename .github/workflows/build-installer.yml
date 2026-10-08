@@ -60,6 +60,14 @@ jobs:
         shell: powershell
         run: .\build\Build-App.ps1
 
+      - name: Sign application when trusted certificate is configured
+        if: github.event_name != 'pull_request'
+        shell: powershell
+        env:
+          AULAGUARD_PFX_BASE64: ${{ secrets.AULAGUARD_PFX_BASE64 }}
+          AULAGUARD_PFX_PASSWORD: ${{ secrets.AULAGUARD_PFX_PASSWORD }}
+        run: .\build\Sign-Artifact.ps1 -Path .\dist\AulaGuard.exe
+
       - name: Install Inno Setup
         shell: powershell
         run: choco install innosetup -y --no-progress
@@ -68,6 +76,14 @@ jobs:
         shell: powershell
         run: |
           & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" ".\installer\AulaGuard.iss"
+
+      - name: Sign installer when trusted certificate is configured
+        if: github.event_name != 'pull_request'
+        shell: powershell
+        env:
+          AULAGUARD_PFX_BASE64: ${{ secrets.AULAGUARD_PFX_BASE64 }}
+          AULAGUARD_PFX_PASSWORD: ${{ secrets.AULAGUARD_PFX_PASSWORD }}
+        run: .\build\Sign-Artifact.ps1 -Path .\dist\installer\AulaGuard-Setup-v0.3.3.exe
 
       - name: Record SHA-256 installer checksum
         shell: powershell
