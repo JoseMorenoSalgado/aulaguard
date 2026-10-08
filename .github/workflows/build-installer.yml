@@ -140,6 +140,21 @@ jobs:
           Write-Host '[OK] Production EXE build uses embedded path bootstrap; PowerShell fallback is installed.'
           # Do not attempt UAC GUI automation on headless GitHub Actions runners.
 
+      - name: Construct complete AulaGuard USB/Premium interface on Windows
+        shell: powershell
+        run: |
+          $installed = Join-Path $env:ProgramFiles 'AulaGuard\src\AulaGuard.ps1'
+          $env:AULAGUARD_UI_SELFTEST = '1'
+          try {
+            & powershell.exe -NoProfile -STA -ExecutionPolicy RemoteSigned -File $installed
+            if ($LASTEXITCODE -ne 0) {
+              $log = Join-Path $env:TEMP 'AulaGuard-startup-error.txt'
+              if (Test-Path $log) { Get-Content $log | Write-Host }
+              throw "AulaGuard GUI initialization failed, exit $LASTEXITCODE"
+            }
+          } finally { Remove-Item Env:\AULAGUARD_UI_SELFTEST -ErrorAction SilentlyContinue }
+          Write-Host '[OK] Full WinForms screen tree built without showing modal windows.'
+
       - name: Sign installer when trusted certificate is configured
         if: github.event_name != 'pull_request'
         shell: powershell
