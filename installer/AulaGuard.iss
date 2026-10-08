@@ -1,5 +1,5 @@
 #define MyAppName "AulaGuard"
-#define MyAppVersion "0.3.3"
+#define MyAppVersion "0.3.4"
 #define MyAppPublisher "Elearning Cloud"
 #define MyAppURL "https://elearningcloud.io"
 #define MyAppExeName "AulaGuard.exe"
@@ -38,7 +38,7 @@ RestartApplications=yes
 UsePreviousAppDir=yes
 UsePreviousTasks=yes
 ShowLanguageDialog=no
-VersionInfoVersion=0.3.3.0
+VersionInfoVersion=0.3.4.0
 VersionInfoCompany={#MyAppPublisher}
 VersionInfoDescription=Instalador de AulaGuard para aulas Windows
 VersionInfoProductName={#MyAppName}
@@ -76,7 +76,8 @@ Name: "{group}\Desinstalar AulaGuard"; Filename: "{uninstallexe}"; Tasks: startm
 
 [Run]
 Filename: "{sys}\schtasks.exe"; Parameters: "/Create /TN ""AulaGuard\PolicySync"" /SC ONSTART /RU SYSTEM /RL HIGHEST /TR ""powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File \""{app}\src\AulaGuard.Startup.ps1\"""" /F"; Flags: runhidden waituntilterminated
-Filename: "{app}\src\AulaGuard.exe"; Description: "Abrir AulaGuard ahora"; Flags: postinstall nowait skipifsilent
+; The compiled EXE has requireAdministrator in its manifest. Inno Setup normally runs postinstall items under the original unelevated user: use runascurrentuser to retain elevation and avoid CreateProcess error 740.
+Filename: "{app}\src\AulaGuard.exe"; Description: "Abrir AulaGuard ahora"; Flags: postinstall nowait skipifsilent runascurrentuser
 
 [UninstallRun]
 Filename: "{sys}\schtasks.exe"; Parameters: "/Delete /TN ""AulaGuard\PolicySync"" /F"; Flags: runhidden; RunOnceId: "DeletePolicySync"
