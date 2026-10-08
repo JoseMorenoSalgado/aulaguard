@@ -3,6 +3,11 @@
 
 $ErrorActionPreference = 'Stop'
 
+# Command-line self-tests survive UAC elevation, unlike process environment variables.
+$script:AulaGuardCommandLine = @([Environment]::GetCommandLineArgs())
+$script:AulaGuardBootstrapTest = ($script:AulaGuardCommandLine -contains '--aulaguard-selftest-bootstrap')
+$script:AulaGuardUiTest = ($script:AulaGuardCommandLine -contains '--aulaguard-selftest-ui')
+
 try {
     Add-Type -AssemblyName System.Windows.Forms
     Add-Type -AssemblyName System.Drawing
@@ -49,7 +54,7 @@ try {
 
     # GitHub Actions executes the actual compiled EXE to check bootstrap, imports
     # and settings; never suppress security checks in the self-test.
-    if ($env:AULAGUARD_EXE_SELFTEST -eq '1') {
+    if ($script:AulaGuardBootstrapTest) {
         Write-AulaGuardAudit -Action 'EXE_BOOTSTRAP_VERIFIED' -Level 'SECURITY' -Root $root
         exit 0
     }
@@ -1105,7 +1110,7 @@ try {
     })
 
     # Exercise full WinForms construction in CI without requiring a human to close it.
-    if ($env:AULAGUARD_UI_SELFTEST -eq '1') {
+    if ($script:AulaGuardUiTest) {
         $form.Dispose()
         exit 0
     }
