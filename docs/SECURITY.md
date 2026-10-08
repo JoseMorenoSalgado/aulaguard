@@ -1,4 +1,4 @@
-# Seguridad de AulaGuard v0.3.3
+# Seguridad de AulaGuard v0.3.4
 
 ## Alcance y amenaza
 
@@ -9,7 +9,7 @@ AulaGuard está diseñado para cuentas **estándar** de estudiantes en Windows 1
 1. **ACL de ProgramData**: `%ProgramData%\AulaGuard` y sus archivos se protegen con permisos exclusivos de `BUILTIN\Administrators` y `NT AUTHORITY\SYSTEM`. Se rechazan rutas de unión/redirección (junctions/reparse points). Se necesita elevación UAC para inicializar y administrar.
 2. **Clave local de 256 bits**: generada con un CSPRNG del sistema y cifrada en disco mediante **DPAPI LocalMachine**. La clave nunca se incluye en GitHub o el instalador. La protección de acceso al blob es esencial: DPAPI LocalMachine, por sí sola, no separa a todos los usuarios locales.
 3. **Configuración autenticada**: `config/settings.json` se acompaña de `config/settings.json.mac` (HMAC-SHA-256). Se rechazan datos alterados, falta de firma y ausencia de clave. El arranque programado nunca reconstruye en silencio una firma faltante ni pasa automáticamente al modo Auditoría ante corrupción.
-4. **Bitácora encadenada**: `logs/secure-audit-AAAA-MM-DD.jsonl` encadena cada entrada con la MAC anterior y una MAC de su contenido. La interfaz valida la cadena antes de mostrarla. Una cadena alterada impide nuevas escrituras a ese archivo. Los registros históricos anteriores a v0.3.3 quedan señalados como no autenticados.
+4. **Bitácora encadenada**: `logs/secure-audit-AAAA-MM-DD.jsonl` encadena cada entrada con la MAC anterior y una MAC de su contenido. La interfaz valida la cadena antes de mostrarla. Una cadena alterada impide nuevas escrituras a ese archivo. Los registros históricos anteriores a v0.3.4 quedan señalados como no autenticados.
 5. **Arranque seguro y diagnóstico**: el sincronizador SYSTEM importa módulos desde su carpeta instalada en lugar de asumir `ProgramData\AulaGuard\src`. Si falla la comprobación, no aplica configuración no confiable y emite el evento 101 en el registro de Aplicación de Windows.
 6. **Instalación**: el instalador inicializa los permisos y la configuración firmada antes de crear la tarea de sincronización. Si falla la inicialización, aborta. `Instalar.cmd` endurece `ProgramData` antes de copiar scripts.
 
@@ -65,3 +65,7 @@ Si una instalación ya dispone de una clave DPAPI pero perdió su firma, **no fu
 Referencias:
 - [AppLocker: requisitos](https://learn.microsoft.com/en-us/windows/security/application-security/application-control/app-control-for-business/applocker/requirements-to-use-applocker)
 - [DPAPI LocalMachine](https://learn.microsoft.com/en-us/dotnet/api/system.security.cryptography.dataprotectionscope)
+
+## Error 740 al finalizar la instalación
+
+En v0.3.4, la opción **Abrir AulaGuard ahora** del asistente ejecuta la aplicación con el contexto elevado del instalador (`runascurrentuser`). Es necesario porque el ejecutable exige permisos de administrador (`requireAdministrator`). No se eliminó UAC ni se relajaron las restricciones de Windows. Los accesos directos siguen solicitando aprobación de administrador al abrir la consola.
