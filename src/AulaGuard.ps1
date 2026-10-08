@@ -314,6 +314,7 @@ try {
     $version.ForeColor = [System.Drawing.Color]::White
     $version.Font = New-Object System.Drawing.Font('Segoe UI Semibold',9)
     $header.Controls.Add($version)
+    $header.Add_Resize({ $version.Left = [Math]::Max(240,$header.ClientSize.Width - $version.Width - 22) })
 
     $footer = New-Object System.Windows.Forms.Panel
     $footer.Dock = 'Bottom'
@@ -331,6 +332,11 @@ try {
     $btnApply = New-Button 'Aplicar protección' 995 11 155 38 'Success'
     $btnApply.Anchor = 'Top,Right'
     $footer.Controls.Add($btnApply)
+    $footer.Add_Resize({
+        $btnApply.Left = [Math]::Max(180,$footer.ClientSize.Width - $btnApply.Width - 22)
+        $btnSave.Left = $btnApply.Left - $btnSave.Width - 12
+        $status.MaximumSize = New-Object System.Drawing.Size([Math]::Max(120,$btnSave.Left - 32),0)
+    })
 
     $workspace = New-Object System.Windows.Forms.Panel
     $workspace.Dock = 'Fill'
@@ -596,6 +602,30 @@ try {
     $profileCard.Controls.Add($btnReset)
 
     $tabProtection.Controls.Add($profileCard)
+    # Reflow protection cards instead of clipping at fixed 1,100px width.
+    $resizeProtection = {
+        $usable = [Math]::Max(600,$tabProtection.ClientSize.Width - 52)
+        $modeCard.Width = $usable
+        $profileCard.Width = $usable
+        if ($usable -lt 940) {
+            $left.Size = New-Object System.Drawing.Size($usable,280)
+            $right.Location = New-Object System.Drawing.Point(24,505)
+            $right.Size = New-Object System.Drawing.Size($usable,244)
+            $profileCard.Top = 765
+        } else {
+            $half = [int](($usable - 18)/2)
+            $left.Size = New-Object System.Drawing.Size($half,292)
+            $right.Location = New-Object System.Drawing.Point((24 + $half + 18),204)
+            $right.Size = New-Object System.Drawing.Size($half,292)
+            $profileCard.Top = 518
+        }
+        $btnWallpaper.Left = [Math]::Max(340,$left.ClientSize.Width - $btnWallpaper.Width - 18)
+        $txtWallpaper.Width = [Math]::Max(240,$btnWallpaper.Left - 28)
+        $btnReset.Left = [Math]::Max(490,$profileCard.ClientSize.Width - 178)
+        $btnImport.Left = $btnReset.Left - 150
+        $btnExport.Left = $btnImport.Left - 150
+    }
+    $tabProtection.Add_Resize($resizeProtection)
 
     # PROGRAMS — read-only installed-app inventory; switches edit an allow list,
     # not an AppLocker rule until the administrator explicitly applies it.
@@ -1577,6 +1607,7 @@ try {
         $page.AutoScroll = $true
     }
 
+    & $resizeProtection
     Set-NavActive $navHome
     Write-AulaGuardAudit -Action 'APP_STARTED' -Detail 'v0.4.2' -Root $root
     Refresh-Dashboard
