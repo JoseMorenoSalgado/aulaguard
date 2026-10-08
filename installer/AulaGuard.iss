@@ -1,5 +1,5 @@
 #define MyAppName "AulaGuard"
-#define MyAppVersion "0.3.5"
+#define MyAppVersion "0.3.6"
 #define MyAppPublisher "Elearning Cloud"
 #define MyAppURL "https://elearningcloud.io"
 #define MyAppExeName "AulaGuard.exe"
@@ -38,7 +38,7 @@ RestartApplications=yes
 UsePreviousAppDir=yes
 UsePreviousTasks=yes
 ShowLanguageDialog=no
-VersionInfoVersion=0.3.5.0
+VersionInfoVersion=0.3.6.0
 VersionInfoCompany={#MyAppPublisher}
 VersionInfoDescription=Instalador de AulaGuard para aulas Windows
 VersionInfoProductName={#MyAppName}
@@ -82,8 +82,16 @@ Filename: "{sys}\schtasks.exe"; Parameters: "/Create /TN ""AulaGuard\PolicySync"
 ; The compiled EXE has requireAdministrator in its manifest. Inno Setup normally runs postinstall items under the original unelevated user: use runascurrentuser to retain elevation and avoid CreateProcess error 740.
 Filename: "{app}\src\AulaGuard.exe"; Description: "Abrir AulaGuard ahora"; Flags: postinstall nowait skipifsilent runascurrentuser
 
+[UninstallDelete]
+; Inno removes all tracked installed files. These three application-owned directories
+; also contain files left by older package versions, which otherwise prevent {app}
+; from being removed. NEVER recursively delete {app} itself or ProgramData.
+Type: filesandordirs; Name: "{app}\src"
+Type: filesandordirs; Name: "{app}\docs"
+Type: filesandordirs; Name: "{app}\config"
+
 [UninstallRun]
-Filename: "{sys}\schtasks.exe"; Parameters: "/Delete /TN ""AulaGuard\PolicySync"" /F"; Flags: runhidden; RunOnceId: "DeletePolicySync"
+Filename: "{sys}\schtasks.exe"; Parameters: "/Delete /TN ""AulaGuard\PolicySync"" /F"; Flags: runhidden waituntilterminated; RunOnceId: "DeletePolicySync"
 
 [Code]
 procedure InitializeWizard;
