@@ -1,4 +1,4 @@
-# AulaGuard v0.3.2
+# AulaGuard v0.3.3
 # Friendly educational administration console for Windows classrooms.
 
 $ErrorActionPreference = 'Stop'
@@ -7,6 +7,7 @@ try {
     Add-Type -AssemblyName System.Windows.Forms
     Add-Type -AssemblyName System.Drawing
 
+    Import-Module (Join-Path $PSScriptRoot 'AulaGuard.Security.psm1') -Force
     Import-Module (Join-Path $PSScriptRoot 'AulaGuard.Core.psm1') -Force
     Import-Module (Join-Path $PSScriptRoot 'AulaGuard.Policy.psm1') -Force
     Import-Module (Join-Path $PSScriptRoot 'AulaGuard.Diagnostics.psm1') -Force
@@ -20,7 +21,8 @@ try {
         exit 1
     }
 
-    $root = Initialize-AulaGuardStorage
+    $root = Get-AulaGuardRoot
+    Initialize-AulaGuardSecurity -Root $root
     $settings = Read-AulaGuardSettings -Root $root
 
     $Primary = [System.Drawing.Color]::FromArgb(37,99,235)
@@ -200,7 +202,7 @@ try {
         }
 
         return [pscustomobject]@{
-            version = '0.3.2'
+            version = '0.3.3'
             profileName = $txtProfileName.Text.Trim()
             policyMode = if ($radEnforce.Checked) {'Enforce'} else {'Audit'}
             wallpaper = $txtWallpaper.Text.Trim()
@@ -262,7 +264,7 @@ try {
     $header.Controls.Add((New-Label 'Protege el aula sin complicaciones' 94 48 10 $false ([System.Drawing.Color]::FromArgb(219,234,254))))
 
     $version = New-Object System.Windows.Forms.Label
-    $version.Text = 'v0.3.2'
+    $version.Text = 'v0.3.3'
     $version.TextAlign = 'MiddleCenter'
     $version.Location = New-Object System.Drawing.Point(1060,26)
     $version.Size = New-Object System.Drawing.Size(82,30)
@@ -716,21 +718,30 @@ try {
 
     $loadAudit = {
         $lines = @()
-        $files = Get-ChildItem (Join-Path $root 'logs') -Filter 'audit-*.jsonl' -ErrorAction SilentlyContinue |
-            Sort-Object LastWriteTime -Descending |
-            Select-Object -First 5
+        $files = Get-ChildItem (Join-Path $root 'logs') -Filter 'secure-audit-*.jsonl' -ErrorAction SilentlyContinue |
+            Sort-Object Name -Descending | Select-Object -First 5
 
         foreach ($file in ($files | Sort-Object Name)) {
-            foreach ($line in (Get-Content $file.FullName -ErrorAction SilentlyContinue)) {
+            $result = Test-AulaGuardAuditLog -Path $file.FullName -Root $root
+            if (-not $result.Valid) {
+                $lines += "[ALERTA DE INTEGRIDAD] $($file.Name): $($result.Detail)"
+                continue
+            }
+            $lines += "[INTEGRIDAD VERIFICADA] $($file.Name) - $($result.Count) entradas"
+            foreach ($line in (Get-Content -LiteralPath $file.FullName -ErrorAction SilentlyContinue)) {
                 try {
-                    $e = $line | ConvertFrom-Json
+                    $e = $line | ConvertFrom-Json -ErrorAction Stop
                     $lines += ('{0} [{1}] {2} {3}' -f $e.timestamp,$e.level,$e.action,$e.detail)
                 } catch {
-                    $lines += $line
+                    $lines += '[ALERTA] No se pudo interpretar una entrada.'
                 }
             }
         }
 
+        $legacyFiles = @(Get-ChildItem (Join-Path $root 'logs') -Filter 'audit-*.jsonl' -ErrorAction SilentlyContinue)
+        if ($legacyFiles.Count -gt 0) {
+            $lines += '[HISTÓRICO] Existen registros anteriores sin autenticación criptográfica.'
+        }
         $txtAudit.Text = ($lines -join [Environment]::NewLine)
         $txtAudit.SelectionStart = $txtAudit.TextLength
         $txtAudit.ScrollToCaret()
@@ -1053,7 +1064,7 @@ try {
     }
 
     Set-NavActive $navHome
-    Write-AulaGuardAudit -Action 'APP_STARTED' -Detail 'v0.3.2' -Root $root
+    Write-AulaGuardAudit -Action 'APP_STARTED' -Detail 'v0.3.3' -Root $root
     Refresh-Dashboard
     & $loadAudit
     & $loadAppEvents

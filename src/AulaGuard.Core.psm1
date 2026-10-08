@@ -28,7 +28,7 @@ function Get-AulaGuardSettingsPath {
 
 function New-AulaGuardSettings {
     [pscustomobject]@{
-        version = '0.3.2'
+        version = '0.3.3'
         profileName = 'Aula principal'
         policyMode = 'Audit'
         wallpaper = ''
@@ -59,47 +59,40 @@ function New-AulaGuardSettings {
 
 function Read-AulaGuardSettings {
     param([string]$Root = (Get-AulaGuardRoot))
-    Initialize-AulaGuardStorage -Root $Root | Out-Null
-    $defaults = New-AulaGuardSettings
     $path = Get-AulaGuardSettingsPath -Root $Root
+    # Never silently fall back to permissive defaults when the signed state is missing or corrupt.
+    Assert-AulaGuardSignedFile -Path $path -Root $Root
+    $defaults = New-AulaGuardSettings
+    $s = Get-Content -LiteralPath $path -Raw -Encoding UTF8 -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop
 
-    if (-not (Test-Path $path)) { return $defaults }
-
-    try {
-        $s = Get-Content -Path $path -Raw -Encoding UTF8 | ConvertFrom-Json
-
-        foreach ($property in @('version','profileName','policyMode','wallpaper','allowedPrograms','allowedWebsites','protectedShortcuts','appControl','auditEnabled','lastAppliedUtc')) {
-            if (-not ($s.PSObject.Properties.Name -contains $property)) {
-                $s | Add-Member NoteProperty $property $defaults.$property
-            }
+    foreach ($property in @('version','profileName','policyMode','wallpaper','allowedPrograms','allowedWebsites','protectedShortcuts','appControl','auditEnabled','lastAppliedUtc')) {
+        if (-not ($s.PSObject.Properties.Name -contains $property)) {
+            $s | Add-Member NoteProperty $property $defaults.$property
         }
-
-        if (-not ($s.PSObject.Properties.Name -contains 'protections') -or $null -eq $s.protections) {
-            $s | Add-Member NoteProperty protections $defaults.protections -Force
-        } else {
-            foreach ($property in $defaults.protections.PSObject.Properties.Name) {
-                if (-not ($s.protections.PSObject.Properties.Name -contains $property)) {
-                    $s.protections | Add-Member NoteProperty $property $defaults.protections.$property
-                }
-            }
-        }
-
-        if (-not ($s.PSObject.Properties.Name -contains 'appControl') -or $null -eq $s.appControl) {
-            $s | Add-Member NoteProperty appControl $defaults.appControl -Force
-        } else {
-            foreach ($property in $defaults.appControl.PSObject.Properties.Name) {
-                if (-not ($s.appControl.PSObject.Properties.Name -contains $property)) {
-                    $s.appControl | Add-Member NoteProperty $property $defaults.appControl.$property
-                }
-            }
-        }
-
-        $s.version = '0.3.2'
-        return $s
     }
-    catch {
-        return $defaults
+    if (-not ($s.PSObject.Properties.Name -contains 'protections') -or $null -eq $s.protections) {
+        $s | Add-Member NoteProperty protections $defaults.protections -Force
+    } else {
+        foreach ($property in $defaults.protections.PSObject.Properties.Name) {
+            if (-not ($s.protections.PSObject.Properties.Name -contains $property)) {
+                $s.protections | Add-Member NoteProperty $property $defaults.protections.$property
+            }
+        }
     }
+    if ($null -eq $s.appControl) {
+        $s | Add-Member NoteProperty appControl $defaults.appControl -Force
+    } else {
+        foreach ($property in $defaults.appControl.PSObject.Properties.Name) {
+            if (-not ($s.appControl.PSObject.Properties.Name -contains $property)) {
+                $s.appControl | Add-Member NoteProperty $property $defaults.appControl.$property
+            }
+        }
+    }
+    if ($s.policyMode -notin @('Audit','Enforce') -or $s.appControl.mode -notin @('AuditOnly','Enabled')) {
+        throw 'Modo de políticas inválido en configuración protegida.'
+    }
+    $s.version = '0.3.3'
+    return $s
 }
 
 function Save-AulaGuardSettings {
@@ -107,11 +100,16 @@ function Save-AulaGuardSettings {
         [Parameter(Mandatory=$true)]$Settings,
         [string]$Root = (Get-AulaGuardRoot)
     )
-    Initialize-AulaGuardStorage -Root $Root | Out-Null
+    Assert-AulaGuardElevated
     $path = Get-AulaGuardSettingsPath -Root $Root
-    $tmp = "$path.tmp"
-    $Settings | ConvertTo-Json -Depth 8 | Set-Content -Path $tmp -Encoding UTF8
-    Move-Item -Path $tmp -Destination $path -Force
+    if ($Settings.policyMode -notin @('Audit','Enforce') -or
+        $Settings.appControl.mode -notin @('AuditOnly','Enabled')) {
+        throw 'Modo de políticas inválido.'
+    }
+    $json = $Settings | ConvertTo-Json -Depth 12 -ErrorAction Stop
+    if ($json.Length -gt 1048576) { throw 'El perfil excede el tamaño permitido (1 MB).' }
+    $bytes = (New-Object System.Text.UTF8Encoding($false)).GetBytes($json)
+    Set-AulaGuardSignedFile -Path $path -Data $bytes -Root $Root
     return $path
 }
 
@@ -122,17 +120,7 @@ function Write-AulaGuardAudit {
         [ValidateSet('INFO','WARN','ERROR','SECURITY')][string]$Level = 'INFO',
         [string]$Root = (Get-AulaGuardRoot)
     )
-    Initialize-AulaGuardStorage -Root $Root | Out-Null
-    $path = Join-Path $Root ("logs\audit-{0}.jsonl" -f (Get-Date -Format 'yyyy-MM-dd'))
-    $entry = [ordered]@{
-        timestamp = (Get-Date).ToString('o')
-        level = $Level
-        computer = $env:COMPUTERNAME
-        user = [Security.Principal.WindowsIdentity]::GetCurrent().Name
-        action = $Action
-        detail = $Detail
-    }
-    ($entry | ConvertTo-Json -Compress) | Add-Content -Path $path -Encoding UTF8
+    Write-AulaGuardSecureAudit -Action $Action -Detail $Detail -Level $Level -Root $Root
 }
 
 function Backup-AulaGuardConfiguration {
@@ -141,7 +129,9 @@ function Backup-AulaGuardConfiguration {
     $source = Get-AulaGuardSettingsPath -Root $Root
     if (-not (Test-Path $source)) { return $null }
     $dest = Join-Path $Root ("backup\settings-{0}.json" -f (Get-Date -Format 'yyyyMMdd-HHmmss'))
-    Copy-Item $source $dest -Force
+    Assert-AulaGuardSignedFile -Path $source -Root $Root
+    Copy-Item -LiteralPath $source -Destination $dest -Force
+    Copy-Item -LiteralPath "$source.mac" -Destination "$dest.mac" -Force
     Write-AulaGuardAudit -Action 'CONFIG_BACKUP' -Detail $dest -Root $Root
     return $dest
 }
@@ -161,7 +151,11 @@ function Import-AulaGuardProfile {
         [Parameter(Mandatory=$true)][string]$Path,
         [string]$Root = (Get-AulaGuardRoot)
     )
-    $settings = Get-Content -Path $Path -Raw -Encoding UTF8 | ConvertFrom-Json
+    $settings = Get-Content -LiteralPath $Path -Raw -Encoding UTF8 | ConvertFrom-Json -ErrorAction Stop
+    if (-not ($settings.PSObject.Properties.Name -contains 'protections') -or
+        -not ($settings.PSObject.Properties.Name -contains 'appControl')) {
+        throw 'El archivo importado no es un perfil AulaGuard válido.'
+    }
     Save-AulaGuardSettings -Settings $settings -Root $Root | Out-Null
     Write-AulaGuardAudit -Action 'PROFILE_IMPORT' -Detail $Path -Root $Root
     return $settings

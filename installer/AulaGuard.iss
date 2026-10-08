@@ -1,5 +1,5 @@
 #define MyAppName "AulaGuard"
-#define MyAppVersion "0.3.2"
+#define MyAppVersion "0.3.3"
 #define MyAppPublisher "Elearning Cloud"
 #define MyAppURL "https://elearningcloud.io"
 #define MyAppExeName "AulaGuard.exe"
@@ -38,7 +38,7 @@ RestartApplications=yes
 UsePreviousAppDir=yes
 UsePreviousTasks=yes
 ShowLanguageDialog=no
-VersionInfoVersion=0.3.2.0
+VersionInfoVersion=0.3.3.0
 VersionInfoCompany={#MyAppPublisher}
 VersionInfoDescription=Instalador de AulaGuard para aulas Windows
 VersionInfoProductName={#MyAppName}
@@ -50,18 +50,17 @@ Name: "spanish"; MessagesFile: "compiler:Languages\Spanish.isl"
 [Tasks]
 Name: "desktopicon"; Description: "Crear un acceso directo en el escritorio"; GroupDescription: "Accesos directos:"; Flags: checkedonce
 Name: "startmenuicon"; Description: "Crear acceso directo en el menú Inicio"; GroupDescription: "Accesos directos:"; Flags: checkedonce
+Name: "migratelegacy"; Description: "Migrar una configuración anterior REVISADA (la deja en modo auditoría)"; GroupDescription: "Seguridad de actualización:"; Flags: unchecked
 
 [Dirs]
 Name: "{app}\src"
 Name: "{app}\config"
 Name: "{app}\docs"
-Name: "{commonappdata}\AulaGuard\config"
-Name: "{commonappdata}\AulaGuard\logs"
-Name: "{commonappdata}\AulaGuard\backup"
-Name: "{commonappdata}\AulaGuard\profiles"
 
 [Files]
 Source: "..\dist\AulaGuard.exe"; DestDir: "{app}\src"; Flags: ignoreversion
+Source: "..\src\AulaGuard.Security.psm1"; DestDir: "{app}\src"; Flags: ignoreversion
+Source: "..\src\AulaGuard.Initialize.ps1"; DestDir: "{app}\src"; Flags: ignoreversion
 Source: "..\src\AulaGuard.Core.psm1"; DestDir: "{app}\src"; Flags: ignoreversion
 Source: "..\src\AulaGuard.Policy.psm1"; DestDir: "{app}\src"; Flags: ignoreversion
 Source: "..\src\AulaGuard.Diagnostics.psm1"; DestDir: "{app}\src"; Flags: ignoreversion
@@ -76,8 +75,7 @@ Name: "{group}\AulaGuard"; Filename: "{app}\src\AulaGuard.exe"; WorkingDir: "{ap
 Name: "{group}\Desinstalar AulaGuard"; Filename: "{uninstallexe}"; Tasks: startmenuicon
 
 [Run]
-Filename: "{cmd}"; Parameters: "/C if not exist ""{commonappdata}\AulaGuard\config\settings.json"" copy /Y ""{app}\config\default.json"" ""{commonappdata}\AulaGuard\config\settings.json"""; Flags: runhidden waituntilterminated
-Filename: "{sys}\schtasks.exe"; Parameters: "/Create /TN ""AulaGuard\PolicySync"" /SC ONSTART /RU SYSTEM /RL HIGHEST /TR ""powershell.exe -NoProfile -ExecutionPolicy Bypass -File \""{app}\src\AulaGuard.Startup.ps1\"""" /F"; Flags: runhidden waituntilterminated
+Filename: "{sys}\schtasks.exe"; Parameters: "/Create /TN ""AulaGuard\PolicySync"" /SC ONSTART /RU SYSTEM /RL HIGHEST /TR ""powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File \""{app}\src\AulaGuard.Startup.ps1\"""" /F"; Flags: runhidden waituntilterminated
 Filename: "{app}\src\AulaGuard.exe"; Description: "Abrir AulaGuard ahora"; Flags: postinstall nowait skipifsilent
 
 [UninstallRun]
@@ -101,4 +99,33 @@ end;
 function ShouldSkipPage(PageID: Integer): Boolean;
 begin
   Result := False;
+end;
+
+procedure CurStepChanged(CurStep: TSetupStep);
+var
+  Params: string;
+  ResultCode: Integer;
+  Started: Boolean;
+begin
+  if CurStep <> ssPostInstall then
+    Exit;
+
+  Params := '-NoProfile -ExecutionPolicy RemoteSigned -File "' +
+    ExpandConstant('{app}\src\AulaGuard.Initialize.ps1') + '"';
+  if IsTaskSelected('migratelegacy') then
+    Params := Params + ' -MigrateLegacy';
+
+  ResultCode := -1;
+  Started := Exec(
+    ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe'),
+    Params, ExpandConstant('{app}'), SW_HIDE, ewWaitUntilTerminated, ResultCode
+  );
+  if (not Started) or (ResultCode <> 0) then
+  begin
+    MsgBox('No se pudo verificar o crear la configuración protegida de AulaGuard.' + #13#10 +
+      'Revise docs\SECURITY.md antes de continuar.' + #13#10 +
+      'Código de salida: ' + IntToStr(ResultCode),
+      mbCriticalError, MB_OK);
+    Abort;
+  end;
 end;

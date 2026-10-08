@@ -2,11 +2,15 @@ name: Build AulaGuard Installer
 
 on:
   workflow_dispatch:
+  pull_request:
+    branches:
+      - main
   push:
     branches:
       - main
     paths:
       - "src/**"
+      - "tests/**"
       - "config/**"
       - "docs/**"
       - "build/**"
@@ -27,7 +31,7 @@ jobs:
       - name: Validate PowerShell syntax
         shell: powershell
         run: |
-          $files = Get-ChildItem .\src -Include *.ps1,*.psm1 -Recurse
+          $files = Get-ChildItem -Path .\src,.\build,.\tests -Include *.ps1,*.psm1 -Recurse
           $failed = $false
           foreach ($file in $files) {
             $tokens = $null
@@ -39,6 +43,10 @@ jobs:
             }
           }
           if ($failed) { exit 1 }
+
+      - name: Verify cryptographic security and tamper resistance
+        shell: powershell
+        run: .\tests\Security.Tests.ps1
 
       - name: Generate application icon
         shell: powershell
@@ -52,6 +60,14 @@ jobs:
         shell: powershell
         run: .\build\Build-App.ps1
 
+      - name: Sign application when trusted certificate is configured
+        if: github.event_name != 'pull_request'
+        shell: powershell
+        env:
+          AULAGUARD_PFX_BASE64: ${{ secrets.AULAGUARD_PFX_BASE64 }}
+          AULAGUARD_PFX_PASSWORD: ${{ secrets.AULAGUARD_PFX_PASSWORD }}
+        run: .\build\Sign-Artifact.ps1 -Path .\dist\AulaGuard.exe
+
       - name: Install Inno Setup
         shell: powershell
         run: choco install innosetup -y --no-progress
@@ -61,9 +77,45 @@ jobs:
         run: |
           & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" ".\installer\AulaGuard.iss"
 
+      - name: Smoke test protected Windows installation
+        shell: powershell
+        run: |
+          $setup = (Resolve-Path 'dist/installer/AulaGuard-Setup-v0.3.3.exe').Path
+          $process = Start-Process -FilePath $setup -ArgumentList '/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-' -Wait -PassThru
+          if ($process.ExitCode -ne 0) { throw "Installer failed with $($process.ExitCode)" }
+          $installedRoot = Join-Path $env:ProgramFiles 'AulaGuard'
+          if (-not (Test-Path (Join-Path $installedRoot 'src/AulaGuard.exe'))) {
+            throw 'Expected executable missing from Program Files.'
+          }
+          Import-Module (Join-Path $installedRoot 'src/AulaGuard.Security.psm1') -Force
+          Import-Module (Join-Path $installedRoot 'src/AulaGuard.Core.psm1') -Force
+          $dataRoot = Join-Path $env:ProgramData 'AulaGuard'
+          $settings = Read-AulaGuardSettings -Root $dataRoot
+          if ($settings.policyMode -ne 'Audit') { throw 'Fresh installation is not in Audit mode.' }
+          $task = Get-ScheduledTask -TaskName 'PolicySync' -TaskPath '\AulaGuard\' -ErrorAction Stop
+          if (-not $task) { throw 'SYSTEM policy synchronization task missing.' }
+          Write-Host '[OK] Protected installer smoke test passed'
+
+      - name: Sign installer when trusted certificate is configured
+        if: github.event_name != 'pull_request'
+        shell: powershell
+        env:
+          AULAGUARD_PFX_BASE64: ${{ secrets.AULAGUARD_PFX_BASE64 }}
+          AULAGUARD_PFX_PASSWORD: ${{ secrets.AULAGUARD_PFX_PASSWORD }}
+        run: .\build\Sign-Artifact.ps1 -Path .\dist\installer\AulaGuard-Setup-v0.3.3.exe
+
+      - name: Record SHA-256 installer checksum
+        shell: powershell
+        run: |
+          $exe = 'dist/installer/AulaGuard-Setup-v0.3.3.exe'
+          $hash = (Get-FileHash -Path $exe -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  AulaGuard-Setup-v0.3.3.exe" | Set-Content dist/installer/SHA256SUMS.txt -Encoding ASCII
+
       - name: Upload Windows installer
         uses: actions/upload-artifact@v4
         with:
           name: AulaGuard-Windows-Installer
-          path: dist/installer/AulaGuard-Setup-v0.3.2.exe
+          path: |
+            dist/installer/AulaGuard-Setup-v0.3.3.exe
+            dist/installer/SHA256SUMS.txt
           if-no-files-found: error
