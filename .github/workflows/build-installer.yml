@@ -100,25 +100,32 @@ jobs:
           if (-not $task) { throw 'SYSTEM policy synchronization task missing.' }
           Write-Host '[OK] Protected installer smoke test passed'
 
-      - name: Launch installed EXE and verify bootstrap and UI
+      - name: Build and launch equivalent compiled bootstrap without UAC prompt
         shell: powershell
         run: |
-          $exe = Join-Path $env:ProgramFiles 'AulaGuard\src\AulaGuard.exe'
-          if (-not (Test-Path -LiteralPath $exe -PathType Leaf)) { throw "Installed EXE missing: $exe" }
+          # Windows hosted runners cannot interact with UAC consent dialogs.
+          # Compile the IDENTICAL script as a test EXE without requireAdministrator,
+          # leaving the production EXE's administrative manifest unchanged.
+          $testDir = Join-Path $env:RUNNER_TEMP 'AulaGuard-Exe-SelfTest'
+          New-Item -ItemType Directory -Path $testDir -Force | Out-Null
+          Copy-Item .\src\*.psm1 -Destination $testDir -Force
+          Import-Module ps2exe -Force
+          $exe = Join-Path $testDir 'AulaGuard-SelfTest.exe'
+          Invoke-PS2EXE -InputFile (Resolve-Path .\src\AulaGuard.ps1).Path -OutputFile $exe -NoConsole -STA
           foreach ($mode in @('--aulaguard-selftest-bootstrap', '--aulaguard-selftest-ui')) {
             $process = Start-Process -FilePath $exe -ArgumentList $mode -WorkingDirectory $env:TEMP -PassThru -ErrorAction Stop
             try {
-              if (-not $process.WaitForExit(30000)) {
+              if (-not $process.WaitForExit(15000)) {
                 $log = Join-Path $env:TEMP 'AulaGuard-startup-error.txt'
                 if (Test-Path $log) { Get-Content $log | Write-Host }
-                throw "Timed out after 30s in selftest $mode"
+                throw "Compiled application did not exit in test mode: $mode"
               }
               if ($process.ExitCode -ne 0) {
                 $log = Join-Path $env:TEMP 'AulaGuard-startup-error.txt'
                 if (Test-Path $log) { Get-Content $log | Write-Host }
-                throw "Installed AulaGuard EXE failed ($mode), exit=$($process.ExitCode)"
+                throw "Compiled application exited with $($process.ExitCode) in mode $mode"
               }
-              Write-Host "[OK] Compiled application launched: $mode"
+              Write-Host "[OK] Compiled application bootstrap and UI: $mode"
             } finally {
               if (-not $process.HasExited) { $process.Kill() }
               $process.Dispose()
