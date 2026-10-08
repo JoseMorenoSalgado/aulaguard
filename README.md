@@ -54,15 +54,24 @@ AulaGuard crea una copia de seguridad de la política AppLocker local antes de s
 
 Las reglas de control de aplicaciones no se crean para `Everyone`. AulaGuard mantiene un grupo local denominado `AulaGuardStudents` con las cuentas locales estándar habilitadas y excluye las cuentas que pertenecen al grupo integrado de administradores.
 
+## Descargar AulaGuard para Windows
+
+**[Descargar AulaGuard v0.3.3 (.exe) desde GitHub Releases](https://github.com/JoseMorenoSalgado/aulaguard/releases/latest)**
+
+En **Assets** elija `AulaGuard-Setup-v0.3.3.exe`. No es necesario compilar ni descargar el código fuente. También se publica `SHA256SUMS.txt` para verificar la integridad de la descarga.
+
+El repositorio `main` contiene **código fuente**; los instaladores se distribuyen en **Releases** para evitar incluir ejecutables generados en Git. Una compilación verificada de GitHub Actions publica automáticamente cada nueva versión.
+
 ## Instalación
 
-1. Descargue o clone el repositorio.
-2. Preferiblemente descargue el instalador gráfico de GitHub Actions y ejecútelo como administrador. `Instalar.cmd` es una alternativa para desarrollo.
-3. Los binarios se instalan bajo `Program Files` con el instalador gráfico; la configuración privada se almacena en `%ProgramData%\AulaGuard`.
-4. Se instalarán módulos de políticas, diagnóstico, seguridad y control de aplicaciones.
-5. Se registrará la tarea `AulaGuard\PolicySync` para revalidar las políticas generales al iniciar Windows.
-6. Abra AulaGuard como administrador.
-7. Pruebe primero en modo auditoría.
+1. Abra la sección [Releases](https://github.com/JoseMorenoSalgado/aulaguard/releases) y descargue `AulaGuard-Setup-v0.3.3.exe`.
+2. Ejecute el instalador con permisos de administrador en Windows 10/11 Pro.
+3. Los binarios se instalan en `Program Files`; la configuración privada se almacena en `%ProgramData%\\AulaGuard`.
+4. Se instalarán los módulos de políticas, diagnóstico, seguridad y control de aplicaciones.
+5. Se registrará la tarea `AulaGuard\\PolicySync` para revalidar las políticas generales al iniciar Windows.
+6. Abra AulaGuard como administrador y pruebe primero en modo auditoría.
+
+**Actualizaciones desde v0.3.2 o anteriores:** revise [las instrucciones de migración segura](docs/SECURITY.md) antes de instalar.
 
 ## Arquitectura
 
@@ -125,4 +134,4 @@ Características del instalador:
 - Desinstalador desde Aplicaciones instaladas de Windows.
 - Validación automática de sintaxis antes de compilar.
 
-El instalador se genera desde GitHub Actions mediante el flujo **Build AulaGuard Installer**.
+El instalador se genera mediante GitHub Actions y se publica automáticamente en [GitHub Releases](https://github.com/JoseMorenoSalgado/aulaguard/releases), junto con su checksum SHA-256.
