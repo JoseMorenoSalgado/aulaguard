@@ -126,9 +126,9 @@ begin
   );
   if (not Started) or (ResultCode <> 0) then
   begin
-    MsgBox('No se pudo verificar o crear la configuración protegida de AulaGuard.' +
-      #13#10 + 'Revise docs\SECURITY.md antes de continuar.' +
-      #13#10 + 'Código de salida: ' + IntToStr(ResultCode),
+    MsgBox('No se pudo verificar o crear la configuración protegida de AulaGuard.' + #13#10 +
+      'Revise docs\SECURITY.md antes de continuar.' + #13#10 +
+      'Código de salida: ' + IntToStr(ResultCode),
       mbCriticalError, MB_OK);
     Abort;
   end;
