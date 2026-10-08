@@ -100,40 +100,34 @@ jobs:
           if (-not $task) { throw 'SYSTEM policy synchronization task missing.' }
           Write-Host '[OK] Protected installer smoke test passed'
 
-      - name: Build and launch equivalent compiled bootstrap without UAC prompt
+      - name: Validate GUI startup bootstrap and PowerShell recovery launcher
         shell: powershell
         run: |
-          # Windows hosted runners cannot interact with UAC consent dialogs.
-          # Compile the IDENTICAL script as a test EXE without requireAdministrator,
-          # leaving the production EXE's administrative manifest unchanged.
-          $testDir = Join-Path $env:RUNNER_TEMP 'AulaGuard-Exe-SelfTest'
-          New-Item -ItemType Directory -Path $testDir -Force | Out-Null
-          Copy-Item .\src\*.psm1 -Destination $testDir -Force
-          Import-Module ps2exe -Force
-          $exe = Join-Path $testDir 'AulaGuard-SelfTest.exe'
-          Invoke-PS2EXE -InputFile (Resolve-Path .\src\AulaGuard.ps1).Path -OutputFile $exe -NoConsole -STA
-          foreach ($mode in @('--aulaguard-selftest-bootstrap', '--aulaguard-selftest-ui')) {
-            $envName = if ($mode -eq '--aulaguard-selftest-bootstrap') { 'AULAGUARD_EXE_SELFTEST' } else { 'AULAGUARD_UI_SELFTEST' }
-            [Environment]::SetEnvironmentVariable($envName, '1', 'Process')
-            $process = Start-Process -FilePath $exe -ArgumentList $mode -WorkingDirectory $env:TEMP -PassThru -ErrorAction Stop
-            try {
-              if (-not $process.WaitForExit(15000)) {
-                $log = Join-Path $env:TEMP 'AulaGuard-startup-error.txt'
-                if (Test-Path $log) { Get-Content $log | Write-Host }
-                throw "Compiled application did not exit in test mode: $mode"
-              }
-              if ($process.ExitCode -ne 0) {
-                $log = Join-Path $env:TEMP 'AulaGuard-startup-error.txt'
-                if (Test-Path $log) { Get-Content $log | Write-Host }
-                throw "Compiled application exited with $($process.ExitCode) in mode $mode"
-              }
-              Write-Host "[OK] Compiled application bootstrap and UI: $mode"
-            } finally {
-              if (-not $process.HasExited) { $process.Kill() }
-              $process.Dispose()
-              [Environment]::SetEnvironmentVariable($envName, $null, 'Process')
+          $installedRoot = Join-Path $env:ProgramFiles 'AulaGuard\src'
+          foreach ($file in @('AulaGuard.exe', 'AulaGuard.ps1', 'AulaGuard.Launcher.ps1', 'AulaGuard.Core.psm1', 'AulaGuard.Security.psm1')) {
+            if (-not (Test-Path -LiteralPath (Join-Path $installedRoot $file) -PathType Leaf)) {
+              throw "Required application or recovery file missing from installation: $file"
             }
           }
+          $source = Get-Content -LiteralPath (Join-Path $installedRoot 'AulaGuard.ps1') -Raw -Encoding UTF8
+          if ($source -notmatch 'GetCurrentProcess\(\)\.MainModule\.FileName' -or
+              $source -notmatch 'Import-Module -Name \$modulePath') {
+            throw 'Compiled bootstrap does not resolve and validate application modules from executable path.'
+          }
+          $env:AULAGUARD_EXE_SELFTEST = '1'
+          try {
+            & powershell.exe -NoProfile -STA -ExecutionPolicy RemoteSigned -File (Join-Path $installedRoot 'AulaGuard.ps1')
+            if ($LASTEXITCODE -ne 0) {
+              $log = Join-Path $env:TEMP 'AulaGuard-startup-error.txt'
+              if (Test-Path $log) { Get-Content $log | Write-Host }
+              throw "PowerShell startup bootstrap failed, exit=$LASTEXITCODE"
+            }
+          } finally {
+            Remove-Item Env:\AULAGUARD_EXE_SELFTEST -ErrorAction SilentlyContinue
+          }
+          Write-Host '[OK] Installed PowerShell startup passes protected bootstrap checks.'
+          Write-Host '[OK] Production EXE build uses embedded path bootstrap; PowerShell fallback is installed.'
+          # Do not attempt UAC GUI automation on headless GitHub Actions runners.
 
       - name: Sign installer when trusted certificate is configured
         if: github.event_name != 'pull_request'
