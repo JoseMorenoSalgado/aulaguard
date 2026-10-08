@@ -4,9 +4,21 @@
 
 ## Versión actual
 
-**v0.4.1 (código en revisión de seguridad; no publicado como instalador)**
+**v0.4.2 (código de prueba, pendiente de revisión antivirus y firma digital)**
 
 El proyecto incorpora control USB por usuario estándar, la vista de Servidor Premium (preparación sin conexión real), interfaz verde y la desinstalación para retirar los directorios del programa en Program Files y corrige la carga de módulos del programa compilado y mantiene la corrección del error de elevación 740. Incluye DPAPI, HMAC-SHA-256, auditoría encadenada, permisos NTFS restrictivos y validación de integridad. Mantiene el control avanzado de aplicaciones con AppLocker, auditoría previa al bloqueo, eventos de ejecución, aislamiento de cuentas administradoras y sincronización automática de políticas al iniciar Windows.
+
+## Nuevo inventario de programas (v0.4.2)
+
+- La sección **Programas** detecta aplicaciones Win32 en el Registro de Windows, entradas **App Paths**, accesos directos del menú Inicio y paquetes Microsoft Store.
+- Cada programa compatible aparece con **interruptor verde**. Al activarlo, se añade su ejecutable verificable a la lista blanca **pendiente de guardar**; no se activan restricciones automáticamente.
+- Incluye **búsqueda**, filtro por estado, contador, botón **Detectar apps**, y **Agregar EXE** para instalaciones que Windows no registre correctamente.
+- Los paquetes Microsoft Store aparecen en el inventario con estado **N/D**; no se pueden autorizar mediante el mismo mecanismo de EXE hasta que AulaGuard implemente reglas AppLocker de aplicaciones empaquetadas.
+- **Control de apps** y **Programas** usan paneles adaptables, sin anchuras absolutas que oculten los controles. Protección reorganiza sus dos tarjetas en pantallas estrechas.
+- Mantenga primero **Modo auditoría** y valide las reglas antes de aplicar bloqueos. Los programas no detectados no son necesariamente desautorizados por Windows hasta que una política AppLocker válida se aplique.
+- Para conservar las selecciones, use **Guardar cambios**. Para afectar el equipo, utilice **Aplicar control** y confirme expresamente.
+
+El instalador v0.4.2 **no se distribuye hasta superar las verificaciones de Defender y contar con una firma Authenticode válida**.
 
 ## Funciones actuales
 
@@ -66,7 +78,7 @@ Las nuevas compilaciones requieren un análisis activo con Microsoft Defender de
 
 **No se recomienda instalar la versión v0.4.0** hasta investigar el aviso antivirus reportado en un equipo Windows. Una advertencia SmartScreen de reputación no es lo mismo que una detección real de Microsoft Defender; todavía falta el nombre exacto de la amenaza.
 
-El código de **v0.4.1** incluye cambios para exigir:
+El código de **v0.4.2** conserva los cambios para exigir:
 
 - Certificado Authenticode real (instalador y EXE) con clave privada protegida en Windows.
 - Versión **ps2exe 1.0.18** fijada explícitamente.
@@ -79,7 +91,7 @@ Para revisar una detección y preparar el entorno, lea [Investigación con Defen
 
 ## Instalación
 
-1. Espere a que la revisión antivirus se complete y aparezca un instalador firmado de v0.4.1 o posterior en [Releases](https://github.com/JoseMorenoSalgado/aulaguard/releases). No instale una versión que Defender haya puesto en cuarentena.
+1. Espere a que la revisión antivirus se complete y aparezca un instalador firmado de v0.4.2 o posterior en [Releases](https://github.com/JoseMorenoSalgado/aulaguard/releases). No instale una versión que Defender haya puesto en cuarentena.
 2. Ejecute el instalador con permisos de administrador en Windows 10/11 Pro.
 3. Los binarios se instalan en `Program Files`; la configuración privada se almacena en `%ProgramData%\\AulaGuard`.
 4. Se instalarán los módulos de políticas, diagnóstico, seguridad y control de aplicaciones.
@@ -135,7 +147,7 @@ La primera implantación debe realizarse en un equipo de prueba antes de despleg
 
 El proyecto tiene preparado el código de un instalador de Windows:
 
-`AulaGuard-Setup-v0.4.1.exe` (pendiente de firma y verificación antivirus; no disponible todavía)
+`AulaGuard-Setup-v0.4.2.exe` (pendiente de firma y verificación antivirus; no disponible todavía)
 
 Características del instalador:
 

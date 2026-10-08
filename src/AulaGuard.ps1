@@ -1,4 +1,4 @@
-# AulaGuard v0.4.1
+# AulaGuard v0.4.2
 # Friendly educational administration console for Windows classrooms.
 
 $ErrorActionPreference = 'Stop'
@@ -32,7 +32,8 @@ try {
         'AulaGuard.Policy.psm1',
         'AulaGuard.Diagnostics.psm1',
         'AulaGuard.AppControl.psm1',
-        'AulaGuard.USB.psm1'
+        'AulaGuard.USB.psm1',
+        'AulaGuard.InstalledApps.psm1'
     )) {
         $modulePath = Join-Path $script:AulaGuardSourceDir $moduleName
         if (-not (Test-Path -LiteralPath $modulePath -PathType Leaf)) {
@@ -237,7 +238,7 @@ try {
         }
 
         return [pscustomobject]@{
-            version = '0.4.1'
+            version = '0.4.2'
             profileName = $txtProfileName.Text.Trim()
             policyMode = if ($radEnforce.Checked) {'Enforce'} else {'Audit'}
             wallpaper = $txtWallpaper.Text.Trim()
@@ -277,6 +278,7 @@ try {
     $form.Size = New-Object System.Drawing.Size($formWidth,$formHeight)
     $form.MinimumSize = New-Object System.Drawing.Size(1080,680)
     $form.Font = New-Object System.Drawing.Font('Segoe UI',9)
+    $form.AutoScaleMode = 'Dpi'
     $form.BackColor = $Bg
 
     $toolTip = New-Object System.Windows.Forms.ToolTip
@@ -303,7 +305,7 @@ try {
     $header.Controls.Add((New-Label 'Protege el aula sin complicaciones' 94 48 10 $false ([System.Drawing.Color]::FromArgb(219,234,254))))
 
     $version = New-Object System.Windows.Forms.Label
-    $version.Text = 'v0.4.1'
+    $version.Text = 'v0.4.2'
     $version.TextAlign = 'MiddleCenter'
     $version.Location = New-Object System.Drawing.Point(1060,26)
     $version.Size = New-Object System.Drawing.Size(82,30)
@@ -312,6 +314,7 @@ try {
     $version.ForeColor = [System.Drawing.Color]::White
     $version.Font = New-Object System.Drawing.Font('Segoe UI Semibold',9)
     $header.Controls.Add($version)
+    $header.Add_Resize({ $version.Left = [Math]::Max(240,$header.ClientSize.Width - $version.Width - 22) })
 
     $footer = New-Object System.Windows.Forms.Panel
     $footer.Dock = 'Bottom'
@@ -329,6 +332,11 @@ try {
     $btnApply = New-Button 'Aplicar protección' 995 11 155 38 'Success'
     $btnApply.Anchor = 'Top,Right'
     $footer.Controls.Add($btnApply)
+    $footer.Add_Resize({
+        $btnApply.Left = [Math]::Max(180,$footer.ClientSize.Width - $btnApply.Width - 22)
+        $btnSave.Left = $btnApply.Left - $btnSave.Width - 12
+        $status.MaximumSize = New-Object System.Drawing.Size([Math]::Max(120,$btnSave.Left - 32),0)
+    })
 
     $workspace = New-Object System.Windows.Forms.Panel
     $workspace.Dock = 'Fill'
@@ -594,103 +602,328 @@ try {
     $profileCard.Controls.Add($btnReset)
 
     $tabProtection.Controls.Add($profileCard)
+    # Reflow protection cards instead of clipping at fixed 1,100px width.
+    $resizeProtection = {
+        $usable = [Math]::Max(600,$tabProtection.ClientSize.Width - 52)
+        $modeCard.Width = $usable
+        $profileCard.Width = $usable
+        if ($usable -lt 940) {
+            $left.Size = New-Object System.Drawing.Size($usable,280)
+            $right.Location = New-Object System.Drawing.Point(24,505)
+            $right.Size = New-Object System.Drawing.Size($usable,244)
+            $profileCard.Top = 765
+        } else {
+            $half = [int](($usable - 18)/2)
+            $left.Size = New-Object System.Drawing.Size($half,292)
+            $right.Location = New-Object System.Drawing.Point((24 + $half + 18),204)
+            $right.Size = New-Object System.Drawing.Size($half,292)
+            $profileCard.Top = 518
+        }
+        $btnWallpaper.Left = [Math]::Max(340,$left.ClientSize.Width - $btnWallpaper.Width - 18)
+        $txtWallpaper.Width = [Math]::Max(240,$btnWallpaper.Left - 28)
+        $btnReset.Left = [Math]::Max(490,$profileCard.ClientSize.Width - 178)
+        $btnImport.Left = $btnReset.Left - 150
+        $btnExport.Left = $btnImport.Left - 150
+    }
+    $tabProtection.Add_Resize($resizeProtection)
 
-    # PROGRAMS
+    # PROGRAMS — read-only installed-app inventory; switches edit an allow list,
+    # not an AppLocker rule until the administrator explicitly applies it.
     $tabPrograms = New-Object System.Windows.Forms.TabPage
     $tabPrograms.Text = 'Programas'
     $tabPrograms.BackColor = $Bg
     $tabs.TabPages.Add($tabPrograms)
 
-    $tabPrograms.Controls.Add((New-Label 'Programas permitidos' 24 20 15 $true $Text))
-    $tabPrograms.Controls.Add((New-Label 'Agrega únicamente los programas que los estudiantes necesitan para estudiar y trabajar.' 24 52 9 $false $Muted))
-
-    $tipCard = New-Card 24 88 1094 72 $SoftBlue
-    $tipCard.Controls.Add((New-Label 'Consejo para el docente' 16 12 9 $true $PrimaryDark))
-    $tipCard.Controls.Add((New-Label 'Incluye navegadores, Office, Scratch, Arduino IDE y las aplicaciones educativas utilizadas en clase.' 16 38 9 $false $Text))
-    $tabPrograms.Controls.Add($tipCard)
-
     $lstPrograms = New-Object System.Windows.Forms.ListBox
-    $lstPrograms.Location = New-Object System.Drawing.Point(24,184)
-    $lstPrograms.Size = New-Object System.Drawing.Size(884,405)
-    $lstPrograms.Anchor = 'Top,Left,Right,Bottom'
-    $lstPrograms.Font = New-Object System.Drawing.Font('Segoe UI',9)
-    $tabPrograms.Controls.Add($lstPrograms)
-    Add-ListItems $lstPrograms @($settings.allowedPrograms)
+    $script:allowedProgramMap = @{}
+    foreach ($stored in @($settings.allowedPrograms)) {
+        if ($stored -and -not [string]::IsNullOrWhiteSpace([string]$stored)) {
+            $script:allowedProgramMap[[string]$stored] = [string]$stored
+        }
+    }
+    Add-ListItems $lstPrograms @($script:allowedProgramMap.Values)
 
-    $btnAddProgram = New-Button 'Agregar programa' 930 184 168 38 'Primary'
-    $btnAddProgram.Anchor = 'Top,Right'
-    $tabPrograms.Controls.Add($btnAddProgram)
+    $programLayout = New-Object System.Windows.Forms.TableLayoutPanel
+    $programLayout.Dock = 'Fill'
+    $programLayout.Padding = New-Object System.Windows.Forms.Padding(22,16,22,14)
+    $programLayout.ColumnCount = 1
+    $programLayout.RowCount = 5
+    [void]$programLayout.RowStyles.Add((New-Object System.Windows.Forms.RowStyle('Absolute',66)))
+    [void]$programLayout.RowStyles.Add((New-Object System.Windows.Forms.RowStyle('Absolute',74)))
+    [void]$programLayout.RowStyles.Add((New-Object System.Windows.Forms.RowStyle('Absolute',62)))
+    [void]$programLayout.RowStyles.Add((New-Object System.Windows.Forms.RowStyle('Percent',100)))
+    [void]$programLayout.RowStyles.Add((New-Object System.Windows.Forms.RowStyle('Absolute',50)))
+    $tabPrograms.Controls.Add($programLayout)
 
-    $btnRemoveProgram = New-Button 'Quitar seleccionado' 930 232 168 38 'Danger'
-    $btnRemoveProgram.Anchor = 'Top,Right'
-    $tabPrograms.Controls.Add($btnRemoveProgram)
+    $programTitlePanel = New-Object System.Windows.Forms.Panel
+    $programTitlePanel.Dock = 'Fill'
+    $programTitlePanel.Controls.Add((New-Label 'Aplicaciones del aula' 0 0 17 $true $Text))
+    $programTitlePanel.Controls.Add((New-Label 'Activa únicamente los programas que necesitan los estudiantes.' 0 35 9 $false $Muted))
+    $programLayout.Controls.Add($programTitlePanel,0,0)
 
-    # APP CONTROL
+    $programNotice = New-Object System.Windows.Forms.Panel
+    $programNotice.Dock = 'Fill'
+    $programNotice.Margin = New-Object System.Windows.Forms.Padding(0,0,0,12)
+    $programNotice.BackColor = $SoftGreen
+    $programNotice.Padding = New-Object System.Windows.Forms.Padding(12)
+    $programNotice.Controls.Add((New-Label 'Cómo funciona' 14 8 10 $true $PrimaryDark))
+    $programNotice.Controls.Add((New-Label 'Los interruptores modifican la selección. Guarda y valida en Control de apps antes de activar el bloqueo.' 14 34 9 $false $Text))
+    $programLayout.Controls.Add($programNotice,0,1)
+
+    $programToolbar = New-Object System.Windows.Forms.TableLayoutPanel
+    $programToolbar.Dock = 'Fill'
+    $programToolbar.ColumnCount = 4
+    $programToolbar.RowCount = 1
+    [void]$programToolbar.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle('Percent',100)))
+    [void]$programToolbar.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle('Absolute',140)))
+    [void]$programToolbar.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle('Absolute',145)))
+    [void]$programToolbar.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle('Absolute',145)))
+    $programLayout.Controls.Add($programToolbar,0,2)
+
+    $txtProgramSearch = New-Object System.Windows.Forms.TextBox
+    $txtProgramSearch.Dock = 'Fill'
+    $txtProgramSearch.Margin = New-Object System.Windows.Forms.Padding(0,8,12,13)
+    $txtProgramSearch.Font = New-Object System.Drawing.Font('Segoe UI',11)
+    $programToolbar.Controls.Add($txtProgramSearch,0,0)
+    $toolTip.SetToolTip($txtProgramSearch,'Buscar por nombre, editor o ruta del ejecutable')
+
+    $cmbPrograms = New-Object System.Windows.Forms.ComboBox
+    $cmbPrograms.DropDownStyle = 'DropDownList'
+    $cmbPrograms.Dock = 'Fill'
+    $cmbPrograms.Margin = New-Object System.Windows.Forms.Padding(0,8,10,13)
+    [void]$cmbPrograms.Items.AddRange([object[]]@('Todas','Permitidas','Sin permitir','No compatibles'))
+    $cmbPrograms.SelectedIndex = 0
+    $programToolbar.Controls.Add($cmbPrograms,1,0)
+
+    $btnAddProgram = New-Button 'Agregar EXE' 0 0 140 36 'Secondary'
+    $btnAddProgram.Dock = 'Fill'
+    $btnAddProgram.Margin = New-Object System.Windows.Forms.Padding(0,8,10,13)
+    $programToolbar.Controls.Add($btnAddProgram,2,0)
+
+    $btnRefreshPrograms = New-Button 'Detectar apps' 0 0 140 36 'Primary'
+    $btnRefreshPrograms.Dock = 'Fill'
+    $btnRefreshPrograms.Margin = New-Object System.Windows.Forms.Padding(0,8,0,13)
+    $programToolbar.Controls.Add($btnRefreshPrograms,3,0)
+
+    $gridPrograms = New-Object System.Windows.Forms.DataGridView
+    $gridPrograms.Dock = 'Fill'
+    $gridPrograms.Margin = New-Object System.Windows.Forms.Padding(0,8,0,6)
+    Style-Grid $gridPrograms
+    $gridPrograms.AllowUserToResizeRows = $false
+    $gridPrograms.AllowUserToOrderColumns = $false
+    $gridPrograms.RowTemplate.Height = 43
+    $gridPrograms.ColumnHeadersHeight = 38
+    $gridPrograms.AutoSizeRowsMode = 'None'
+    $gridPrograms.AutoSizeColumnsMode = 'Fill'
+    $gridPrograms.ShowCellToolTips = $true
+    $gridPrograms.EditMode = 'EditProgrammatically'
+    [void]$gridPrograms.Columns.Add('Toggle','Permitir')
+    [void]$gridPrograms.Columns.Add('AppName','Aplicación')
+    [void]$gridPrograms.Columns.Add('Publisher','Editor')
+    [void]$gridPrograms.Columns.Add('AppKind','Tipo')
+    [void]$gridPrograms.Columns.Add('ExePath','Ubicación / motivo')
+    $gridPrograms.Columns['Toggle'].FillWeight = 75
+    $gridPrograms.Columns['AppName'].FillWeight = 180
+    $gridPrograms.Columns['Publisher'].FillWeight = 100
+    $gridPrograms.Columns['AppKind'].FillWeight = 75
+    $gridPrograms.Columns['ExePath'].FillWeight = 220
+    $gridPrograms.Columns['Toggle'].SortMode = 'NotSortable'
+    $programLayout.Controls.Add($gridPrograms,0,3)
+
+    $programFooter = New-Object System.Windows.Forms.TableLayoutPanel
+    $programFooter.Dock = 'Fill'
+    $programFooter.ColumnCount = 2
+    $programFooter.RowCount = 1
+    [void]$programFooter.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle('Percent',100)))
+    [void]$programFooter.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle('Absolute',188)))
+    $programLayout.Controls.Add($programFooter,0,4)
+    $lblProgramStats = New-Label 'Pulsa Detectar apps para consultar los programas de Windows.' 0 12 9 $false $Muted
+    $lblProgramStats.Dock = 'Fill'
+    $lblProgramStats.TextAlign = 'MiddleLeft'
+    $programFooter.Controls.Add($lblProgramStats,0,0)
+    $btnRemoveProgram = New-Button 'Quitar selección' 0 0 175 35 'Danger'
+    $btnRemoveProgram.Dock = 'Fill'
+    $btnRemoveProgram.Margin = New-Object System.Windows.Forms.Padding(0,5,0,3)
+    $programFooter.Controls.Add($btnRemoveProgram,1,0)
+
+    $script:programCatalog = @()
+    $script:inventoryLoaded = $false
+    $syncProgramSelection = {
+        Add-ListItems $lstPrograms @($script:allowedProgramMap.Values | Sort-Object)
+    }
+    $renderPrograms = {
+        $query = $txtProgramSearch.Text.Trim()
+        $filter = [string]$cmbPrograms.SelectedItem
+        $gridPrograms.Rows.Clear()
+        foreach ($app in @($script:programCatalog)) {
+            $allowed = ($app.ExecutablePath -and $script:allowedProgramMap.ContainsKey([string]$app.ExecutablePath))
+            if ($query -and -not (
+                ($app.Name.IndexOf($query,[StringComparison]::OrdinalIgnoreCase) -ge 0) -or
+                ($app.Publisher.IndexOf($query,[StringComparison]::OrdinalIgnoreCase) -ge 0) -or
+                ($app.ExecutablePath.IndexOf($query,[StringComparison]::OrdinalIgnoreCase) -ge 0)
+            )) { continue }
+            if ($filter -eq 'Permitidas' -and -not $allowed) { continue }
+            if ($filter -eq 'Sin permitir' -and ($allowed -or -not $app.CanAllow)) { continue }
+            if ($filter -eq 'No compatibles' -and $app.CanAllow) { continue }
+            $toggleText = if (-not $app.CanAllow) { 'N/D' } elseif ($allowed) { 'ON' } else { 'OFF' }
+            $position = $gridPrograms.Rows.Add($toggleText,[string]$app.Name,[string]$app.Publisher,
+                [string]$app.Type, $(if ($app.ExecutablePath) {$app.ExecutablePath} else {$app.Reason}))
+            $row = $gridPrograms.Rows[$position]
+            $row.Tag = $app
+            if (-not $app.CanAllow) {
+                $row.DefaultCellStyle.ForeColor = [System.Drawing.Color]::FromArgb(135,148,165)
+            }
+        }
+        $allowedCount = @($script:allowedProgramMap.Keys).Count
+        $lblProgramStats.Text = "Detectadas: $(@($script:programCatalog).Count)   ·   Permitidas: $allowedCount   ·   Mostradas: $($gridPrograms.Rows.Count)"
+    }
+    $loadPrograms = {
+        try {
+            Set-Status 'Detectando programas de Windows...' 'Warning'
+            $tabPrograms.UseWaitCursor = $true
+            $catalog = @(Get-AulaGuardInstalledApplications)
+            foreach ($path in @($script:allowedProgramMap.Values)) {
+                if (@($catalog | Where-Object { $_.ExecutablePath -eq $path }).Count -eq 0) {
+                    $catalog += (New-Object psobject -Property @{
+                        Name=[IO.Path]::GetFileNameWithoutExtension($path)
+                        Publisher='Agregado manualmente'
+                        Version=''
+                        Type='Win32'
+                        ExecutablePath=[string]$path
+                        CanAllow=(Test-Path -LiteralPath $path -PathType Leaf)
+                        Reason='Ejecutable ya no disponible o movido.'
+                        Source='Manual'
+                    })
+                }
+            }
+            $script:programCatalog = @($catalog | Sort-Object Name)
+            $script:inventoryLoaded = $true
+            & $renderPrograms
+            Set-Status "Inventario actualizado: $($script:programCatalog.Count) aplicaciones" 'Success'
+        } catch {
+            Set-Status 'No se pudo consultar el inventario de aplicaciones' 'Error'
+            [System.Windows.Forms.MessageBox]::Show($_.Exception.Message,'AulaGuard · Detección','OK','Error') | Out-Null
+        } finally { $tabPrograms.UseWaitCursor = $false }
+    }
+    $gridPrograms.Add_CellPainting({
+        param($sender,$e)
+        if ($e.RowIndex -lt 0 -or $e.ColumnIndex -ne 0) { return }
+        $e.PaintBackground($e.CellBounds,$true)
+        $state = [string]$e.Value
+        $x = $e.CellBounds.X + [Math]::Max(8,[int](($e.CellBounds.Width - 66)/2))
+        $y = $e.CellBounds.Y + [int](($e.CellBounds.Height - 28)/2)
+        $color = if ($state -eq 'ON') { $Primary } elseif ($state -eq 'OFF') {
+            [System.Drawing.Color]::FromArgb(148,163,184)
+        } else { [System.Drawing.Color]::FromArgb(226,232,240) }
+        $brush = New-Object System.Drawing.SolidBrush($color)
+        $white = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::White)
+        try {
+            $e.Graphics.FillRectangle($brush,$x+14,$y,38,28)
+            $e.Graphics.FillEllipse($brush,$x,$y,28,28)
+            $e.Graphics.FillEllipse($brush,$x+38,$y,28,28)
+            if ($state -eq 'ON') {
+                $e.Graphics.FillEllipse($white,$x+40,$y+4,20,20)
+            } elseif ($state -eq 'OFF') {
+                $e.Graphics.FillEllipse($white,$x+6,$y+4,20,20)
+            } else {
+                [System.Windows.Forms.TextRenderer]::DrawText($e.Graphics,'—',
+                    (New-Object System.Drawing.Font('Segoe UI',12)),([System.Drawing.Rectangle]::new($x+20,$y,26,28)),$Muted)
+            }
+        } finally { $brush.Dispose(); $white.Dispose() }
+        $e.Handled = $true
+    })
+
+    # APP CONTROL — all panels docked to a responsive grid rather than absolute sizes.
     $tabAppControl = New-Object System.Windows.Forms.TabPage
     $tabAppControl.Text = 'Control de apps'
     $tabAppControl.BackColor = $Bg
     $tabs.TabPages.Add($tabAppControl)
-
-    $tabAppControl.Controls.Add((New-Label 'Control avanzado de aplicaciones' 24 20 15 $true $Text))
-    $tabAppControl.Controls.Add((New-Label 'Primero observa lo que ocurriría. Cuando estés seguro, activa el bloqueo.' 24 52 9 $false $Muted))
+    $appLayout = New-Object System.Windows.Forms.TableLayoutPanel
+    $appLayout.Dock = 'Fill'
+    $appLayout.Padding = New-Object System.Windows.Forms.Padding(22,16,22,14)
+    $appLayout.ColumnCount = 1
+    $appLayout.RowCount = 5
+    [void]$appLayout.RowStyles.Add((New-Object System.Windows.Forms.RowStyle('Absolute',66)))
+    [void]$appLayout.RowStyles.Add((New-Object System.Windows.Forms.RowStyle('Absolute',76)))
+    [void]$appLayout.RowStyles.Add((New-Object System.Windows.Forms.RowStyle('Absolute',128)))
+    [void]$appLayout.RowStyles.Add((New-Object System.Windows.Forms.RowStyle('Absolute',65)))
+    [void]$appLayout.RowStyles.Add((New-Object System.Windows.Forms.RowStyle('Percent',100)))
+    $tabAppControl.Controls.Add($appLayout)
+    $appHeader = New-Object System.Windows.Forms.Panel
+    $appHeader.Dock = 'Fill'
+    $appHeader.Controls.Add((New-Label 'Control de aplicaciones' 0 0 17 $true $Text))
+    $appHeader.Controls.Add((New-Label 'Paso 1: elegir programas. Paso 2: auditar. Paso 3: activar bloqueo si todo funciona.' 0 34 9 $false $Muted))
+    $appLayout.Controls.Add($appHeader,0,0)
 
     $appSupport = Test-AulaGuardAppLockerSupport
-    $supportCard = New-Card 24 88 1094 72 $(if ($appSupport.Supported) {$SoftGreen} else {[System.Drawing.Color]::FromArgb(254,242,242)})
+    $supportCard = New-Object System.Windows.Forms.Panel
+    $supportCard.Dock = 'Fill'
+    $supportCard.Margin = New-Object System.Windows.Forms.Padding(0,0,0,12)
+    $supportCard.BackColor = if ($appSupport.Supported) {$SoftGreen} else {$SoftAmber}
     $supportText = if ($appSupport.Supported) {"AppLocker disponible · Servicio: $($appSupport.ServiceStatus)"} else {'AppLocker no está disponible en este equipo'}
     $supportColor = if ($appSupport.Supported) {$Success} else {$Danger}
-    $supportCard.Controls.Add((New-Label $supportText 16 16 10 $true $supportColor))
-    $supportCard.Controls.Add((New-Label 'AulaGuard usa este componente de Windows para auditar o bloquear programas.' 16 42 8 $false $Muted))
-    $tabAppControl.Controls.Add($supportCard)
+    $supportCard.Controls.Add((New-Label $supportText 15 10 10 $true $supportColor))
+    $supportCard.Controls.Add((New-Label 'La lista permitida no bloquea nada hasta aplicar expresamente una política.' 15 38 9 $false $Muted))
+    $appLayout.Controls.Add($supportCard,0,1)
 
-    $auditCard = New-Card 24 184 535 118 $SoftBlue
+    $appModeLayout = New-Object System.Windows.Forms.TableLayoutPanel
+    $appModeLayout.Dock = 'Fill'
+    $appModeLayout.ColumnCount = 2
+    $appModeLayout.RowCount = 1
+    [void]$appModeLayout.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle('Percent',50)))
+    [void]$appModeLayout.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle('Percent',50)))
+    $appLayout.Controls.Add($appModeLayout,0,2)
+
+    $auditCard = New-Object System.Windows.Forms.Panel
+    $auditCard.Dock = 'Fill'
+    $auditCard.Margin = New-Object System.Windows.Forms.Padding(0,0,9,10)
+    $auditCard.BackColor = $SoftGreen
     $radAppAudit = New-Object System.Windows.Forms.RadioButton
-    $radAppAudit.Text = 'Modo auditoría'
-    $radAppAudit.Location = New-Object System.Drawing.Point(18,18)
+    $radAppAudit.Text = 'Auditoría · recomendado'
+    $radAppAudit.Location = New-Object System.Drawing.Point(16,17)
     $radAppAudit.AutoSize = $true
     $radAppAudit.Font = New-Object System.Drawing.Font('Segoe UI Semibold',10)
     $auditCard.Controls.Add($radAppAudit)
-    $auditCard.Controls.Add((New-Label 'Recomendado para comenzar. No bloquea programas.' 18 50 9 $false $Muted))
-    $auditCard.Controls.Add((New-Label 'Registra lo que sería bloqueado.' 18 78 8 $true $PrimaryDark))
-    $tabAppControl.Controls.Add($auditCard)
+    $auditCard.Controls.Add((New-Label 'Observa eventos sin bloquear las herramientas del aula.' 18 56 9 $false $Muted))
+    $appModeLayout.Controls.Add($auditCard,0,0)
 
-    $blockCard = New-Card 583 184 535 118 $SoftAmber
+    $blockCard = New-Object System.Windows.Forms.Panel
+    $blockCard.Dock = 'Fill'
+    $blockCard.Margin = New-Object System.Windows.Forms.Padding(9,0,0,10)
+    $blockCard.BackColor = $SoftAmber
     $radAppEnforce = New-Object System.Windows.Forms.RadioButton
-    $radAppEnforce.Text = 'Modo bloqueo'
-    $radAppEnforce.Location = New-Object System.Drawing.Point(18,18)
+    $radAppEnforce.Text = 'Bloqueo activo · avanzado'
+    $radAppEnforce.Location = New-Object System.Drawing.Point(16,17)
     $radAppEnforce.AutoSize = $true
     $radAppEnforce.Font = New-Object System.Drawing.Font('Segoe UI Semibold',10)
     $blockCard.Controls.Add($radAppEnforce)
-    $blockCard.Controls.Add((New-Label 'Utilízalo solo después de revisar la auditoría.' 18 50 9 $false $Muted))
-    $blockCard.Controls.Add((New-Label 'Puede impedir abrir programas no autorizados.' 18 78 8 $true $Warning))
-    $tabAppControl.Controls.Add($blockCard)
-
+    $blockCard.Controls.Add((New-Label 'Úsalo únicamente después de verificar la auditoría.' 18 56 9 $false $Warning))
+    $appModeLayout.Controls.Add($blockCard,1,0)
     if ($settings.appControl.mode -eq 'Enabled') {$radAppEnforce.Checked = $true} else {$radAppAudit.Checked = $true}
 
-    $btnAppPreview = New-Button 'Validar configuración' 24 326 160 36 'Secondary'
-    $tabAppControl.Controls.Add($btnAppPreview)
-
-    $btnAppApply = New-Button 'Aplicar control' 194 326 150 36 'Primary'
-    $tabAppControl.Controls.Add($btnAppApply)
-
-    $btnAppRestore = New-Button 'Restaurar anterior' 354 326 150 36 'Neutral'
-    $tabAppControl.Controls.Add($btnAppRestore)
-
-    $btnAppRefresh = New-Button 'Actualizar eventos' 514 326 150 36 'Neutral'
-    $tabAppControl.Controls.Add($btnAppRefresh)
-
-    $tabAppControl.Controls.Add((New-Label 'Actividad reciente' 24 390 11 $true $Text))
-
+    $appToolbar = New-Object System.Windows.Forms.FlowLayoutPanel
+    $appToolbar.Dock = 'Fill'
+    $appToolbar.FlowDirection = 'LeftToRight'
+    $appToolbar.WrapContents = $true
+    $appLayout.Controls.Add($appToolbar,0,3)
+    $btnAppPreview = New-Button 'Validar lista' 0 0 145 36 'Secondary'
+    $btnAppApply = New-Button 'Aplicar control' 0 0 146 36 'Primary'
+    $btnAppRestore = New-Button 'Restaurar anterior' 0 0 157 36 'Neutral'
+    $btnAppRefresh = New-Button 'Actualizar registro' 0 0 158 36 'Neutral'
+    foreach ($btn in @($btnAppPreview,$btnAppApply,$btnAppRestore,$btnAppRefresh)) {
+        $btn.Margin = New-Object System.Windows.Forms.Padding(0,5,10,4)
+        $appToolbar.Controls.Add($btn)
+    }
     $gridAppEvents = New-Object System.Windows.Forms.DataGridView
-    $gridAppEvents.Location = New-Object System.Drawing.Point(24,422)
-    $gridAppEvents.Size = New-Object System.Drawing.Size(1094,195)
-    $gridAppEvents.Anchor = 'Top,Left,Right,Bottom'
+    $gridAppEvents.Dock = 'Fill'
+    $gridAppEvents.Margin = New-Object System.Windows.Forms.Padding(0,5,0,0)
     Style-Grid $gridAppEvents
     [void]$gridAppEvents.Columns.Add('Time','Fecha y hora')
     [void]$gridAppEvents.Columns.Add('Id','Evento')
     [void]$gridAppEvents.Columns.Add('File','Programa')
-    [void]$gridAppEvents.Columns.Add('Message','Detalle')
+    [void]$gridAppEvents.Columns.Add('Message','Descripción del evento')
     $gridAppEvents.Columns['Message'].FillWeight = 220
-    $tabAppControl.Controls.Add($gridAppEvents)
+    $appLayout.Controls.Add($gridAppEvents,0,4)
 
     # INTERNET
     $tabWeb = New-Object System.Windows.Forms.TabPage
@@ -991,7 +1224,10 @@ try {
 
     $navHome.Add_Click({$tabs.SelectedTab = $tabHome})
     $navProtection.Add_Click({$tabs.SelectedTab = $tabProtection})
-    $navPrograms.Add_Click({$tabs.SelectedTab = $tabPrograms})
+    $navPrograms.Add_Click({
+        $tabs.SelectedTab = $tabPrograms
+        if (-not $script:inventoryLoaded) { & $loadPrograms }
+    })
     $navAppControl.Add_Click({$tabs.SelectedTab = $tabAppControl})
     $navInternet.Add_Click({$tabs.SelectedTab = $tabWeb})
     $navDesktop.Add_Click({$tabs.SelectedTab = $tabDesktop})
@@ -1021,26 +1257,100 @@ try {
         }
     })
 
+    # Clicking a green switch only changes the local allow list. Windows remains
+    # unchanged until the administrator explicitly uses Aplicar control.
+    $toggleProgramRow = {
+        param([int]$Index)
+        if ($Index -lt 0 -or $Index -ge $gridPrograms.Rows.Count) { return }
+        $row = $gridPrograms.Rows[$Index]
+        $app = $row.Tag
+        if (-not $app -or -not $app.CanAllow) {
+            Set-Status 'Esta aplicación necesita una regla Store o un EXE verificable; no se aplicó ningún cambio.' 'Warning'
+            return
+        }
+        $path = [string]$app.ExecutablePath
+        if ($script:allowedProgramMap.ContainsKey($path)) {
+            [void]$script:allowedProgramMap.Remove($path)
+        } else {
+            if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
+                Set-Status 'No se encontró el ejecutable; vuelve a detectar programas.' 'Warning'
+                return
+            }
+            $script:allowedProgramMap[$path] = $path
+        }
+        & $syncProgramSelection
+        & $renderPrograms
+        Set-Status 'Selección modificada. Guarda y valida antes de aplicar restricciones.' 'Warning'
+        Refresh-Dashboard
+    }
+    $gridPrograms.Add_CellClick({
+        param($sender,$e)
+        if ($e.ColumnIndex -eq 0 -and $e.RowIndex -ge 0) {
+            & $toggleProgramRow $e.RowIndex
+        }
+    })
+    $gridPrograms.Add_KeyDown({
+        param($sender,$e)
+        if ($e.KeyCode -eq [System.Windows.Forms.Keys]::Space -and
+            $gridPrograms.CurrentCell -and $gridPrograms.CurrentCell.ColumnIndex -eq 0) {
+            & $toggleProgramRow $gridPrograms.CurrentCell.RowIndex
+            $e.Handled = $true
+            $e.SuppressKeyPress = $true
+        }
+    })
+    $txtProgramSearch.Add_TextChanged({ & $renderPrograms })
+    $cmbPrograms.Add_SelectedIndexChanged({ & $renderPrograms })
+    $btnRefreshPrograms.Add_Click({ & $loadPrograms })
+
     $btnAddProgram.Add_Click({
         $d = New-Object System.Windows.Forms.OpenFileDialog
-        $d.Filter = 'Aplicaciones (*.exe)|*.exe'
+        $d.Filter = 'Programas de Windows (*.exe)|*.exe'
         $d.Multiselect = $true
         if ($d.ShowDialog() -eq 'OK') {
-            foreach ($f in $d.FileNames) {
-                if ($lstPrograms.Items -notcontains $f) {
-                    [void]$lstPrograms.Items.Add($f)
+            foreach ($file in $d.FileNames) {
+                $path = Resolve-AulaGuardExecutablePath -Candidate $file
+                if (-not $path) { continue }
+                $script:allowedProgramMap[$path] = $path
+                if (@($script:programCatalog | Where-Object { $_.ExecutablePath -eq $path }).Count -eq 0) {
+                    $script:programCatalog += [pscustomobject]@{
+                        Name=[IO.Path]::GetFileNameWithoutExtension($path)
+                        Publisher='Seleccionado por administrador'
+                        Version=''
+                        Type='Win32'
+                        ExecutablePath=$path
+                        CanAllow=$true
+                        Reason=''
+                        Source='Manual'
+                    }
                 }
             }
+            & $syncProgramSelection
+            & $renderPrograms
+            Set-Status 'Programa agregado; guarda la selección para conservarla.' 'Success'
             Refresh-Dashboard
-            Set-Status 'Programas agregados' 'Success'
+        }
+    })
+    $btnRemoveProgram.Add_Click({
+        if ($gridPrograms.SelectedRows.Count -eq 0) {
+            Set-Status 'Selecciona una aplicación de la tabla.' 'Warning'
+            return
+        }
+        $record = $gridPrograms.SelectedRows[0].Tag
+        if ($record -and $record.ExecutablePath) {
+            [void]$script:allowedProgramMap.Remove([string]$record.ExecutablePath)
+            & $syncProgramSelection
+            & $renderPrograms
+            Set-Status 'Programa retirado de la selección. Guarda los cambios.' 'Warning'
+            Refresh-Dashboard
         }
     })
 
-    $btnRemoveProgram.Add_Click({
-        while ($lstPrograms.SelectedIndices.Count -gt 0) {
-            $lstPrograms.Items.RemoveAt($lstPrograms.SelectedIndices[0])
-        }
-        Refresh-Dashboard
+    # Radio buttons are in separate visual cards: enforce mutual exclusion.
+    $radAppAudit.Add_CheckedChanged({
+        if ($radAppAudit.Checked) { $radAppEnforce.Checked = $false }
+    })
+    $radAppEnforce.Add_CheckedChanged({
+        if ($radAppEnforce.Checked) { $radAppAudit.Checked = $false }
     })
 
     $btnAddWebsite.Add_Click({
@@ -1297,8 +1607,9 @@ try {
         $page.AutoScroll = $true
     }
 
+    & $resizeProtection
     Set-NavActive $navHome
-    Write-AulaGuardAudit -Action 'APP_STARTED' -Detail 'v0.4.1' -Root $root
+    Write-AulaGuardAudit -Action 'APP_STARTED' -Detail 'v0.4.2' -Root $root
     Refresh-Dashboard
     & $loadAudit
     & $loadAppEvents
