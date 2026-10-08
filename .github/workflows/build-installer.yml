@@ -31,7 +31,7 @@ jobs:
       - name: Validate PowerShell syntax
         shell: powershell
         run: |
-          $files = Get-ChildItem .\src -Include *.ps1,*.psm1 -Recurse
+          $files = Get-ChildItem -Path .\src,.\build,.\tests -Include *.ps1,*.psm1 -Recurse
           $failed = $false
           foreach ($file in $files) {
             $tokens = $null
