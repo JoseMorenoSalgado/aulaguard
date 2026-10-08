@@ -1,5 +1,8 @@
 Set-StrictMode -Version Latest
 
+# Windows PowerShell 5.1 does not always load the .NET Framework DPAPI assembly by default.
+Add-Type -AssemblyName System.Security -ErrorAction Stop
+
 # Security boundary: only elevated Administrators and LocalSystem can write AulaGuard data.
 # Machine DPAPI protects the local HMAC key at rest. ACLs protect the DPAPI blob from students.
 $script:Entropy = [Text.Encoding]::UTF8.GetBytes('AulaGuard|machine-storage|v1')
