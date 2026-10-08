@@ -1,13 +1,15 @@
 $ErrorActionPreference = 'Stop'
 
 $root = Join-Path $env:ProgramData 'AulaGuard'
-$src = Join-Path $root 'src'
+$src = $PSScriptRoot
 
 try {
+    Import-Module (Join-Path $src 'AulaGuard.Security.psm1') -Force
     Import-Module (Join-Path $src 'AulaGuard.Core.psm1') -Force
     Import-Module (Join-Path $src 'AulaGuard.Policy.psm1') -Force
     Import-Module (Join-Path $src 'AulaGuard.AppControl.psm1') -Force
 
+    # Do not create a new trust key or downgrade settings during unattended startup.
     $settings = Read-AulaGuardSettings -Root $root
 
     if ($settings.policyMode -eq 'Enforce') {
@@ -31,11 +33,10 @@ try {
     }
 }
 catch {
+    # Preserve existing Windows restrictions on failure. Report the problem outside the local JSON log.
     try {
-        $logs = Join-Path $root 'logs'
-        if (-not (Test-Path $logs)) { New-Item -ItemType Directory -Path $logs -Force | Out-Null }
-        $line = "$(Get-Date -Format o) STARTUP_ERROR $($_.Exception.Message)"
-        Add-Content -Path (Join-Path $logs 'startup.log') -Value $line -Encoding UTF8
+        $description = "AulaGuard no inició por error de integridad o carga: $($_.Exception.Message)"
+        & eventcreate.exe /L APPLICATION /T ERROR /ID 101 /SO AulaGuard /D $description | Out-Null
     } catch {}
     exit 1
 }
