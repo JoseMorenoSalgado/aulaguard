@@ -70,7 +70,7 @@ function Read-AulaGuardSettings {
             $s | Add-Member NoteProperty $property $defaults.$property
         }
     }
-    if ($null -eq $s.protections) {
+    if (-not ($s.PSObject.Properties.Name -contains 'protections') -or $null -eq $s.protections) {
         $s | Add-Member NoteProperty protections $defaults.protections -Force
     } else {
         foreach ($property in $defaults.protections.PSObject.Properties.Name) {
