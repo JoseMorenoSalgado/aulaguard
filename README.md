@@ -56,6 +56,12 @@ AulaGuard crea una copia de seguridad de la política AppLocker local antes de s
 
 Las reglas de control de aplicaciones no se crean para `Everyone`. AulaGuard mantiene un grupo local denominado `AulaGuardStudents` con las cuentas locales estándar habilitadas y excluye las cuentas que pertenecen al grupo integrado de administradores.
 
+## Aviso de seguridad: Microsoft Defender
+
+Si Windows Defender detecta AulaGuard, **no lo instale ni desactive el antivirus**. Registre el nombre exacto de la detección desde **Seguridad de Windows → Historial de protección**. La advertencia azul de SmartScreen por programa desconocido es distinta de una detección de malware. Consulte [la guía de investigación](docs/DEFENDER.md).
+
+Las nuevas compilaciones requieren un análisis activo con Microsoft Defender del ejecutable y del instalador para publicarse automáticamente. Una comprobación satisfactoria no garantiza ausencia de amenazas ni aprobación de reputación SmartScreen. La firma digital de código sigue requiriendo un certificado real.
+
 ## Descargar AulaGuard para Windows
 
 **[Descargar AulaGuard v0.4.0 (.exe) desde GitHub Releases](https://github.com/JoseMorenoSalgado/aulaguard/releases/latest)**
