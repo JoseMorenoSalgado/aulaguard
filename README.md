@@ -4,13 +4,15 @@
 
 ## Versión actual
 
-**v0.3.6**
+**v0.4.0**
 
-La versión 0.3.6 mejora la desinstalación para retirar los directorios del programa en Program Files y corrige la carga de módulos del programa compilado y mantiene la corrección del error de elevación 740. Incluye DPAPI, HMAC-SHA-256, auditoría encadenada, permisos NTFS restrictivos y validación de integridad. Mantiene el control avanzado de aplicaciones con AppLocker, auditoría previa al bloqueo, eventos de ejecución, aislamiento de cuentas administradoras y sincronización automática de políticas al iniciar Windows.
+La versión 0.4.0 incorpora control USB por usuario estándar, la vista de Servidor Premium (preparación sin conexión real), interfaz verde y la desinstalación para retirar los directorios del programa en Program Files y corrige la carga de módulos del programa compilado y mantiene la corrección del error de elevación 740. Incluye DPAPI, HMAC-SHA-256, auditoría encadenada, permisos NTFS restrictivos y validación de integridad. Mantiene el control avanzado de aplicaciones con AppLocker, auditoría previa al bloqueo, eventos de ejecución, aislamiento de cuentas administradoras y sincronización automática de políticas al iniciar Windows.
 
 ## Funciones actuales
 
-- Consola administrativa con panel de estado.
+- Consola administrativa con panel de estado y separación fija de navegación y contenidos.
+- Política de lectura/escritura de discos extraíbles por usuario estándar, con restauración de valores anteriores y estado autenticado mediante HMAC.
+- Sección Servidor Premium preparada para una futura consola central (sin telemetría ni conexión activa).
 - Detección de perfiles locales.
 - Identificación de administradores por SID, compatible con Windows en distintos idiomas.
 - Aplicación de políticas únicamente sobre usuarios estándar.
@@ -56,15 +58,15 @@ Las reglas de control de aplicaciones no se crean para `Everyone`. AulaGuard man
 
 ## Descargar AulaGuard para Windows
 
-**[Descargar AulaGuard v0.3.6 (.exe) desde GitHub Releases](https://github.com/JoseMorenoSalgado/aulaguard/releases/latest)**
+**[Descargar AulaGuard v0.4.0 (.exe) desde GitHub Releases](https://github.com/JoseMorenoSalgado/aulaguard/releases/latest)**
 
-En **Assets** elija `AulaGuard-Setup-v0.3.6.exe`. No es necesario compilar ni descargar el código fuente. También se publica `SHA256SUMS.txt` para verificar la integridad de la descarga.
+En **Assets** elija `AulaGuard-Setup-v0.4.0.exe`. No es necesario compilar ni descargar el código fuente. También se publica `SHA256SUMS.txt` para verificar la integridad de la descarga.
 
 Si el acceso directo del EXE no funciona, abra **AulaGuard (inicio alternativo)** desde el menú Inicio. Este lanzador también requiere permisos de administrador y no reduce la seguridad del aula. Si aún no abre, consulte `%TEMP%\\AulaGuard-startup-error.txt` desde la cuenta administradora. El repositorio `main` contiene **código fuente**; los instaladores se distribuyen en **Releases** para evitar incluir ejecutables generados en Git. Una compilación verificada de GitHub Actions publica automáticamente cada nueva versión.
 
 ## Instalación
 
-1. Abra la sección [Releases](https://github.com/JoseMorenoSalgado/aulaguard/releases) y descargue `AulaGuard-Setup-v0.3.6.exe`.
+1. Abra la sección [Releases](https://github.com/JoseMorenoSalgado/aulaguard/releases) y descargue `AulaGuard-Setup-v0.4.0.exe`.
 2. Ejecute el instalador con permisos de administrador en Windows 10/11 Pro.
 3. Los binarios se instalan en `Program Files`; la configuración privada se almacena en `%ProgramData%\\AulaGuard`.
 4. Se instalarán los módulos de políticas, diagnóstico, seguridad y control de aplicaciones.
@@ -120,7 +122,7 @@ La primera implantación debe realizarse en un equipo de prueba antes de despleg
 
 El proyecto genera un instalador de Windows:
 
-`AulaGuard-Setup-v0.3.6.exe`
+`AulaGuard-Setup-v0.4.0.exe`
 
 Características del instalador:
 
@@ -142,3 +144,9 @@ El instalador se genera mediante GitHub Actions y se publica automáticamente en
 Desde Windows, abra **Configuración → Aplicaciones → Aplicaciones instaladas → AulaGuard → Desinstalar**. El desinstalador elimina los componentes en `C:\\Program Files\\AulaGuard`, incluidos residuos de versiones anteriores dentro de `src`, `docs` y `config`, y la tarea programada `AulaGuard\\PolicySync`. No elimina automáticamente `%ProgramData%\\AulaGuard`: contiene claves DPAPI, configuraciones, registros y backups, y puede necesitarse para reinstalar sin perder la información. La desinstalación del programa **no revierte automáticamente las políticas de Windows ni los bloqueos de AppLocker ya aplicados**; deben desactivarse desde AulaGuard antes de desinstalar si desea retirar los bloqueos.
 
 Por seguridad, no se realiza un borrado indiscriminado de `{app}` ni de otras carpetas de Windows. Si se conservaron archivos ajenos al instalador directamente en la raíz personalizada, se deberán revisar manualmente.
+
+## Memorias USB y monitoreo Premium
+
+En **Memorias USB** el administrador puede permitir o restringir lectura y escritura de unidades de almacenamiento extraíbles para perfiles estándar (Windows 10/11 Pro). Primero seleccione **Protección activa**, configure el interruptor, guarde y aplique; el modo **Auditoría** no bloquea dispositivos. **Restaurar acceso USB** recupera únicamente las directivas que AulaGuard haya registrado como propias. No cambia controladores USB ni deshabilita teclados, ratones o cuentas administrativas. La detección de unidades muestra las reconocidas por Windows como extraíbles; algunos discos USB pueden ser reportados como fijos y requieren otro control para bloquearlos. Revise [USB y Premium](docs/USB-PREMIUM.md).
+
+**Servidor Premium** es una pantalla informativa: todavía no hay servidor, conexión, agentes remotos ni transmisión de datos. El diseño futuro contempla una PC principal o servidor central con autenticación por dispositivo, comunicación TLS, permisos por institución y envío controlado de eventos, además de políticas por laboratorio.
