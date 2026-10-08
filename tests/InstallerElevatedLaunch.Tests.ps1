@@ -28,7 +28,7 @@ if ($line -match '(?i)\brunasoriginaluser\b') {
     throw 'Post-install launch must never drop elevation to the original unelevated user.'
 }
 
-$versionMatch = [regex]::Match($iss, '(?m)^#define MyAppVersion "([0-9]+\.[0-9]+\.[0-9]+)"$')
+$versionMatch = [regex]::Match($iss, '(?m)^#define MyAppVersion "([0-9]+\.[0-9]+\.[0-9]+)"\r?$')
 if (-not $versionMatch.Success) { throw 'Installer version not found.' }
 $version = $versionMatch.Groups[1].Value
 if ($build -notmatch [regex]::Escape("-Version '$version.0'")) {
