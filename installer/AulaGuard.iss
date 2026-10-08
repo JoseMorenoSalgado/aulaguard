@@ -56,10 +56,6 @@ Name: "migratelegacy"; Description: "Migrar una configuración anterior REVISADA
 Name: "{app}\src"
 Name: "{app}\config"
 Name: "{app}\docs"
-Name: "{commonappdata}\AulaGuard\config"
-Name: "{commonappdata}\AulaGuard\logs"
-Name: "{commonappdata}\AulaGuard\backup"
-Name: "{commonappdata}\AulaGuard\profiles"
 
 [Files]
 Source: "..\dist\AulaGuard.exe"; DestDir: "{app}\src"; Flags: ignoreversion
