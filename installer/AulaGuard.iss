@@ -1,5 +1,5 @@
 #define MyAppName "AulaGuard"
-#define MyAppVersion "0.4.1"
+#define MyAppVersion "0.4.2"
 #define MyAppPublisher "Elearning Cloud"
 #define MyAppURL "https://elearningcloud.io"
 #define MyAppExeName "AulaGuard.exe"
@@ -38,7 +38,7 @@ RestartApplications=yes
 UsePreviousAppDir=yes
 UsePreviousTasks=yes
 ShowLanguageDialog=no
-VersionInfoVersion=0.4.1.0
+VersionInfoVersion=0.4.2.0
 VersionInfoCompany={#MyAppPublisher}
 VersionInfoDescription=Instalador de AulaGuard para aulas Windows
 VersionInfoProductName={#MyAppName}
@@ -66,6 +66,7 @@ Source: "..\src\AulaGuard.Initialize.ps1"; DestDir: "{app}\src"; Flags: ignoreve
 Source: "..\src\AulaGuard.Core.psm1"; DestDir: "{app}\src"; Flags: ignoreversion
 Source: "..\src\AulaGuard.Policy.psm1"; DestDir: "{app}\src"; Flags: ignoreversion
 Source: "..\src\AulaGuard.USB.psm1"; DestDir: "{app}\src"; Flags: ignoreversion
+Source: "..\src\AulaGuard.InstalledApps.psm1"; DestDir: "{app}\src"; Flags: ignoreversion
 Source: "..\src\AulaGuard.Diagnostics.psm1"; DestDir: "{app}\src"; Flags: ignoreversion
 Source: "..\src\AulaGuard.AppControl.psm1"; DestDir: "{app}\src"; Flags: ignoreversion
 Source: "..\src\AulaGuard.Startup.ps1"; DestDir: "{app}\src"; Flags: ignoreversion
