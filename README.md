@@ -4,9 +4,9 @@
 
 ## Versión actual
 
-**v0.3.2**
+**v0.3.3**
 
-La versión 0.3.2 incorpora una interfaz más profesional con navegación lateral, panel de inicio educativo y un instalador gráfico con identidad AulaGuard. Mantiene el control avanzado de aplicaciones con AppLocker, auditoría previa al bloqueo, eventos de ejecución, aislamiento de cuentas administradoras y sincronización automática de políticas al iniciar Windows.
+La versión 0.3.3 conserva la interfaz profesional y añade una capa de seguridad criptográfica con DPAPI, HMAC-SHA-256, auditoría encadenada, permisos NTFS restrictivos y rechazo de configuraciones alteradas. Mantiene el control avanzado de aplicaciones con AppLocker, auditoría previa al bloqueo, eventos de ejecución, aislamiento de cuentas administradoras y sincronización automática de políticas al iniciar Windows.
 
 ## Funciones actuales
 
@@ -25,7 +25,9 @@ La versión 0.3.2 incorpora una interfaz más profesional con navegación latera
 - Protección de accesos directos del escritorio público.
 - Importación y exportación de perfiles JSON.
 - Backups automáticos.
-- Bitácora JSONL.
+- Bitácora JSONL autenticada con HMAC-SHA-256 y verificación de encadenamiento.
+- Configuración firmada localmente con clave protegida por DPAPI.
+- ACL restrictivas de ProgramData para Administradores y SYSTEM.
 - Diagnóstico del sistema.
 - Sincronización de políticas en el arranque mediante tarea programada.
 
@@ -55,9 +57,9 @@ Las reglas de control de aplicaciones no se crean para `Everyone`. AulaGuard man
 ## Instalación
 
 1. Descargue o clone el repositorio.
-2. Ejecute `Instalar.cmd` como administrador.
-3. AulaGuard se instalará en `%ProgramData%\AulaGuard`.
-4. Se copiarán los módulos de políticas, diagnóstico y control de aplicaciones.
+2. Preferiblemente descargue el instalador gráfico de GitHub Actions y ejecútelo como administrador. `Instalar.cmd` es una alternativa para desarrollo.
+3. Los binarios se instalan bajo `Program Files` con el instalador gráfico; la configuración privada se almacena en `%ProgramData%\AulaGuard`.
+4. Se instalarán módulos de políticas, diagnóstico, seguridad y control de aplicaciones.
 5. Se registrará la tarea `AulaGuard\PolicySync` para revalidar las políticas generales al iniciar Windows.
 6. Abra AulaGuard como administrador.
 7. Pruebe primero en modo auditoría.
@@ -68,6 +70,8 @@ Las reglas de control de aplicaciones no se crean para `Everyone`. AulaGuard man
 aulaguard/
 ├── src/
 │   ├── AulaGuard.ps1
+│   ├── AulaGuard.Security.psm1
+│   ├── AulaGuard.Initialize.ps1
 │   ├── AulaGuard.Core.psm1
 │   ├── AulaGuard.Policy.psm1
 │   ├── AulaGuard.Diagnostics.psm1
@@ -89,6 +93,10 @@ El modo de auditoría es el valor predeterminado. AppLocker puede afectar inmedi
 
 La primera implantación debe realizarse en un equipo de prueba antes de desplegarla en todo el laboratorio.
 
+**Configuraciones anteriores:** deben migrarse expresamente después de una revisión. Lea [Seguridad y migración](docs/SECURITY.md). No existe garantía de invulnerabilidad frente a personas con permisos de administrador o acceso físico; la seguridad presupone estudiantes con cuentas estándar.
+
+**Firma del instalador:** el checksum SHA-256 publicado por CI permite verificar bytes, pero no reemplaza una firma Authenticode emitida por una entidad de confianza. No se debe asumir que el instalador está firmado digitalmente.
+
 ## Próximas fases
 
 - Reglas por carpeta/editor/hash configurables desde la UI.
@@ -103,7 +111,7 @@ La primera implantación debe realizarse en un equipo de prueba antes de despleg
 
 El proyecto genera un instalador de Windows:
 
-`AulaGuard-Setup-v0.3.2.exe`
+`AulaGuard-Setup-v0.3.3.exe`
 
 Características del instalador:
 
