@@ -52,6 +52,10 @@ jobs:
         shell: powershell
         run: .\tests\Security.Tests.ps1
 
+      - name: Validate USB configuration and future Premium boundary
+        shell: powershell
+        run: .\tests\Usb.Tests.ps1
+
       - name: Verify installer elevated launch and versions
         shell: powershell
         run: .\tests\InstallerElevatedLaunch.Tests.ps1
@@ -97,10 +101,13 @@ jobs:
           }
           Import-Module (Join-Path $installedRoot 'src/AulaGuard.Security.psm1') -Force
           Import-Module (Join-Path $installedRoot 'src/AulaGuard.Core.psm1') -Force
+          Import-Module (Join-Path $installedRoot 'src/AulaGuard.USB.psm1') -Force
           $dataRoot = Join-Path $env:ProgramData 'AulaGuard'
           $settings = Read-AulaGuardSettings -Root $dataRoot
           if ($settings.policyMode -ne 'Audit') { throw 'Fresh installation is not in Audit mode.' }
           $task = Get-ScheduledTask -TaskName 'PolicySync' -TaskPath '\AulaGuard\' -ErrorAction Stop
+          $logonTask = Get-ScheduledTask -TaskName 'PolicySyncLogon' -TaskPath '\AulaGuard\' -ErrorAction Stop
+          if (-not $logonTask) { throw 'Policy sync at logon is missing.' }
           if (-not $task) { throw 'SYSTEM policy synchronization task missing.' }
           Write-Host '[OK] Protected installer smoke test passed'
 
@@ -108,7 +115,7 @@ jobs:
         shell: powershell
         run: |
           $installedRoot = Join-Path $env:ProgramFiles 'AulaGuard\src'
-          foreach ($file in @('AulaGuard.exe', 'AulaGuard.ps1', 'AulaGuard.Launcher.ps1', 'AulaGuard.Core.psm1', 'AulaGuard.Security.psm1')) {
+          foreach ($file in @('AulaGuard.exe', 'AulaGuard.ps1', 'AulaGuard.Launcher.ps1', 'AulaGuard.Core.psm1', 'AulaGuard.Security.psm1', 'AulaGuard.USB.psm1')) {
             if (-not (Test-Path -LiteralPath (Join-Path $installedRoot $file) -PathType Leaf)) {
               throw "Required application or recovery file missing from installation: $file"
             }
