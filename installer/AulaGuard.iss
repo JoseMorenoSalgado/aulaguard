@@ -1,5 +1,5 @@
 #define MyAppName "AulaGuard"
-#define MyAppVersion "0.3.4"
+#define MyAppVersion "0.3.5"
 #define MyAppPublisher "Elearning Cloud"
 #define MyAppURL "https://elearningcloud.io"
 #define MyAppExeName "AulaGuard.exe"
@@ -38,7 +38,7 @@ RestartApplications=yes
 UsePreviousAppDir=yes
 UsePreviousTasks=yes
 ShowLanguageDialog=no
-VersionInfoVersion=0.3.4.0
+VersionInfoVersion=0.3.5.0
 VersionInfoCompany={#MyAppPublisher}
 VersionInfoDescription=Instalador de AulaGuard para aulas Windows
 VersionInfoProductName={#MyAppName}
