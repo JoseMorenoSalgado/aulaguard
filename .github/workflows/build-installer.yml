@@ -60,6 +60,10 @@ jobs:
         shell: powershell
         run: .\tests\InstallerElevatedLaunch.Tests.ps1
 
+      - name: Verify signed-release policy is enforced
+        shell: powershell
+        run: .\tests\ReleaseSecurity.Tests.ps1
+
       - name: Generate application icon
         shell: powershell
         run: .\build\GenerateIcon.ps1
