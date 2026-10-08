@@ -113,6 +113,8 @@ jobs:
           $exe = Join-Path $testDir 'AulaGuard-SelfTest.exe'
           Invoke-PS2EXE -InputFile (Resolve-Path .\src\AulaGuard.ps1).Path -OutputFile $exe -NoConsole -STA
           foreach ($mode in @('--aulaguard-selftest-bootstrap', '--aulaguard-selftest-ui')) {
+            $envName = if ($mode -eq '--aulaguard-selftest-bootstrap') { 'AULAGUARD_EXE_SELFTEST' } else { 'AULAGUARD_UI_SELFTEST' }
+            [Environment]::SetEnvironmentVariable($envName, '1', 'Process')
             $process = Start-Process -FilePath $exe -ArgumentList $mode -WorkingDirectory $env:TEMP -PassThru -ErrorAction Stop
             try {
               if (-not $process.WaitForExit(15000)) {
@@ -129,6 +131,7 @@ jobs:
             } finally {
               if (-not $process.HasExited) { $process.Kill() }
               $process.Dispose()
+              [Environment]::SetEnvironmentVariable($envName, $null, 'Process')
             }
           }
 
