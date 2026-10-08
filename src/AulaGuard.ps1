@@ -4,9 +4,9 @@
 $ErrorActionPreference = 'Stop'
 
 # Command-line self-tests survive UAC elevation, unlike process environment variables.
-$script:AulaGuardCommandLine = @([Environment]::GetCommandLineArgs())
-$script:AulaGuardBootstrapTest = ($script:AulaGuardCommandLine -contains '--aulaguard-selftest-bootstrap')
-$script:AulaGuardUiTest = ($script:AulaGuardCommandLine -contains '--aulaguard-selftest-ui')
+$script:AulaGuardCommandLine = @([Environment]::GetCommandLineArgs()) + @($args)
+$script:AulaGuardBootstrapTest = (($script:AulaGuardCommandLine -contains '--aulaguard-selftest-bootstrap') -or ($env:AULAGUARD_EXE_SELFTEST -eq '1'))
+$script:AulaGuardUiTest = (($script:AulaGuardCommandLine -contains '--aulaguard-selftest-ui') -or ($env:AULAGUARD_UI_SELFTEST -eq '1'))
 
 try {
     Add-Type -AssemblyName System.Windows.Forms
