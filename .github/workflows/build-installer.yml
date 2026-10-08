@@ -80,6 +80,10 @@ jobs:
           AULAGUARD_PFX_PASSWORD: ${{ secrets.AULAGUARD_PFX_PASSWORD }}
         run: .\build\Sign-Artifact.ps1 -Path .\dist\AulaGuard.exe
 
+      - name: Scan compiled AulaGuard EXE with Microsoft Defender
+        shell: powershell
+        run: .\build\Test-DefenderArtifacts.ps1 -RequireActiveDefender -Paths @('.\dist\AulaGuard.exe')
+
       - name: Install Inno Setup
         shell: powershell
         run: choco install innosetup -y --no-progress
@@ -162,6 +166,10 @@ jobs:
           AULAGUARD_PFX_BASE64: ${{ secrets.AULAGUARD_PFX_BASE64 }}
           AULAGUARD_PFX_PASSWORD: ${{ secrets.AULAGUARD_PFX_PASSWORD }}
         run: .\build\Sign-Artifact.ps1 -Path .\dist\installer\AulaGuard-Setup-v0.4.0.exe
+
+      - name: Scan final installer with Microsoft Defender
+        shell: powershell
+        run: .\build\Test-DefenderArtifacts.ps1 -RequireActiveDefender -Paths @('.\dist\installer\AulaGuard-Setup-v0.4.0.exe')
 
       - name: Record SHA-256 installer checksum
         shell: powershell
