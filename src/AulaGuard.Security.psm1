@@ -43,11 +43,13 @@ function Protect-AulaGuardDataAcl {
     if (-not (Test-Path -LiteralPath $Root)) {
         [void](New-Item -ItemType Directory -Path $Root -Force)
     }
-    $items = @((Get-Item -LiteralPath $Root -Force)) +
-        @(Get-ChildItem -LiteralPath $Root -Force -Recurse -ErrorAction Stop)
     $admins = New-Object Security.Principal.SecurityIdentifier('S-1-5-32-544')
     $system = New-Object Security.Principal.SecurityIdentifier('S-1-5-18')
-    foreach ($item in $items) {
+    # Walk explicitly: never recurse through an attacker-created junction.
+    $pending = New-Object 'System.Collections.Generic.Stack[string]'
+    $pending.Push($Root)
+    while ($pending.Count -gt 0) {
+        $item = Get-Item -LiteralPath $pending.Pop() -Force -ErrorAction Stop
         if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
             throw "Ruta insegura: punto de redirección detectado en $($item.FullName)."
         }
@@ -70,6 +72,11 @@ function Protect-AulaGuardDataAcl {
             [void]$acl.AddAccessRule($rule)
         }
         Set-Acl -LiteralPath $item.FullName -AclObject $acl -ErrorAction Stop
+        if ($isDir) {
+            foreach ($child in (Get-ChildItem -LiteralPath $item.FullName -Force -ErrorAction Stop)) {
+                $pending.Push($child.FullName)
+            }
+        }
     }
 }
 
@@ -101,7 +108,7 @@ function Get-AulaGuardSecret {
 
 function Get-AulaGuardHmac {
     param([byte[]]$Bytes,[byte[]]$Key)
-    $h = New-Object Security.Cryptography.HMACSHA256(,$Key)
+    $h = [Security.Cryptography.HMACSHA256]::new($Key)
     try { return ([BitConverter]::ToString($h.ComputeHash($Bytes))).Replace('-','').ToLowerInvariant() }
     finally { $h.Dispose() }
 }
@@ -109,7 +116,7 @@ function Get-AulaGuardHmac {
 function Test-AulaGuardEqualMac {
     param([string]$Expected,[string]$Actual)
     if ($Expected -notmatch '^[0-9a-fA-F]{64}$' -or $Actual -notmatch '^[0-9a-fA-F]{64}$') { return $false }
-    $a = [Convert]::FromBase64String([Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes($Expected.ToLowerInvariant())))
+    $a = [Text.Encoding]::ASCII.GetBytes($Expected.ToLowerInvariant())
     $b = [Text.Encoding]::ASCII.GetBytes($Actual.ToLowerInvariant())
     $difference = 0
     for ($i=0; $i -lt $a.Length; $i++) { $difference = $difference -bor ($a[$i] -bxor $b[$i]) }
@@ -152,8 +159,13 @@ function Initialize-AulaGuardSecurity {
     param([string]$Root = (Join-Path $env:ProgramData 'AulaGuard'),[switch]$MigrateLegacy)
     Assert-AulaGuardElevated
     Assert-AulaGuardDataRoot -Root $Root
+    # Lock the root first so standard users cannot race creation of subdirectories.
+    Protect-AulaGuardDataAcl -Root $Root
     foreach ($directory in @('config','logs','backup','profiles')) {
-        [void](New-Item -ItemType Directory -Path (Join-Path $Root $directory) -Force)
+        $path = Join-Path $Root $directory
+        if (-not (Test-Path -LiteralPath $path)) {
+            [void](New-Item -ItemType Directory -Path $path -Force)
+        }
     }
     Protect-AulaGuardDataAcl -Root $Root
     $settings = Join-Path $Root 'config\settings.json'
@@ -239,7 +251,7 @@ function Write-AulaGuardSecureAudit {
             detail = $Detail
             prev = $state.LastMac
         }
-        $entry.mac = Get-AulaGuardHmac -Bytes (ConvertTo-AulaGuardAuditBytes -Entry $entry) -Key $key
+        $entry['mac'] = Get-AulaGuardHmac -Bytes (ConvertTo-AulaGuardAuditBytes -Entry $entry) -Key $key
         $writer = New-Object IO.StreamWriter($stream,$script:Utf8,1024,$true)
         try {
             [void]$stream.Seek(0,[IO.SeekOrigin]::End)
