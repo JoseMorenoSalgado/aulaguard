@@ -17,6 +17,10 @@ on:
       - "installer/**"
       - ".github/workflows/build-installer.yml"
 
+concurrency:
+  group: aula-guard-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 permissions:
   contents: read
 
@@ -84,7 +88,7 @@ jobs:
       - name: Smoke test protected Windows installation
         shell: powershell
         run: |
-          $setup = (Resolve-Path 'dist/installer/AulaGuard-Setup-v0.3.4.exe').Path
+          $setup = (Resolve-Path 'dist/installer/AulaGuard-Setup-v0.3.5.exe').Path
           $process = Start-Process -FilePath $setup -ArgumentList '/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-' -Wait -PassThru
           if ($process.ExitCode -ne 0) { throw "Installer failed with $($process.ExitCode)" }
           $installedRoot = Join-Path $env:ProgramFiles 'AulaGuard'
@@ -100,27 +104,56 @@ jobs:
           if (-not $task) { throw 'SYSTEM policy synchronization task missing.' }
           Write-Host '[OK] Protected installer smoke test passed'
 
+      - name: Validate GUI startup bootstrap and PowerShell recovery launcher
+        shell: powershell
+        run: |
+          $installedRoot = Join-Path $env:ProgramFiles 'AulaGuard\src'
+          foreach ($file in @('AulaGuard.exe', 'AulaGuard.ps1', 'AulaGuard.Launcher.ps1', 'AulaGuard.Core.psm1', 'AulaGuard.Security.psm1')) {
+            if (-not (Test-Path -LiteralPath (Join-Path $installedRoot $file) -PathType Leaf)) {
+              throw "Required application or recovery file missing from installation: $file"
+            }
+          }
+          $source = Get-Content -LiteralPath (Join-Path $installedRoot 'AulaGuard.ps1') -Raw -Encoding UTF8
+          if ($source -notmatch 'GetCurrentProcess\(\)\.MainModule\.FileName' -or
+              $source -notmatch 'Import-Module -Name \$modulePath') {
+            throw 'Compiled bootstrap does not resolve and validate application modules from executable path.'
+          }
+          $env:AULAGUARD_EXE_SELFTEST = '1'
+          try {
+            & powershell.exe -NoProfile -STA -ExecutionPolicy RemoteSigned -File (Join-Path $installedRoot 'AulaGuard.ps1')
+            if ($LASTEXITCODE -ne 0) {
+              $log = Join-Path $env:TEMP 'AulaGuard-startup-error.txt'
+              if (Test-Path $log) { Get-Content $log | Write-Host }
+              throw "PowerShell startup bootstrap failed, exit=$LASTEXITCODE"
+            }
+          } finally {
+            Remove-Item Env:\AULAGUARD_EXE_SELFTEST -ErrorAction SilentlyContinue
+          }
+          Write-Host '[OK] Installed PowerShell startup passes protected bootstrap checks.'
+          Write-Host '[OK] Production EXE build uses embedded path bootstrap; PowerShell fallback is installed.'
+          # Do not attempt UAC GUI automation on headless GitHub Actions runners.
+
       - name: Sign installer when trusted certificate is configured
         if: github.event_name != 'pull_request'
         shell: powershell
         env:
           AULAGUARD_PFX_BASE64: ${{ secrets.AULAGUARD_PFX_BASE64 }}
           AULAGUARD_PFX_PASSWORD: ${{ secrets.AULAGUARD_PFX_PASSWORD }}
-        run: .\build\Sign-Artifact.ps1 -Path .\dist\installer\AulaGuard-Setup-v0.3.4.exe
+        run: .\build\Sign-Artifact.ps1 -Path .\dist\installer\AulaGuard-Setup-v0.3.5.exe
 
       - name: Record SHA-256 installer checksum
         shell: powershell
         run: |
-          $exe = 'dist/installer/AulaGuard-Setup-v0.3.4.exe'
+          $exe = 'dist/installer/AulaGuard-Setup-v0.3.5.exe'
           $hash = (Get-FileHash -Path $exe -Algorithm SHA256).Hash.ToLowerInvariant()
-          "$hash  AulaGuard-Setup-v0.3.4.exe" | Set-Content dist/installer/SHA256SUMS.txt -Encoding ASCII
+          "$hash  AulaGuard-Setup-v0.3.5.exe" | Set-Content dist/installer/SHA256SUMS.txt -Encoding ASCII
 
       - name: Upload Windows installer
         uses: actions/upload-artifact@v4
         with:
           name: AulaGuard-Windows-Installer
           path: |
-            dist/installer/AulaGuard-Setup-v0.3.4.exe
+            dist/installer/AulaGuard-Setup-v0.3.5.exe
             dist/installer/SHA256SUMS.txt
           if-no-files-found: error
 

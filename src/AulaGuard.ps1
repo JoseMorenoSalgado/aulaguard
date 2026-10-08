@@ -1,17 +1,44 @@
-# AulaGuard v0.3.4
+# AulaGuard v0.3.5
 # Friendly educational administration console for Windows classrooms.
 
 $ErrorActionPreference = 'Stop'
+
+# Command-line self-tests survive UAC elevation, unlike process environment variables.
+$script:AulaGuardCommandLine = @([Environment]::GetCommandLineArgs()) + @($args)
+$script:AulaGuardBootstrapTest = (($script:AulaGuardCommandLine -contains '--aulaguard-selftest-bootstrap') -or ($env:AULAGUARD_EXE_SELFTEST -eq '1'))
+$script:AulaGuardUiTest = (($script:AulaGuardCommandLine -contains '--aulaguard-selftest-ui') -or ($env:AULAGUARD_UI_SELFTEST -eq '1'))
 
 try {
     Add-Type -AssemblyName System.Windows.Forms
     Add-Type -AssemblyName System.Drawing
 
-    Import-Module (Join-Path $PSScriptRoot 'AulaGuard.Security.psm1') -Force
-    Import-Module (Join-Path $PSScriptRoot 'AulaGuard.Core.psm1') -Force
-    Import-Module (Join-Path $PSScriptRoot 'AulaGuard.Policy.psm1') -Force
-    Import-Module (Join-Path $PSScriptRoot 'AulaGuard.Diagnostics.psm1') -Force
-    Import-Module (Join-Path $PSScriptRoot 'AulaGuard.AppControl.psm1') -Force
+    # PS2EXE does not reliably populate $PSScriptRoot when running the compiled EXE.
+    # Use the executable's actual directory, never the current working directory.
+    $script:AulaGuardSourceDir = if (
+        -not [string]::IsNullOrWhiteSpace($PSScriptRoot) -and
+        (Test-Path -LiteralPath (Join-Path $PSScriptRoot 'AulaGuard.Security.psm1') -PathType Leaf)
+    ) {
+        [IO.Path]::GetFullPath($PSScriptRoot)
+    } else {
+        [IO.Path]::GetDirectoryName([Diagnostics.Process]::GetCurrentProcess().MainModule.FileName)
+    }
+    if ([string]::IsNullOrWhiteSpace($script:AulaGuardSourceDir)) {
+        throw 'No se pudo determinar la carpeta del ejecutable AulaGuard.'
+    }
+
+    foreach ($moduleName in @(
+        'AulaGuard.Security.psm1',
+        'AulaGuard.Core.psm1',
+        'AulaGuard.Policy.psm1',
+        'AulaGuard.Diagnostics.psm1',
+        'AulaGuard.AppControl.psm1'
+    )) {
+        $modulePath = Join-Path $script:AulaGuardSourceDir $moduleName
+        if (-not (Test-Path -LiteralPath $modulePath -PathType Leaf)) {
+            throw "No se encontró el módulo requerido: $modulePath"
+        }
+        Import-Module -Name $modulePath -Force -ErrorAction Stop
+    }
 
     if (-not (Test-AulaGuardAdministrator)) {
         [System.Windows.Forms.MessageBox]::Show(
@@ -24,6 +51,13 @@ try {
     $root = Get-AulaGuardRoot
     Initialize-AulaGuardSecurity -Root $root
     $settings = Read-AulaGuardSettings -Root $root
+
+    # Diagnostic mode verifies module imports, integrity checks and protected settings
+    # before exiting; it never skips a security validation.
+    if ($script:AulaGuardBootstrapTest) {
+        Write-AulaGuardAudit -Action 'EXE_BOOTSTRAP_VERIFIED' -Level 'SECURITY' -Root $root
+        exit 0
+    }
 
     $Primary = [System.Drawing.Color]::FromArgb(37,99,235)
     $PrimaryDark = [System.Drawing.Color]::FromArgb(30,64,175)
@@ -202,7 +236,7 @@ try {
         }
 
         return [pscustomobject]@{
-            version = '0.3.4'
+            version = '0.3.5'
             profileName = $txtProfileName.Text.Trim()
             policyMode = if ($radEnforce.Checked) {'Enforce'} else {'Audit'}
             wallpaper = $txtWallpaper.Text.Trim()
@@ -264,7 +298,7 @@ try {
     $header.Controls.Add((New-Label 'Protege el aula sin complicaciones' 94 48 10 $false ([System.Drawing.Color]::FromArgb(219,234,254))))
 
     $version = New-Object System.Windows.Forms.Label
-    $version.Text = 'v0.3.4'
+    $version.Text = 'v0.3.5'
     $version.TextAlign = 'MiddleCenter'
     $version.Location = New-Object System.Drawing.Point(1060,26)
     $version.Size = New-Object System.Drawing.Size(82,30)
@@ -1064,7 +1098,7 @@ try {
     }
 
     Set-NavActive $navHome
-    Write-AulaGuardAudit -Action 'APP_STARTED' -Detail 'v0.3.4' -Root $root
+    Write-AulaGuardAudit -Action 'APP_STARTED' -Detail 'v0.3.5' -Root $root
     Refresh-Dashboard
     & $loadAudit
     & $loadAppEvents
@@ -1075,20 +1109,29 @@ try {
         } catch {}
     })
 
+    # Optional WinForms construction self-test; do not show a blocking dialog.
+    if ($script:AulaGuardUiTest) {
+        $form.Dispose()
+        exit 0
+    }
+
     [void]$form.ShowDialog()
 }
 catch {
     try {
-        Add-Type -AssemblyName System.Windows.Forms -ErrorAction SilentlyContinue
         $message = $_.Exception.ToString()
-        $fallback = if ($PSScriptRoot) {Split-Path -Parent $PSScriptRoot} else {$env:TEMP}
-        Set-Content -Path (Join-Path $fallback 'startup-error.txt') -Value $message -Encoding UTF8
+        $logPath = Join-Path $env:TEMP 'AulaGuard-startup-error.txt'
+        Set-Content -LiteralPath $logPath -Value $message -Encoding UTF8 -ErrorAction Stop
 
-        [System.Windows.Forms.MessageBox]::Show(
-            "AulaGuard no pudo iniciar.$([Environment]::NewLine)$([Environment]::NewLine)$($_.Exception.Message)$([Environment]::NewLine)$([Environment]::NewLine)Revisa startup-error.txt.",
-            'AulaGuard · Error','OK','Error'
-        ) | Out-Null
+        if ($env:AULAGUARD_EXE_SELFTEST -eq '1' -or $env:AULAGUARD_UI_SELFTEST -eq '1') {
+            Write-Host "AULAGUARD_SELFTEST_ERROR: $message"
+        } else {
+            Add-Type -AssemblyName System.Windows.Forms -ErrorAction SilentlyContinue
+            [System.Windows.Forms.MessageBox]::Show(
+                "AulaGuard no pudo iniciar.$([Environment]::NewLine)$([Environment]::NewLine)$($_.Exception.Message)$([Environment]::NewLine)$([Environment]::NewLine)Registro: $logPath",
+                'AulaGuard · Error','OK','Error'
+            ) | Out-Null
+        }
     } catch {}
-
     exit 1
 }

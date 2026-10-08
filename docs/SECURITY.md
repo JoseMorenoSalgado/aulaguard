@@ -69,3 +69,8 @@ Referencias:
 ## Error 740 al finalizar la instalación
 
 En v0.3.4, la opción **Abrir AulaGuard ahora** del asistente ejecuta la aplicación con el contexto elevado del instalador (`runascurrentuser`). Es necesario porque el ejecutable exige permisos de administrador (`requireAdministrator`). No se eliminó UAC ni se relajaron las restricciones de Windows. Los accesos directos siguen solicitando aprobación de administrador al abrir la consola.
+
+
+## Inicio del programa empaquetado (.exe)
+
+Desde v0.3.5, el proceso de carga de módulos PowerShell detecta la carpeta real del ejecutable compilado con PS2EXE, sin depender de `$PSScriptRoot` ni del directorio de trabajo. Si falla el inicio, el diagnóstico se registra en `%TEMP%\AulaGuard-startup-error.txt` del usuario administrador. GitHub Actions verifica la compilación del EXE, la instalación de sus módulos y el arranque de la versión PowerShell; el flujo de integración continua no reemplaza una prueba interactiva del EXE con UAC en Windows 10/11 Pro.

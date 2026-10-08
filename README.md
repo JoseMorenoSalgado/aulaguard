@@ -4,9 +4,9 @@
 
 ## Versión actual
 
-**v0.3.4**
+**v0.3.5**
 
-La versión 0.3.4 corrige el error 740 al abrir la consola tras instalar, y conserva la interfaz profesional y añade una capa de seguridad criptográfica con DPAPI, HMAC-SHA-256, auditoría encadenada, permisos NTFS restrictivos y rechazo de configuraciones alteradas. Mantiene el control avanzado de aplicaciones con AppLocker, auditoría previa al bloqueo, eventos de ejecución, aislamiento de cuentas administradoras y sincronización automática de políticas al iniciar Windows.
+La versión 0.3.5 corrige la carga de módulos del programa compilado y mantiene la corrección del error de elevación 740. Incluye DPAPI, HMAC-SHA-256, auditoría encadenada, permisos NTFS restrictivos y validación de integridad. Mantiene el control avanzado de aplicaciones con AppLocker, auditoría previa al bloqueo, eventos de ejecución, aislamiento de cuentas administradoras y sincronización automática de políticas al iniciar Windows.
 
 ## Funciones actuales
 
@@ -56,15 +56,15 @@ Las reglas de control de aplicaciones no se crean para `Everyone`. AulaGuard man
 
 ## Descargar AulaGuard para Windows
 
-**[Descargar AulaGuard v0.3.4 (.exe) desde GitHub Releases](https://github.com/JoseMorenoSalgado/aulaguard/releases/latest)**
+**[Descargar AulaGuard v0.3.5 (.exe) desde GitHub Releases](https://github.com/JoseMorenoSalgado/aulaguard/releases/latest)**
 
-En **Assets** elija `AulaGuard-Setup-v0.3.4.exe`. No es necesario compilar ni descargar el código fuente. También se publica `SHA256SUMS.txt` para verificar la integridad de la descarga.
+En **Assets** elija `AulaGuard-Setup-v0.3.5.exe`. No es necesario compilar ni descargar el código fuente. También se publica `SHA256SUMS.txt` para verificar la integridad de la descarga.
 
-El repositorio `main` contiene **código fuente**; los instaladores se distribuyen en **Releases** para evitar incluir ejecutables generados en Git. Una compilación verificada de GitHub Actions publica automáticamente cada nueva versión.
+Si el acceso directo del EXE no funciona, abra **AulaGuard (inicio alternativo)** desde el menú Inicio. Este lanzador también requiere permisos de administrador y no reduce la seguridad del aula. Si aún no abre, consulte `%TEMP%\\AulaGuard-startup-error.txt` desde la cuenta administradora. El repositorio `main` contiene **código fuente**; los instaladores se distribuyen en **Releases** para evitar incluir ejecutables generados en Git. Una compilación verificada de GitHub Actions publica automáticamente cada nueva versión.
 
 ## Instalación
 
-1. Abra la sección [Releases](https://github.com/JoseMorenoSalgado/aulaguard/releases) y descargue `AulaGuard-Setup-v0.3.4.exe`.
+1. Abra la sección [Releases](https://github.com/JoseMorenoSalgado/aulaguard/releases) y descargue `AulaGuard-Setup-v0.3.5.exe`.
 2. Ejecute el instalador con permisos de administrador en Windows 10/11 Pro.
 3. Los binarios se instalan en `Program Files`; la configuración privada se almacena en `%ProgramData%\\AulaGuard`.
 4. Se instalarán los módulos de políticas, diagnóstico, seguridad y control de aplicaciones.
@@ -120,7 +120,7 @@ La primera implantación debe realizarse en un equipo de prueba antes de despleg
 
 El proyecto genera un instalador de Windows:
 
-`AulaGuard-Setup-v0.3.4.exe`
+`AulaGuard-Setup-v0.3.5.exe`
 
 Características del instalador:
 
@@ -129,6 +129,7 @@ Características del instalador:
 - Acceso directo opcional en escritorio.
 - Acceso directo opcional en menú Inicio.
 - Apertura de AulaGuard al finalizar con el token elevado del instalador (evita error 740).
+- Acceso alternativo desde el menú Inicio para ejecutar la interfaz como script PowerShell, con elevación UAC, si el ejecutable empaquetado no abre.
 - Conservación de la configuración de `ProgramData` durante actualizaciones.
 - Registro automático de la tarea `AulaGuard\PolicySync`.
 - Desinstalador desde Aplicaciones instaladas de Windows.
