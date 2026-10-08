@@ -48,6 +48,10 @@ jobs:
         shell: powershell
         run: .\tests\Security.Tests.ps1
 
+      - name: Verify installer elevated launch and versions
+        shell: powershell
+        run: .\tests\InstallerElevatedLaunch.Tests.ps1
+
       - name: Generate application icon
         shell: powershell
         run: .\build\GenerateIcon.ps1
