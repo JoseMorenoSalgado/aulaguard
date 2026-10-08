@@ -79,8 +79,6 @@ Name: "{group}\AulaGuard"; Filename: "{app}\src\AulaGuard.exe"; WorkingDir: "{ap
 Name: "{group}\Desinstalar AulaGuard"; Filename: "{uninstallexe}"; Tasks: startmenuicon
 
 [Run]
-Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy RemoteSigned -File ""{app}\src\AulaGuard.Initialize.ps1"""; Flags: runhidden waituntilterminated; Tasks: not migratelegacy
-Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy RemoteSigned -File ""{app}\src\AulaGuard.Initialize.ps1"" -MigrateLegacy"; Flags: runhidden waituntilterminated; Tasks: migratelegacy
 Filename: "{sys}\schtasks.exe"; Parameters: "/Create /TN ""AulaGuard\PolicySync"" /SC ONSTART /RU SYSTEM /RL HIGHEST /TR ""powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File \""{app}\src\AulaGuard.Startup.ps1\"""" /F"; Flags: runhidden waituntilterminated
 Filename: "{app}\src\AulaGuard.exe"; Description: "Abrir AulaGuard ahora"; Flags: postinstall nowait skipifsilent
 
@@ -105,4 +103,33 @@ end;
 function ShouldSkipPage(PageID: Integer): Boolean;
 begin
   Result := False;
+end;
+
+procedure CurStepChanged(CurStep: TSetupStep);
+var
+  Params: string;
+  ResultCode: Integer;
+  Started: Boolean;
+begin
+  if CurStep <> ssPostInstall then
+    Exit;
+
+  Params := '-NoProfile -ExecutionPolicy RemoteSigned -File "' +
+    ExpandConstant('{app}\src\AulaGuard.Initialize.ps1') + '"';
+  if IsTaskSelected('migratelegacy') then
+    Params := Params + ' -MigrateLegacy';
+
+  ResultCode := -1;
+  Started := Exec(
+    ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe'),
+    Params, ExpandConstant('{app}'), SW_HIDE, ewWaitUntilTerminated, ResultCode
+  );
+  if (not Started) or (ResultCode <> 0) then
+  begin
+    MsgBox('No se pudo verificar o crear la configuración protegida de AulaGuard.' +
+      #13#10 + 'Revise docs\SECURITY.md antes de continuar.' +
+      #13#10 + 'Código de salida: ' + IntToStr(ResultCode),
+      mbCriticalError, MB_OK);
+    Abort;
+  end;
 end;
