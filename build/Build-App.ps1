@@ -24,6 +24,6 @@ Import-Module ps2exe -Force
 
 $outputExe = Join-Path $OutputDir 'AulaGuard.exe'
 
-Invoke-PS2EXE -InputFile (Join-Path $src 'AulaGuard.ps1') -OutputFile $outputExe -IconFile $icon -Title 'AulaGuard' -Product 'AulaGuard' -Company 'Elearning Cloud' -Description 'Administración, protección y control educativo para aulas Windows' -Version '0.3.3.0' -NoConsole -RequireAdmin -STA
+Invoke-PS2EXE -InputFile (Join-Path $src 'AulaGuard.ps1') -OutputFile $outputExe -IconFile $icon -Title 'AulaGuard' -Product 'AulaGuard' -Company 'Elearning Cloud' -Description 'Administración, protección y control educativo para aulas Windows' -Version '0.3.4.0' -NoConsole -RequireAdmin -STA
 
 Write-Host "Aplicación generada: $outputExe"
