@@ -39,7 +39,7 @@ jobs:
           if (-not $status.AMServiceEnabled -or -not $status.AntivirusEnabled -or -not $status.RealTimeProtectionEnabled) {
             throw 'Defender debe estar activo antes de iniciar un build publicable.'
           }
-          $cert = Get-ChildItem Cert:\CurrentUser\My,Cert:\LocalMachine\My -ErrorAction SilentlyContinue |
+          $cert = Get-ChildItem Cert:\CurrentUser\My -ErrorAction SilentlyContinue |
             Where-Object { $_.Thumbprint -eq $env:AULAGUARD_SIGNING_THUMBPRINT } | Select-Object -First 1
           if (-not $cert -or -not $cert.HasPrivateKey) {
             throw 'La máquina de publicación debe tener instalado un certificado legítimo y su clave privada.'
