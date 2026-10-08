@@ -73,4 +73,4 @@ En v0.3.4, la opción **Abrir AulaGuard ahora** del asistente ejecuta la aplicac
 
 ## Inicio del programa empaquetado (.exe)
 
-Desde v0.3.5, el proceso de carga de módulos PowerShell detecta la carpeta real del ejecutable compilado con PS2EXE, sin depender de `$PSScriptRoot` ni del directorio de trabajo. Si falla el inicio, el diagnóstico se registra en `%TEMP%\AulaGuard-startup-error.txt` del usuario administrador. La versión pasa una prueba de arranque del EXE real en GitHub Actions, adicional a la instalación.
+Desde v0.3.5, el proceso de carga de módulos PowerShell detecta la carpeta real del ejecutable compilado con PS2EXE, sin depender de `$PSScriptRoot` ni del directorio de trabajo. Si falla el inicio, el diagnóstico se registra en `%TEMP%\AulaGuard-startup-error.txt` del usuario administrador. GitHub Actions verifica la compilación del EXE, la instalación de sus módulos y el arranque de la versión PowerShell; el flujo de integración continua no reemplaza una prueba interactiva del EXE con UAC en Windows 10/11 Pro.
