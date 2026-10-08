@@ -66,12 +66,14 @@ function Sync-AulaGuardUsbPolicy {
     param(
         [Parameter(Mandatory=$true)][bool]$BlockStorage,
         [Parameter(Mandatory=$true)][string]$Root,
-        [switch]$WhatIfMode
+        [switch]$WhatIfMode,
+        [object[]]$Profiles = $null
     )
     Assert-AulaGuardElevated
+    if ($null -eq $Profiles) { $Profiles = @(Get-TargetUserProfiles) }
     $state = Get-AulaGuardUsbState -Root $Root
     $results = New-Object 'System.Collections.Generic.List[object]'
-    foreach ($profile in @(Get-TargetUserProfiles)) {
+    foreach ($profile in @($Profiles)) {
         $sid = [string]$profile.SID
         $username = Split-Path $profile.LocalPath -Leaf
         if ($WhatIfMode) {
