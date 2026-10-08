@@ -1,5 +1,5 @@
 {
-  "version": "0.3.6",
+  "version": "0.4.0",
   "profileName": "Aula principal",
   "policyMode": "Audit",
   "wallpaper": "",
@@ -22,6 +22,14 @@
     "enabled": false,
     "lastAppliedUtc": null,
     "lastBackup": null
+  },
+  "usb": {
+    "blockStorage": false
+  },
+  "premium": {
+    "serverMode": "LocalOnly",
+    "endpoint": "",
+    "deviceId": ""
   },
   "auditEnabled": true,
   "lastAppliedUtc": null
