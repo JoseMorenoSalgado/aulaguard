@@ -1,4 +1,4 @@
-name: Build AulaGuard Installer
+name: Validate AulaGuard Source and Installer
 
 on:
   workflow_dispatch:
@@ -16,6 +16,7 @@ on:
       - "build/**"
       - "installer/**"
       - ".github/workflows/build-installer.yml"
+      - ".github/workflows/release-verified.yml"
 
 concurrency:
   group: aula-guard-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -60,6 +61,10 @@ jobs:
         shell: powershell
         run: .\tests\InstallerElevatedLaunch.Tests.ps1
 
+      - name: Verify signed-release policy is enforced
+        shell: powershell
+        run: .\tests\ReleaseSecurity.Tests.ps1
+
       - name: Generate application icon
         shell: powershell
         run: .\build\GenerateIcon.ps1
@@ -71,18 +76,6 @@ jobs:
       - name: Build AulaGuard.exe
         shell: powershell
         run: .\build\Build-App.ps1
-
-      - name: Sign application when trusted certificate is configured
-        if: github.event_name != 'pull_request'
-        shell: powershell
-        env:
-          AULAGUARD_PFX_BASE64: ${{ secrets.AULAGUARD_PFX_BASE64 }}
-          AULAGUARD_PFX_PASSWORD: ${{ secrets.AULAGUARD_PFX_PASSWORD }}
-        run: .\build\Sign-Artifact.ps1 -Path .\dist\AulaGuard.exe
-
-      - name: Scan compiled AulaGuard EXE with Microsoft Defender
-        shell: powershell
-        run: .\build\Test-DefenderArtifacts.ps1 -RequireActiveDefender -Paths @('.\dist\AulaGuard.exe')
 
       - name: Install Inno Setup
         shell: powershell
@@ -96,7 +89,7 @@ jobs:
       - name: Smoke test protected Windows installation
         shell: powershell
         run: |
-          $setup = (Resolve-Path 'dist/installer/AulaGuard-Setup-v0.4.0.exe').Path
+          $setup = (Resolve-Path 'dist/installer/AulaGuard-Setup-v0.4.1.exe').Path
           $process = Start-Process -FilePath $setup -ArgumentList '/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-' -Wait -PassThru
           if ($process.ExitCode -ne 0) { throw "Installer failed with $($process.ExitCode)" }
           $installedRoot = Join-Path $env:ProgramFiles 'AulaGuard'
@@ -159,99 +152,17 @@ jobs:
           } finally { Remove-Item Env:\AULAGUARD_UI_SELFTEST -ErrorAction SilentlyContinue }
           Write-Host '[OK] Full WinForms screen tree built without showing modal windows.'
 
-      - name: Sign installer when trusted certificate is configured
-        if: github.event_name != 'pull_request'
-        shell: powershell
-        env:
-          AULAGUARD_PFX_BASE64: ${{ secrets.AULAGUARD_PFX_BASE64 }}
-          AULAGUARD_PFX_PASSWORD: ${{ secrets.AULAGUARD_PFX_PASSWORD }}
-        run: .\build\Sign-Artifact.ps1 -Path .\dist\installer\AulaGuard-Setup-v0.4.0.exe
-
-      - name: Scan final installer with Microsoft Defender
-        shell: powershell
-        run: .\build\Test-DefenderArtifacts.ps1 -RequireActiveDefender -Paths @('.\dist\installer\AulaGuard-Setup-v0.4.0.exe')
-
       - name: Record SHA-256 installer checksum
         shell: powershell
         run: |
-          $exe = 'dist/installer/AulaGuard-Setup-v0.4.0.exe'
+          $exe = 'dist/installer/AulaGuard-Setup-v0.4.1.exe'
           $hash = (Get-FileHash -Path $exe -Algorithm SHA256).Hash.ToLowerInvariant()
-          "$hash  AulaGuard-Setup-v0.4.0.exe" | Set-Content dist/installer/SHA256SUMS.txt -Encoding ASCII
+          "$hash  AulaGuard-Setup-v0.4.1.exe" | Set-Content dist/installer/SHA256SUMS.txt -Encoding ASCII
 
-      - name: Upload Windows installer
-        uses: actions/upload-artifact@v4
-        with:
-          name: AulaGuard-Windows-Installer
-          path: |
-            dist/installer/AulaGuard-Setup-v0.4.0.exe
-            dist/installer/SHA256SUMS.txt
-          if-no-files-found: error
+      # Windows GitHub-hosted runners may have Defender disabled. This job is
+      # a build/test only; it NEVER publishes or uploads unscanned binaries.
 
       - name: Verify Windows uninstallation and residual cleanup
         shell: powershell
         run: .\tests\Uninstall.Tests.ps1
 
-
-  release:
-    name: Publish downloadable installer
-    needs: build
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-
-    steps:
-      - name: Checkout source and version
-        uses: actions/checkout@v4
-
-      - name: Download tested Windows installer
-        uses: actions/download-artifact@v4
-        with:
-          name: AulaGuard-Windows-Installer
-          path: release
-
-      - name: Publish GitHub Release
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          version="$(sed -n 's/^#define MyAppVersion "\([^"]*\)"/\1/p' installer/AulaGuard.iss)"
-          if [[ -z "$version" ]]; then
-            echo "::error::No se pudo leer la versión del instalador."
-            exit 1
-          fi
-          tag="v${version}"
-          installer="release/AulaGuard-Setup-v${version}.exe"
-          test -s "$installer"
-          test -s release/SHA256SUMS.txt
-          (cd release && sha256sum --check SHA256SUMS.txt)
-
-          if gh release view "$tag" >/dev/null 2>&1; then
-            echo "La versión $tag ya tiene una publicación. No se reemplazan binarios existentes."
-            exit 0
-          fi
-
-          cat > RELEASE_NOTES.md <<EOF
-          ## AulaGuard v${version} — Control de aulas Windows
-
-          Instalador para Windows 10/11 Pro con asistente en español.
-
-          Esta versión incorpora autenticación HMAC-SHA-256 para la configuración y bitácora,
-          protección DPAPI de clave local y permisos NTFS restrictivos.
-
-          Descargue **AulaGuard-Setup-v${version}.exe** y ejecútelo como administrador.
-          Antes de actualizar una versión previa, revise docs/SECURITY.md para migrar la
-          configuración. Pruebe el bloqueo AppLocker en una sola PC primero.
-
-          **Seguridad:** El checksum SHA-256 permite comprobar integridad, pero no certifica
-          la identidad del editor. Si el archivo no tiene una firma Authenticode válida,
-          Windows puede presentar una advertencia de editor desconocido.
-          EOF
-
-          gh release create "$tag" "$installer" release/SHA256SUMS.txt \
-            --title "AulaGuard $tag" \
-            --notes-file RELEASE_NOTES.md \
-            --target "$GITHUB_SHA" \
-            --latest
-          gh release view "$tag" --json url,assets --jq '{url:.url,assets:[.assets[].name]}'
