@@ -4,9 +4,9 @@
 
 ## Versión actual
 
-**v0.4.0**
+**v0.4.1 (código en revisión de seguridad; no publicado como instalador)**
 
-La versión 0.4.0 incorpora control USB por usuario estándar, la vista de Servidor Premium (preparación sin conexión real), interfaz verde y la desinstalación para retirar los directorios del programa en Program Files y corrige la carga de módulos del programa compilado y mantiene la corrección del error de elevación 740. Incluye DPAPI, HMAC-SHA-256, auditoría encadenada, permisos NTFS restrictivos y validación de integridad. Mantiene el control avanzado de aplicaciones con AppLocker, auditoría previa al bloqueo, eventos de ejecución, aislamiento de cuentas administradoras y sincronización automática de políticas al iniciar Windows.
+El proyecto incorpora control USB por usuario estándar, la vista de Servidor Premium (preparación sin conexión real), interfaz verde y la desinstalación para retirar los directorios del programa en Program Files y corrige la carga de módulos del programa compilado y mantiene la corrección del error de elevación 740. Incluye DPAPI, HMAC-SHA-256, auditoría encadenada, permisos NTFS restrictivos y validación de integridad. Mantiene el control avanzado de aplicaciones con AppLocker, auditoría previa al bloqueo, eventos de ejecución, aislamiento de cuentas administradoras y sincronización automática de políticas al iniciar Windows.
 
 ## Funciones actuales
 
@@ -62,17 +62,24 @@ Si Windows Defender detecta AulaGuard, **no lo instale ni desactive el antivirus
 
 Las nuevas compilaciones requieren un análisis activo con Microsoft Defender del ejecutable y del instalador para publicarse automáticamente. Una comprobación satisfactoria no garantiza ausencia de amenazas ni aprobación de reputación SmartScreen. La firma digital de código sigue requiriendo un certificado real.
 
-## Descargar AulaGuard para Windows
+## Instalador público: publicación suspendida
 
-**[Descargar AulaGuard v0.4.0 (.exe) desde GitHub Releases](https://github.com/JoseMorenoSalgado/aulaguard/releases/latest)**
+**No se recomienda instalar la versión v0.4.0** hasta investigar el aviso antivirus reportado en un equipo Windows. Una advertencia SmartScreen de reputación no es lo mismo que una detección real de Microsoft Defender; todavía falta el nombre exacto de la amenaza.
 
-En **Assets** elija `AulaGuard-Setup-v0.4.0.exe`. No es necesario compilar ni descargar el código fuente. También se publica `SHA256SUMS.txt` para verificar la integridad de la descarga.
+El código de **v0.4.1** incluye cambios para exigir:
 
-Si el acceso directo del EXE no funciona, abra **AulaGuard (inicio alternativo)** desde el menú Inicio. Este lanzador también requiere permisos de administrador y no reduce la seguridad del aula. Si aún no abre, consulte `%TEMP%\\AulaGuard-startup-error.txt` desde la cuenta administradora. El repositorio `main` contiene **código fuente**; los instaladores se distribuyen en **Releases** para evitar incluir ejecutables generados en Git. Una compilación verificada de GitHub Actions publica automáticamente cada nueva versión.
+- Certificado Authenticode real (instalador y EXE) con clave privada protegida en Windows.
+- Versión **ps2exe 1.0.18** fijada explícitamente.
+- Análisis antivirus con Defender activo en un ejecutor de publicación Windows administrado por el editor.
+- Publicación manual aprobada. La compilación pública de GitHub solo valida código; **no publica binarios sin revisar**.
+
+Cuando el editor complete estos requisitos, la versión verificada aparecerá en [GitHub Releases](https://github.com/JoseMorenoSalgado/aulaguard/releases). Una firma y un escaneo satisfactorios no garantizan que el programa carezca de malware.
+
+Para revisar una detección y preparar el entorno, lea [Investigación con Defender](docs/DEFENDER.md).
 
 ## Instalación
 
-1. Abra la sección [Releases](https://github.com/JoseMorenoSalgado/aulaguard/releases) y descargue `AulaGuard-Setup-v0.4.0.exe`.
+1. Espere a que la revisión antivirus se complete y aparezca un instalador firmado de v0.4.1 o posterior en [Releases](https://github.com/JoseMorenoSalgado/aulaguard/releases). No instale una versión que Defender haya puesto en cuarentena.
 2. Ejecute el instalador con permisos de administrador en Windows 10/11 Pro.
 3. Los binarios se instalan en `Program Files`; la configuración privada se almacena en `%ProgramData%\\AulaGuard`.
 4. Se instalarán los módulos de políticas, diagnóstico, seguridad y control de aplicaciones.
@@ -126,9 +133,9 @@ La primera implantación debe realizarse en un equipo de prueba antes de despleg
 
 ## Instalador profesional
 
-El proyecto genera un instalador de Windows:
+El proyecto tiene preparado el código de un instalador de Windows:
 
-`AulaGuard-Setup-v0.4.0.exe`
+`AulaGuard-Setup-v0.4.1.exe` (pendiente de firma y verificación antivirus; no disponible todavía)
 
 Características del instalador:
 
@@ -143,7 +150,7 @@ Características del instalador:
 - Desinstalador desde Aplicaciones instaladas de Windows, que limpia los archivos de la aplicación en `Program Files` y elimina la tarea programada.\n- Conservación por defecto de los datos y políticas administrativas almacenados en `%ProgramData%\\AulaGuard`.
 - Validación automática de sintaxis antes de compilar.
 
-El instalador se genera mediante GitHub Actions y se publica automáticamente en [GitHub Releases](https://github.com/JoseMorenoSalgado/aulaguard/releases), junto con su checksum SHA-256.
+La compilación de pruebas no publica el instalador. La publicación se realiza únicamente mediante el flujo manual **Publish verified AulaGuard**, con certificado Authenticode válido y Microsoft Defender activo, en una máquina controlada por el editor.
 
 ## Desinstalación y limpieza
 
