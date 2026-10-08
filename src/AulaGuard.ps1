@@ -1,4 +1,4 @@
-# AulaGuard v0.3.6
+# AulaGuard v0.4.0
 # Friendly educational administration console for Windows classrooms.
 
 $ErrorActionPreference = 'Stop'
@@ -31,7 +31,8 @@ try {
         'AulaGuard.Core.psm1',
         'AulaGuard.Policy.psm1',
         'AulaGuard.Diagnostics.psm1',
-        'AulaGuard.AppControl.psm1'
+        'AulaGuard.AppControl.psm1',
+        'AulaGuard.USB.psm1'
     )) {
         $modulePath = Join-Path $script:AulaGuardSourceDir $moduleName
         if (-not (Test-Path -LiteralPath $modulePath -PathType Leaf)) {
@@ -59,8 +60,8 @@ try {
         exit 0
     }
 
-    $Primary = [System.Drawing.Color]::FromArgb(37,99,235)
-    $PrimaryDark = [System.Drawing.Color]::FromArgb(30,64,175)
+    $Primary = [System.Drawing.Color]::FromArgb(22,163,74)
+    $PrimaryDark = [System.Drawing.Color]::FromArgb(20,83,45)
     $Success = [System.Drawing.Color]::FromArgb(22,163,74)
     $Warning = [System.Drawing.Color]::FromArgb(217,119,6)
     $Danger = [System.Drawing.Color]::FromArgb(220,38,38)
@@ -69,7 +70,7 @@ try {
     $Text = [System.Drawing.Color]::FromArgb(30,41,59)
     $Muted = [System.Drawing.Color]::FromArgb(100,116,139)
     $Border = [System.Drawing.Color]::FromArgb(226,232,240)
-    $SoftBlue = [System.Drawing.Color]::FromArgb(239,246,255)
+    $SoftBlue = [System.Drawing.Color]::FromArgb(236,253,245)
     $SoftGreen = [System.Drawing.Color]::FromArgb(240,253,244)
     $SoftAmber = [System.Drawing.Color]::FromArgb(255,251,235)
 
@@ -123,7 +124,7 @@ try {
             'Secondary' {
                 $b.BackColor = $SoftBlue
                 $b.ForeColor = $PrimaryDark
-                $b.FlatAppearance.BorderColor = [System.Drawing.Color]::FromArgb(191,219,254)
+                $b.FlatAppearance.BorderColor = [System.Drawing.Color]::FromArgb(187,247,208)
             }
             'Danger' {
                 $b.BackColor = [System.Drawing.Color]::White
@@ -186,7 +187,7 @@ try {
         $Grid.ColumnHeadersDefaultCellStyle.BackColor = [System.Drawing.Color]::FromArgb(248,250,252)
         $Grid.ColumnHeadersDefaultCellStyle.ForeColor = $Text
         $Grid.ColumnHeadersDefaultCellStyle.Font = New-Object System.Drawing.Font('Segoe UI Semibold',9)
-        $Grid.DefaultCellStyle.SelectionBackColor = [System.Drawing.Color]::FromArgb(219,234,254)
+        $Grid.DefaultCellStyle.SelectionBackColor = [System.Drawing.Color]::FromArgb(220,252,231)
         $Grid.DefaultCellStyle.SelectionForeColor = $Text
         $Grid.DefaultCellStyle.Font = New-Object System.Drawing.Font('Segoe UI',9)
         $Grid.RowTemplate.Height = 30
@@ -236,7 +237,7 @@ try {
         }
 
         return [pscustomobject]@{
-            version = '0.3.6'
+            version = '0.4.0'
             profileName = $txtProfileName.Text.Trim()
             policyMode = if ($radEnforce.Checked) {'Enforce'} else {'Audit'}
             wallpaper = $txtWallpaper.Text.Trim()
@@ -244,6 +245,10 @@ try {
             allowedWebsites = @(Get-ListItems $lstWebsites)
             protectedShortcuts = @(Get-ListItems $lstShortcuts)
             protections = $protections
+            usb = [pscustomobject]@{
+                blockStorage = [bool]$toggleUsb.Checked
+            }
+            premium = $settings.premium
             appControl = [pscustomobject]@{
                 mode = if ($radAppEnforce.Checked) {'Enabled'} else {'AuditOnly'}
                 enabled = [bool]$settings.appControl.enabled
@@ -298,12 +303,12 @@ try {
     $header.Controls.Add((New-Label 'Protege el aula sin complicaciones' 94 48 10 $false ([System.Drawing.Color]::FromArgb(219,234,254))))
 
     $version = New-Object System.Windows.Forms.Label
-    $version.Text = 'v0.3.6'
+    $version.Text = 'v0.4.0'
     $version.TextAlign = 'MiddleCenter'
     $version.Location = New-Object System.Drawing.Point(1060,26)
     $version.Size = New-Object System.Drawing.Size(82,30)
     $version.Anchor = 'Top,Right'
-    $version.BackColor = [System.Drawing.Color]::FromArgb(30,58,138)
+    $version.BackColor = [System.Drawing.Color]::FromArgb(21,128,61)
     $version.ForeColor = [System.Drawing.Color]::White
     $version.Font = New-Object System.Drawing.Font('Segoe UI Semibold',9)
     $header.Controls.Add($version)
@@ -331,21 +336,31 @@ try {
     $form.Controls.Add($workspace)
     $workspace.BringToFront()
 
+    # Explicit columns prevent a docked sidebar from painting over the content.
+    $shell = New-Object System.Windows.Forms.TableLayoutPanel
+    $shell.Dock = 'Fill'
+    $shell.ColumnCount = 2
+    $shell.RowCount = 1
+    $shell.Margin = New-Object System.Windows.Forms.Padding(0)
+    [void]$shell.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle('Absolute',202)))
+    [void]$shell.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle('Percent',100)))
+    $workspace.Controls.Add($shell)
+
+    $sidebar = New-Object System.Windows.Forms.Panel
+    $sidebar.Dock = 'Fill'
+    $sidebar.Margin = New-Object System.Windows.Forms.Padding(0)
+    $sidebar.BackColor = [System.Drawing.Color]::White
+    $shell.Controls.Add($sidebar,0,0)
+
     $tabs = New-Object System.Windows.Forms.TabControl
     $tabs.Dock = 'Fill'
+    $tabs.Margin = New-Object System.Windows.Forms.Padding(0)
     $tabs.Appearance = 'FlatButtons'
     $tabs.SizeMode = 'Fixed'
     $tabs.ItemSize = New-Object System.Drawing.Size(0,1)
     $tabs.Padding = New-Object System.Drawing.Point(0,0)
     $tabs.Font = New-Object System.Drawing.Font('Segoe UI',9)
-    $workspace.Controls.Add($tabs)
-
-    $sidebar = New-Object System.Windows.Forms.Panel
-    $sidebar.Dock = 'Left'
-    $sidebar.Width = 185
-    $sidebar.BackColor = [System.Drawing.Color]::White
-    $workspace.Controls.Add($sidebar)
-    $sidebar.BringToFront()
+    $shell.Controls.Add($tabs,1,0)
 
     $sidebar.Controls.Add((New-Label 'NAVEGACIÓN' 24 18 8 $true $Muted))
 
@@ -355,22 +370,28 @@ try {
     $navAppControl = New-NavButton 'Control de apps' 184
     $navInternet = New-NavButton 'Internet' 230
     $navDesktop = New-NavButton 'Escritorio' 276
-    $navLog = New-NavButton 'Registro' 322
+    $navUsb = New-NavButton 'Memorias USB' 322
+    $navPremium = New-NavButton 'Servidor · Premium' 368
+    $navLog = New-NavButton 'Registro' 414
 
-    foreach ($nav in @($navHome,$navProtection,$navPrograms,$navAppControl,$navInternet,$navDesktop,$navLog)) {
+    foreach ($nav in @($navHome,$navProtection,$navPrograms,$navAppControl,$navInternet,$navDesktop,$navUsb,$navPremium,$navLog)) {
         $sidebar.Controls.Add($nav)
     }
 
-    $sideInfo = New-Card 12 392 160 120 $SoftBlue
+    $sideInfo = New-Card 12 480 178 110 $SoftGreen
     $sideInfo.Controls.Add((New-Label 'Aula protegida' 12 12 9 $true $PrimaryDark))
     $sideInfo.Controls.Add((New-Label 'Configura primero' 12 42 8 $false $Muted))
     $sideInfo.Controls.Add((New-Label 'en auditoría y luego' 12 62 8 $false $Muted))
     $sideInfo.Controls.Add((New-Label 'activa la protección.' 12 82 8 $false $Muted))
     $sidebar.Controls.Add($sideInfo)
+    $sidebar.Add_Resize({
+        $sideInfo.Visible = ($sidebar.ClientSize.Height -gt 610)
+        $sideInfo.Top = [Math]::Max(475,$sidebar.ClientSize.Height - $sideInfo.Height - 12)
+    })
 
     function Set-NavActive {
         param($Active)
-        foreach ($nav in @($navHome,$navProtection,$navPrograms,$navAppControl,$navInternet,$navDesktop,$navLog)) {
+        foreach ($nav in @($navHome,$navProtection,$navPrograms,$navAppControl,$navInternet,$navDesktop,$navUsb,$navPremium,$navLog)) {
             $nav.BackColor = [System.Drawing.Color]::White
             $nav.ForeColor = $Muted
         }
@@ -1098,7 +1119,7 @@ try {
     }
 
     Set-NavActive $navHome
-    Write-AulaGuardAudit -Action 'APP_STARTED' -Detail 'v0.3.6' -Root $root
+    Write-AulaGuardAudit -Action 'APP_STARTED' -Detail 'v0.4.0' -Root $root
     Refresh-Dashboard
     & $loadAudit
     & $loadAppEvents
