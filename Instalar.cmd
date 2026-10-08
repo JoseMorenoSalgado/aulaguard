@@ -21,7 +21,7 @@ if errorlevel 1 (
 )
 
 if not exist "%TARGET%\src" mkdir "%TARGET%\src"
-for %%F in (AulaGuard.ps1 AulaGuard.Core.psm1 AulaGuard.Security.psm1 AulaGuard.Initialize.ps1 AulaGuard.Policy.psm1 AulaGuard.Diagnostics.psm1 AulaGuard.AppControl.psm1 AulaGuard.Startup.ps1) do (
+for %%F in (AulaGuard.ps1 AulaGuard.Core.psm1 AulaGuard.Security.psm1 AulaGuard.Initialize.ps1 AulaGuard.Policy.psm1 AulaGuard.USB.psm1 AulaGuard.Diagnostics.psm1 AulaGuard.AppControl.psm1 AulaGuard.Startup.ps1) do (
   copy /Y "%SRC%src\%%F" "%TARGET%\src\%%F" >nul
   if errorlevel 1 (
     echo ERROR al copiar %%F

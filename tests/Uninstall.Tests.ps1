@@ -33,6 +33,8 @@ Write-Host '[OK] Eliminada carpeta de Program Files con residuos de versiones an
 
 $task = Get-ScheduledTask -TaskName 'PolicySync' -TaskPath '\AulaGuard\' -ErrorAction SilentlyContinue
 if ($null -ne $task) { throw 'La tarea AulaGuard\PolicySync continúa instalada.' }
+$logonTask = Get-ScheduledTask -TaskName 'PolicySyncLogon' -TaskPath '\AulaGuard\' -ErrorAction SilentlyContinue
+if ($null -ne $logonTask) { throw 'La tarea de sincronización al iniciar sesión continúa instalada.' }
 Write-Host '[OK] Eliminada tarea programada.'
 
 if (-not (Test-Path -LiteralPath (Join-Path $dataRoot 'config\settings.json')) -or

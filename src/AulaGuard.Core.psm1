@@ -28,7 +28,7 @@ function Get-AulaGuardSettingsPath {
 
 function New-AulaGuardSettings {
     [pscustomobject]@{
-        version = '0.3.6'
+        version = '0.4.0'
         profileName = 'Aula principal'
         policyMode = 'Audit'
         wallpaper = ''
@@ -52,6 +52,14 @@ function New-AulaGuardSettings {
             lastAppliedUtc = $null
             lastBackup = $null
         }
+        usb = [pscustomobject]@{
+            blockStorage = $false
+        }
+        premium = [pscustomobject]@{
+            serverMode = 'LocalOnly'
+            endpoint = ''
+            deviceId = ''
+        }
         auditEnabled = $true
         lastAppliedUtc = $null
     }
@@ -65,7 +73,7 @@ function Read-AulaGuardSettings {
     $defaults = New-AulaGuardSettings
     $s = Get-Content -LiteralPath $path -Raw -Encoding UTF8 -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop
 
-    foreach ($property in @('version','profileName','policyMode','wallpaper','allowedPrograms','allowedWebsites','protectedShortcuts','appControl','auditEnabled','lastAppliedUtc')) {
+    foreach ($property in @('version','profileName','policyMode','wallpaper','allowedPrograms','allowedWebsites','protectedShortcuts','appControl','usb','premium','auditEnabled','lastAppliedUtc')) {
         if (-not ($s.PSObject.Properties.Name -contains $property)) {
             $s | Add-Member NoteProperty $property $defaults.$property
         }
@@ -88,10 +96,28 @@ function Read-AulaGuardSettings {
             }
         }
     }
+    if ($null -eq $s.usb) {
+        $s | Add-Member NoteProperty usb $defaults.usb -Force
+    } elseif (-not ($s.usb.PSObject.Properties.Name -contains 'blockStorage')) {
+        $s.usb | Add-Member NoteProperty blockStorage $false
+    }
+    if ($null -eq $s.premium) {
+        $s | Add-Member NoteProperty premium $defaults.premium -Force
+    } else {
+        foreach ($property in $defaults.premium.PSObject.Properties.Name) {
+            if (-not ($s.premium.PSObject.Properties.Name -contains $property)) {
+                $s.premium | Add-Member NoteProperty $property $defaults.premium.$property
+            }
+        }
+    }
+    # Premium network operation is not implemented. Imported profiles cannot enable it.
+    $s.premium.serverMode = 'LocalOnly'
+    $s.premium.endpoint = ''
+    $s.premium.deviceId = ''
     if ($s.policyMode -notin @('Audit','Enforce') -or $s.appControl.mode -notin @('AuditOnly','Enabled')) {
         throw 'Modo de políticas inválido en configuración protegida.'
     }
-    $s.version = '0.3.6'
+    $s.version = '0.4.0'
     return $s
 }
 
@@ -105,6 +131,12 @@ function Save-AulaGuardSettings {
     if ($Settings.policyMode -notin @('Audit','Enforce') -or
         $Settings.appControl.mode -notin @('AuditOnly','Enabled')) {
         throw 'Modo de políticas inválido.'
+    }
+    if ($Settings.PSObject.Properties.Name -contains 'premium') {
+        if ($Settings.premium.serverMode -ne 'LocalOnly' -or
+            -not [string]::IsNullOrEmpty([string]$Settings.premium.endpoint)) {
+            throw 'La conexión Premium no está implementada; no se guardarán credenciales ni endpoints.'
+        }
     }
     $json = $Settings | ConvertTo-Json -Depth 12 -ErrorAction Stop
     if ($json.Length -gt 1048576) { throw 'El perfil excede el tamaño permitido (1 MB).' }

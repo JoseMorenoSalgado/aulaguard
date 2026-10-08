@@ -1,5 +1,5 @@
 #define MyAppName "AulaGuard"
-#define MyAppVersion "0.3.6"
+#define MyAppVersion "0.4.0"
 #define MyAppPublisher "Elearning Cloud"
 #define MyAppURL "https://elearningcloud.io"
 #define MyAppExeName "AulaGuard.exe"
@@ -38,7 +38,7 @@ RestartApplications=yes
 UsePreviousAppDir=yes
 UsePreviousTasks=yes
 ShowLanguageDialog=no
-VersionInfoVersion=0.3.6.0
+VersionInfoVersion=0.4.0.0
 VersionInfoCompany={#MyAppPublisher}
 VersionInfoDescription=Instalador de AulaGuard para aulas Windows
 VersionInfoProductName={#MyAppName}
@@ -65,6 +65,7 @@ Source: "..\src\AulaGuard.Security.psm1"; DestDir: "{app}\src"; Flags: ignorever
 Source: "..\src\AulaGuard.Initialize.ps1"; DestDir: "{app}\src"; Flags: ignoreversion
 Source: "..\src\AulaGuard.Core.psm1"; DestDir: "{app}\src"; Flags: ignoreversion
 Source: "..\src\AulaGuard.Policy.psm1"; DestDir: "{app}\src"; Flags: ignoreversion
+Source: "..\src\AulaGuard.USB.psm1"; DestDir: "{app}\src"; Flags: ignoreversion
 Source: "..\src\AulaGuard.Diagnostics.psm1"; DestDir: "{app}\src"; Flags: ignoreversion
 Source: "..\src\AulaGuard.AppControl.psm1"; DestDir: "{app}\src"; Flags: ignoreversion
 Source: "..\src\AulaGuard.Startup.ps1"; DestDir: "{app}\src"; Flags: ignoreversion
@@ -79,6 +80,7 @@ Name: "{group}\Desinstalar AulaGuard"; Filename: "{uninstallexe}"; Tasks: startm
 
 [Run]
 Filename: "{sys}\schtasks.exe"; Parameters: "/Create /TN ""AulaGuard\PolicySync"" /SC ONSTART /RU SYSTEM /RL HIGHEST /TR ""powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File \""{app}\src\AulaGuard.Startup.ps1\"""" /F"; Flags: runhidden waituntilterminated
+Filename: "{sys}\schtasks.exe"; Parameters: "/Create /TN ""AulaGuard\PolicySyncLogon"" /SC ONLOGON /RU SYSTEM /RL HIGHEST /TR ""powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File \""{app}\src\AulaGuard.Startup.ps1\"""" /F"; Flags: runhidden waituntilterminated
 ; The compiled EXE has requireAdministrator in its manifest. Inno Setup normally runs postinstall items under the original unelevated user: use runascurrentuser to retain elevation and avoid CreateProcess error 740.
 Filename: "{app}\src\AulaGuard.exe"; Description: "Abrir AulaGuard ahora"; Flags: postinstall nowait skipifsilent runascurrentuser
 
@@ -92,6 +94,7 @@ Type: filesandordirs; Name: "{app}\config"
 
 [UninstallRun]
 Filename: "{sys}\schtasks.exe"; Parameters: "/Delete /TN ""AulaGuard\PolicySync"" /F"; Flags: runhidden waituntilterminated; RunOnceId: "DeletePolicySync"
+Filename: "{sys}\schtasks.exe"; Parameters: "/Delete /TN ""AulaGuard\PolicySyncLogon"" /F"; Flags: runhidden waituntilterminated; RunOnceId: "DeletePolicySyncLogon"
 
 [Code]
 procedure InitializeWizard;

@@ -52,6 +52,10 @@ jobs:
         shell: powershell
         run: .\tests\Security.Tests.ps1
 
+      - name: Validate USB configuration and future Premium boundary
+        shell: powershell
+        run: .\tests\Usb.Tests.ps1
+
       - name: Verify installer elevated launch and versions
         shell: powershell
         run: .\tests\InstallerElevatedLaunch.Tests.ps1
@@ -88,7 +92,7 @@ jobs:
       - name: Smoke test protected Windows installation
         shell: powershell
         run: |
-          $setup = (Resolve-Path 'dist/installer/AulaGuard-Setup-v0.3.6.exe').Path
+          $setup = (Resolve-Path 'dist/installer/AulaGuard-Setup-v0.4.0.exe').Path
           $process = Start-Process -FilePath $setup -ArgumentList '/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-' -Wait -PassThru
           if ($process.ExitCode -ne 0) { throw "Installer failed with $($process.ExitCode)" }
           $installedRoot = Join-Path $env:ProgramFiles 'AulaGuard'
@@ -97,10 +101,13 @@ jobs:
           }
           Import-Module (Join-Path $installedRoot 'src/AulaGuard.Security.psm1') -Force
           Import-Module (Join-Path $installedRoot 'src/AulaGuard.Core.psm1') -Force
+          Import-Module (Join-Path $installedRoot 'src/AulaGuard.USB.psm1') -Force
           $dataRoot = Join-Path $env:ProgramData 'AulaGuard'
           $settings = Read-AulaGuardSettings -Root $dataRoot
           if ($settings.policyMode -ne 'Audit') { throw 'Fresh installation is not in Audit mode.' }
           $task = Get-ScheduledTask -TaskName 'PolicySync' -TaskPath '\AulaGuard\' -ErrorAction Stop
+          $logonTask = Get-ScheduledTask -TaskName 'PolicySyncLogon' -TaskPath '\AulaGuard\' -ErrorAction Stop
+          if (-not $logonTask) { throw 'Policy sync at logon is missing.' }
           if (-not $task) { throw 'SYSTEM policy synchronization task missing.' }
           Write-Host '[OK] Protected installer smoke test passed'
 
@@ -108,7 +115,7 @@ jobs:
         shell: powershell
         run: |
           $installedRoot = Join-Path $env:ProgramFiles 'AulaGuard\src'
-          foreach ($file in @('AulaGuard.exe', 'AulaGuard.ps1', 'AulaGuard.Launcher.ps1', 'AulaGuard.Core.psm1', 'AulaGuard.Security.psm1')) {
+          foreach ($file in @('AulaGuard.exe', 'AulaGuard.ps1', 'AulaGuard.Launcher.ps1', 'AulaGuard.Core.psm1', 'AulaGuard.Security.psm1', 'AulaGuard.USB.psm1')) {
             if (-not (Test-Path -LiteralPath (Join-Path $installedRoot $file) -PathType Leaf)) {
               throw "Required application or recovery file missing from installation: $file"
             }
@@ -133,27 +140,42 @@ jobs:
           Write-Host '[OK] Production EXE build uses embedded path bootstrap; PowerShell fallback is installed.'
           # Do not attempt UAC GUI automation on headless GitHub Actions runners.
 
+      - name: Construct complete AulaGuard USB/Premium interface on Windows
+        shell: powershell
+        run: |
+          $installed = Join-Path $env:ProgramFiles 'AulaGuard\src\AulaGuard.ps1'
+          $env:AULAGUARD_UI_SELFTEST = '1'
+          try {
+            & powershell.exe -NoProfile -STA -ExecutionPolicy RemoteSigned -File $installed
+            if ($LASTEXITCODE -ne 0) {
+              $log = Join-Path $env:TEMP 'AulaGuard-startup-error.txt'
+              if (Test-Path $log) { Get-Content $log | Write-Host }
+              throw "AulaGuard GUI initialization failed, exit $LASTEXITCODE"
+            }
+          } finally { Remove-Item Env:\AULAGUARD_UI_SELFTEST -ErrorAction SilentlyContinue }
+          Write-Host '[OK] Full WinForms screen tree built without showing modal windows.'
+
       - name: Sign installer when trusted certificate is configured
         if: github.event_name != 'pull_request'
         shell: powershell
         env:
           AULAGUARD_PFX_BASE64: ${{ secrets.AULAGUARD_PFX_BASE64 }}
           AULAGUARD_PFX_PASSWORD: ${{ secrets.AULAGUARD_PFX_PASSWORD }}
-        run: .\build\Sign-Artifact.ps1 -Path .\dist\installer\AulaGuard-Setup-v0.3.6.exe
+        run: .\build\Sign-Artifact.ps1 -Path .\dist\installer\AulaGuard-Setup-v0.4.0.exe
 
       - name: Record SHA-256 installer checksum
         shell: powershell
         run: |
-          $exe = 'dist/installer/AulaGuard-Setup-v0.3.6.exe'
+          $exe = 'dist/installer/AulaGuard-Setup-v0.4.0.exe'
           $hash = (Get-FileHash -Path $exe -Algorithm SHA256).Hash.ToLowerInvariant()
-          "$hash  AulaGuard-Setup-v0.3.6.exe" | Set-Content dist/installer/SHA256SUMS.txt -Encoding ASCII
+          "$hash  AulaGuard-Setup-v0.4.0.exe" | Set-Content dist/installer/SHA256SUMS.txt -Encoding ASCII
 
       - name: Upload Windows installer
         uses: actions/upload-artifact@v4
         with:
           name: AulaGuard-Windows-Installer
           path: |
-            dist/installer/AulaGuard-Setup-v0.3.6.exe
+            dist/installer/AulaGuard-Setup-v0.4.0.exe
             dist/installer/SHA256SUMS.txt
           if-no-files-found: error
 
