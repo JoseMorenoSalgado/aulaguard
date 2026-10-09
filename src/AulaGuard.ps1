@@ -1,4 +1,4 @@
-# AulaGuard v0.4.2
+# AulaGuard v0.4.3
 # Friendly educational administration console for Windows classrooms.
 
 $ErrorActionPreference = 'Stop'
@@ -33,7 +33,8 @@ try {
         'AulaGuard.Diagnostics.psm1',
         'AulaGuard.AppControl.psm1',
         'AulaGuard.USB.psm1',
-        'AulaGuard.InstalledApps.psm1'
+        'AulaGuard.InstalledApps.psm1',
+        'AulaGuard.Wallpaper.psm1'
     )) {
         $modulePath = Join-Path $script:AulaGuardSourceDir $moduleName
         if (-not (Test-Path -LiteralPath $modulePath -PathType Leaf)) {
@@ -238,7 +239,7 @@ try {
         }
 
         return [pscustomobject]@{
-            version = '0.4.2'
+            version = '0.4.3'
             profileName = $txtProfileName.Text.Trim()
             policyMode = if ($radEnforce.Checked) {'Enforce'} else {'Audit'}
             wallpaper = $txtWallpaper.Text.Trim()
@@ -262,7 +263,14 @@ try {
     }
 
     function Save-FromUi {
-        $script:settings = Get-UiSettings
+        $newSettings = Get-UiSettings
+        # Publish the file into a managed read-only student-accessible directory.
+        # Never store an administrator-only Downloads path as a student wallpaper.
+        if (-not [string]::IsNullOrWhiteSpace([string]$newSettings.wallpaper)) {
+            $newSettings.wallpaper = Publish-AulaGuardWallpaper -SourcePath $newSettings.wallpaper
+            $txtWallpaper.Text = $newSettings.wallpaper
+        }
+        $script:settings = $newSettings
         Backup-AulaGuardConfiguration -Root $root | Out-Null
         Save-AulaGuardSettings -Settings $script:settings -Root $root | Out-Null
         Write-AulaGuardAudit -Action 'CONFIG_SAVED' -Detail "Profile=$($settings.profileName)" -Root $root
@@ -305,7 +313,7 @@ try {
     $header.Controls.Add((New-Label 'Protege el aula sin complicaciones' 94 48 10 $false ([System.Drawing.Color]::FromArgb(219,234,254))))
 
     $version = New-Object System.Windows.Forms.Label
-    $version.Text = 'v0.4.2'
+    $version.Text = 'v0.4.3'
     $version.TextAlign = 'MiddleCenter'
     $version.Location = New-Object System.Drawing.Point(1060,26)
     $version.Size = New-Object System.Drawing.Size(82,30)
@@ -1410,12 +1418,22 @@ try {
     })
 
     $btnSave.Add_Click({
-        Save-FromUi
-        Refresh-Dashboard
+        try {
+            Save-FromUi
+            Refresh-Dashboard
+        } catch {
+            Set-Status 'No se pudo guardar el fondo o la configuración' 'Error'
+            [System.Windows.Forms.MessageBox]::Show($_.Exception.Message,'AulaGuard · Fondo institucional','OK','Error') | Out-Null
+        }
     })
 
     $btnApply.Add_Click({
-        Save-FromUi
+        try { Save-FromUi }
+        catch {
+            Set-Status 'No se pudo validar el fondo institucional' 'Error'
+            [System.Windows.Forms.MessageBox]::Show($_.Exception.Message,'AulaGuard · Fondo institucional','OK','Error') | Out-Null
+            return
+        }
         $simulation = -not $radEnforce.Checked
         $message = if ($simulation) {
             'AulaGuard realizará una simulación y no hará cambios reales en Windows. ¿Continuar?'
@@ -1470,7 +1488,8 @@ try {
         }
 
         try {
-            $r = @(Reset-AulaGuardPolicies)
+            $r = @(Reset-AulaGuardPolicies -ManagedWallpaper ([string]$settings.wallpaper))
+            $radAudit.Checked = $true
             $usbRestored = @(Sync-AulaGuardUsbPolicy -BlockStorage $false -Root $root)
             $usbErrors = @($usbRestored | Where-Object {$_.Status -eq 'ERROR'})
             if ($usbErrors.Count -gt 0) { throw "Error restaurando USB: $($usbErrors[0].Detail)" }
@@ -1609,7 +1628,7 @@ try {
 
     & $resizeProtection
     Set-NavActive $navHome
-    Write-AulaGuardAudit -Action 'APP_STARTED' -Detail 'v0.4.2' -Root $root
+    Write-AulaGuardAudit -Action 'APP_STARTED' -Detail 'v0.4.3' -Root $root
     Refresh-Dashboard
     & $loadAudit
     & $loadAppEvents
