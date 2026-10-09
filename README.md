@@ -4,11 +4,19 @@
 
 ## Versión actual
 
-**v0.4.2 (código de prueba, pendiente de revisión antivirus y firma digital)**
+**v0.4.3 (código corregido, pendiente de firma y revisión antivirus del instalador)**
 
 El proyecto incorpora control USB por usuario estándar, la vista de Servidor Premium (preparación sin conexión real), interfaz verde y la desinstalación para retirar los directorios del programa en Program Files y corrige la carga de módulos del programa compilado y mantiene la corrección del error de elevación 740. Incluye DPAPI, HMAC-SHA-256, auditoría encadenada, permisos NTFS restrictivos y validación de integridad. Mantiene el control avanzado de aplicaciones con AppLocker, auditoría previa al bloqueo, eventos de ejecución, aislamiento de cuentas administradoras y sincronización automática de políticas al iniciar Windows.
 
-## Nuevo inventario de programas (v0.4.2)
+## Fondo institucional seguro (v0.4.3)
+
+La imagen seleccionada por el administrador ya no se usa directamente desde Descargas, Escritorio o una ruta privada. Al guardar, AulaGuard verifica y convierte imágenes JPG, PNG y BMP a JPEG y las coloca en `%ProgramData%\AulaGuardAssets\institutional.jpg`. La carpeta concede a los estudiantes solo lectura y ejecución, y reserva escritura para administradores y SYSTEM. Si la imagen es inválida o no puede publicarse, se muestra un error y no se aplican políticas que la utilicen.
+
+**Recuperación de fondo negro en versiones anteriores:** abra AulaGuard como administrador, vaya a **Protección → Retirar políticas**. Si se solicita, confirme, cierre la sesión del estudiante y vuelva a entrar. El alumno podrá escoger un fondo de Windows desde Personalización; si la ruta de AulaGuard seguía seleccionada, la restauración intenta utilizar el fondo predeterminado de Windows. Si desea bloquear nuevamente el cambio de fondo, elija la imagen institucional, guarde, aplique la protección y pruebe en un usuario estándar.
+
+Si no está disponible un instalador firmado y analizado, **no desactive Defender para forzar la actualización**.
+
+## Nuevo inventario de programas (v0.4.3)
 
 - La sección **Programas** detecta aplicaciones Win32 en el Registro de Windows, entradas **App Paths**, accesos directos del menú Inicio y paquetes Microsoft Store.
 - Cada programa compatible aparece con **interruptor verde**. Al activarlo, se añade su ejecutable verificable a la lista blanca **pendiente de guardar**; no se activan restricciones automáticamente.
@@ -18,7 +26,7 @@ El proyecto incorpora control USB por usuario estándar, la vista de Servidor Pr
 - Mantenga primero **Modo auditoría** y valide las reglas antes de aplicar bloqueos. Los programas no detectados no son necesariamente desautorizados por Windows hasta que una política AppLocker válida se aplique.
 - Para conservar las selecciones, use **Guardar cambios**. Para afectar el equipo, utilice **Aplicar control** y confirme expresamente.
 
-El instalador v0.4.2 **no se distribuye hasta superar las verificaciones de Defender y contar con una firma Authenticode válida**.
+El instalador v0.4.3 **no se distribuye hasta superar las verificaciones de Defender y contar con una firma Authenticode válida**.
 
 ## Funciones actuales
 
@@ -78,7 +86,7 @@ Las nuevas compilaciones requieren un análisis activo con Microsoft Defender de
 
 **No se recomienda instalar la versión v0.4.0** hasta investigar el aviso antivirus reportado en un equipo Windows. Una advertencia SmartScreen de reputación no es lo mismo que una detección real de Microsoft Defender; todavía falta el nombre exacto de la amenaza.
 
-El código de **v0.4.2** conserva los cambios para exigir:
+El código de **v0.4.3** conserva los cambios para exigir:
 
 - Certificado Authenticode real (instalador y EXE) con clave privada protegida en Windows.
 - Versión **ps2exe 1.0.18** fijada explícitamente.
@@ -91,7 +99,7 @@ Para revisar una detección y preparar el entorno, lea [Investigación con Defen
 
 ## Instalación
 
-1. Espere a que la revisión antivirus se complete y aparezca un instalador firmado de v0.4.2 o posterior en [Releases](https://github.com/JoseMorenoSalgado/aulaguard/releases). No instale una versión que Defender haya puesto en cuarentena.
+1. Espere a que la revisión antivirus se complete y aparezca un instalador firmado de v0.4.3 o posterior en [Releases](https://github.com/JoseMorenoSalgado/aulaguard/releases). No instale una versión que Defender haya puesto en cuarentena.
 2. Ejecute el instalador con permisos de administrador en Windows 10/11 Pro.
 3. Los binarios se instalan en `Program Files`; la configuración privada se almacena en `%ProgramData%\\AulaGuard`.
 4. Se instalarán los módulos de políticas, diagnóstico, seguridad y control de aplicaciones.
@@ -147,7 +155,7 @@ La primera implantación debe realizarse en un equipo de prueba antes de despleg
 
 El proyecto tiene preparado el código de un instalador de Windows:
 
-`AulaGuard-Setup-v0.4.2.exe` (pendiente de firma y verificación antivirus; no disponible todavía)
+`AulaGuard-Setup-v0.4.3.exe` (pendiente de firma y verificación antivirus; no disponible todavía)
 
 Características del instalador:
 
