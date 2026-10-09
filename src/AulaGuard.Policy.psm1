@@ -170,7 +170,7 @@ function Apply-AulaGuardPolicies {
 }
 
 function Reset-AulaGuardPolicies {
-    param([string]$ManagedWallpaper = '')
+    param([string[]]$ManagedWallpapers = @())
     # When previous releases left an inaccessible wallpaper path, restore the
     # Windows bundled image only when the value still matches AulaGuard's path.
     $windowsWallpaper = Join-Path $env:WINDIR 'Web\Wallpaper\Windows\img0.jpg'
@@ -184,11 +184,11 @@ function Reset-AulaGuardPolicies {
                 $activeDesktop = Join-Path $hive 'Software\Microsoft\Windows\CurrentVersion\Policies\ActiveDesktop'
 
                 Remove-RegistryValueSafe $activeDesktop 'NoChangingWallPaper'
-                if ($ManagedWallpaper -and (Test-Path -LiteralPath $windowsWallpaper -PathType Leaf)) {
+                if (@($ManagedWallpapers).Count -gt 0 -and (Test-Path -LiteralPath $windowsWallpaper -PathType Leaf)) {
                     $desktop = Join-Path $hive 'Control Panel\Desktop'
                     if (Test-Path -LiteralPath $desktop) {
                         $current = [string](Get-ItemProperty -LiteralPath $desktop -Name 'Wallpaper' -ErrorAction SilentlyContinue).Wallpaper
-                        if ($current -ieq $ManagedWallpaper) {
+                        if ($current -and @($ManagedWallpapers | Where-Object { $_ -and $_ -ieq $current }).Count -gt 0) {
                             New-ItemProperty -Path $desktop -Name 'Wallpaper' -PropertyType String -Value $windowsWallpaper -Force | Out-Null
                             New-ItemProperty -Path $desktop -Name 'WallpaperStyle' -PropertyType String -Value '10' -Force | Out-Null
                             New-ItemProperty -Path $desktop -Name 'TileWallpaper' -PropertyType String -Value '0' -Force | Out-Null
