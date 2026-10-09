@@ -54,6 +54,7 @@ try {
     $root = Get-AulaGuardRoot
     Initialize-AulaGuardSecurity -Root $root
     $settings = Read-AulaGuardSettings -Root $root
+    $script:originalWallpaperPath = [string]$settings.wallpaper
 
     # Diagnostic mode verifies module imports, integrity checks and protected settings
     # before exiting; it never skips a security validation.
@@ -1488,7 +1489,7 @@ try {
         }
 
         try {
-            $r = @(Reset-AulaGuardPolicies -ManagedWallpaper ([string]$settings.wallpaper))
+            $r = @(Reset-AulaGuardPolicies -ManagedWallpapers @([string]$settings.wallpaper,[string]$script:originalWallpaperPath))
             $radAudit.Checked = $true
             $usbRestored = @(Sync-AulaGuardUsbPolicy -BlockStorage $false -Root $root)
             $usbErrors = @($usbRestored | Where-Object {$_.Status -eq 'ERROR'})
