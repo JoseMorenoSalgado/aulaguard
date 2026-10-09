@@ -114,6 +114,107 @@ jobs:
           $sha = (Get-FileHash -Path $setup -Algorithm SHA256).Hash.ToLowerInvariant()
           "$sha  AulaGuard-Setup-v$version.exe" | Set-Content -Path .\dist\installer\SHA256SUMS.txt -Encoding ASCII
 
+      - name: Add signed and Defender-scanned EXE to main downloads
+        shell: powershell
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $repo = $env:GITHUB_REPOSITORY
+          $version = ([regex]::Match((Get-Content -LiteralPath .\installer\AulaGuard.iss -Raw), '#define MyAppVersion "([^"]+)"')).Groups[1].Value
+          if ($version -notmatch '^\d+\.\d+\.\d+        shell: powershell
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $version = ([regex]::Match((Get-Content -LiteralPath .\installer\AulaGuard.iss -Raw), '#define MyAppVersion "([^"]+)"')).Groups[1].Value
+          $tag = "v$version"
+          & gh release view $tag *> $null
+          if ($LASTEXITCODE -eq 0) { throw "Release $tag ya existe; nunca se sobrescribe un binario publicado." }
+          $setup = ".\dist\installer\AulaGuard-Setup-v$version.exe"
+          $notes = "AulaGuard v$version: instalador firmado con Authenticode y analizado con Microsoft Defender en un Windows confiable. Esto no garantiza ausencia de amenazas. Ver docs/DEFENDER.md."
+          & gh release create $tag $setup '.\dist\installer\SHA256SUMS.txt' --title "AulaGuard $tag" --notes $notes --target $env:GITHUB_SHA --latest
+          if ($LASTEXITCODE -ne 0) { throw 'GitHub Release falló.' }
+) { throw 'Version de instalador invalida.' }
+          $filename = "AulaGuard-Setup-v$version.exe"
+          $setup = (Resolve-Path -LiteralPath ".\dist\installer\$filename").Path
+
+          # Only a reviewed, exact main commit may be the source of a binary
+          # published directly in the main branch.
+          $currentHead = (& gh api "repos/$repo/branches/main" --jq '.commit.sha' | Out-String).Trim()
+          if ($LASTEXITCODE -ne 0 -or $currentHead -ne $env:GITHUB_SHA) {
+            throw 'Main cambio durante la firma; abortando publicacion.'
+          }
+          & gh api "repos/$repo/releases/tags/v$version" --silent 2>$null
+          if ($LASTEXITCODE -eq 0) { throw "v$version ya fue publicada. No se reemplazan binarios." }
+
+          # A real binary is pushed only AFTER both valid Authenticode
+          # signatures and both active-Defender scans in the preceding steps.
+          $bytes = [IO.File]::ReadAllBytes($setup)
+          if ($bytes.Length -lt 1024 -or $bytes.Length -gt 90000000) {
+            throw 'Tamano de ejecutable fuera del limite permitido.'
+          }
+          $checksum = (Get-FileHash -LiteralPath $setup -Algorithm SHA256).Hash.ToLowerInvariant()
+          $shaFile = Get-Content -LiteralPath '.\dist\installer\SHA256SUMS.txt' -Raw
+          if (-not $shaFile.StartsWith($checksum + '  ' + $filename)) {
+            throw 'El instalador difiere del SHA256 validado.'
+          }
+
+          $path = "downloads/$filename"
+          $payload = @{
+            message = "release: add verified AulaGuard installer v$version"
+            branch = 'main'
+            content = [Convert]::ToBase64String($bytes)
+          } | ConvertTo-Json -Compress
+          $payloadFile = Join-Path $env:RUNNER_TEMP 'aulaguard-download-payload.json'
+          [IO.File]::WriteAllText($payloadFile,$payload,[Text.UTF8Encoding]::new($false))
+          try {
+            $response = & gh api "repos/$repo/contents/$path" -X PUT --input $payloadFile
+            if ($LASTEXITCODE -ne 0) { throw 'GitHub rechazo el instalador verificado en main.' }
+            $created = ($response | Out-String | ConvertFrom-Json)
+            $localBlob = (& git hash-object -- $setup | Out-String).Trim()
+            if ($created.content.sha -ne $localBlob) {
+              throw 'GitHub devolvio un blob distinto del instalador local.'
+            }
+          } finally {
+            Remove-Item -LiteralPath $payloadFile -Force -ErrorAction SilentlyContinue
+          }
+
+          # The root README links to this index, which becomes a real direct
+          # download only after upload of the cryptographically checked file.
+          $indexPath = 'downloads/README.md'
+          $indexContent = @"
+          # Descargar AulaGuard para Windows
+
+          **Ultima version verificada: v$version**
+
+          [Descargar $filename](https://github.com/$repo/raw/refs/heads/main/downloads/$filename)
+
+          SHA-256: `$checksum`
+
+          Este instalador fue firmado y analizado con Microsoft Defender durante
+          su publicacion en una maquina Windows autorizada. No implica seguridad absoluta.
+          Si Defender lo detecta en tu PC, no desactives la proteccion.
+          "@
+          $oldSha = (& gh api "repos/$repo/contents/$indexPath" --jq '.sha' | Out-String).Trim()
+          if ($LASTEXITCODE -ne 0 -or -not $oldSha) {
+            throw 'No se pudo verificar el indice de descargas en main.'
+          }
+          $indexPayload = @{
+            message = "docs: set verified AulaGuard v$version main download"
+            branch = 'main'
+            sha = $oldSha
+            content = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($indexContent))
+          } | ConvertTo-Json -Compress
+          $indexPayloadFile = Join-Path $env:RUNNER_TEMP 'aulaguard-download-index.json'
+          [IO.File]::WriteAllText($indexPayloadFile,$indexPayload,[Text.UTF8Encoding]::new($false))
+          try {
+            & gh api "repos/$repo/contents/$indexPath" -X PUT --input $indexPayloadFile --silent
+            if ($LASTEXITCODE -ne 0) { throw 'No se pudo actualizar el enlace directo en main.' }
+          } finally {
+            Remove-Item -LiteralPath $indexPayloadFile -Force -ErrorAction SilentlyContinue
+          }
+          Write-Host "[OK] Verified executable available from main: $path SHA256=$checksum"
+
       - name: Publish only verified signed installer
         shell: powershell
         env:
