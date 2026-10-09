@@ -100,6 +100,12 @@ function Publish-AulaGuardWallpaper {
     if ([string]::IsNullOrWhiteSpace($SourcePath)) { throw 'Selecciona primero una imagen institucional.' }
     $folder = Assert-AulaGuardWallpaperCache -AssetsRoot $AssetsRoot -Create
     $target = Join-Path $folder 'institutional.jpg'
+    if (Test-Path -LiteralPath $target) {
+        $prior = Get-Item -LiteralPath $target -Force -ErrorAction Stop
+        if ($prior.PSIsContainer -or ($prior.Attributes -band [IO.FileAttributes]::ReparsePoint)) {
+            throw 'La imagen institucional actual es un enlace o un directorio inseguro.'
+        }
+    }
     if ([IO.Path]::GetFullPath($SourcePath) -ieq [IO.Path]::GetFullPath($target)) {
         return (Test-AulaGuardWallpaperFile -Path $target -AssetsRoot $AssetsRoot)
     }
