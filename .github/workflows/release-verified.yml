@@ -144,9 +144,6 @@ jobs:
           if ($LASTEXITCODE -ne 0 -or $currentHead -ne $env:GITHUB_SHA) {
             throw 'Main cambio durante la firma; abortando publicacion.'
           }
-          & gh api "repos/$repo/releases/tags/v$version" --silent 2>$null
-          if ($LASTEXITCODE -eq 0) { throw "v$version ya fue publicada. No se reemplazan binarios." }
-
           # A real binary is pushed only AFTER both valid Authenticode
           # signatures and both active-Defender scans in the preceding steps.
           $bytes = [IO.File]::ReadAllBytes($setup)
@@ -189,7 +186,7 @@ jobs:
 
           [Descargar $filename](https://github.com/$repo/raw/refs/heads/main/downloads/$filename)
 
-          SHA-256: `$checksum`
+          SHA-256: $checksum
 
           Este instalador fue firmado y analizado con Microsoft Defender durante
           su publicacion en una maquina Windows autorizada. No implica seguridad absoluta.
