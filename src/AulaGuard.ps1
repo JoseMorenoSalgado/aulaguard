@@ -1491,6 +1491,10 @@ try {
         try {
             $r = @(Reset-AulaGuardPolicies -ManagedWallpapers @([string]$settings.wallpaper,[string]$script:originalWallpaperPath))
             $radAudit.Checked = $true
+            # A reset must not fail while trying to re-import the very image path
+            # that caused the black background. Re-select it deliberately later.
+            $txtWallpaper.Clear()
+            $chkLockWallpaper.Checked = $false
             $usbRestored = @(Sync-AulaGuardUsbPolicy -BlockStorage $false -Root $root)
             $usbErrors = @($usbRestored | Where-Object {$_.Status -eq 'ERROR'})
             if ($usbErrors.Count -gt 0) { throw "Error restaurando USB: $($usbErrors[0].Detail)" }
