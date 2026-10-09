@@ -8,7 +8,7 @@ function Get-AulaGuardWallpaperDirectory {
     $base = [IO.Path]::GetFullPath($env:ProgramData).TrimEnd('\') + '\'
     $actual = [IO.Path]::GetFullPath($AssetsRoot)
     if (-not $actual.StartsWith($base,[StringComparison]::OrdinalIgnoreCase) -or
-        (Split-Path -Parent $actual).TrimEnd('\') -ine $env:ProgramData.TrimEnd('\') -or
+        (Split-Path -Parent $actual).TrimEnd('\') -ine ($env:ProgramData).TrimEnd('\') -or
         (Split-Path -Leaf $actual) -notmatch '^AulaGuardAssets(?:Test-[a-f0-9]{32})?$') {
         throw 'Ruta de recursos institucionales fuera de ProgramData.'
     }
@@ -141,7 +141,6 @@ function Publish-AulaGuardWallpaper {
         if ($tempFile.Length -lt 1024) { throw 'No se pudo generar una imagen institucional válida.' }
         Move-Item -LiteralPath $temp -Destination $target -Force -ErrorAction Stop
         # The directory has protected inheritance for the final file.
-        $fileAcl = Get-Acl -LiteralPath $folder -ErrorAction Stop
         $file = Get-Item -LiteralPath $target -Force
         if (($file.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
             throw 'Archivo institucional redirigido inesperadamente.'
