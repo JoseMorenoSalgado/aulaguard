@@ -8,6 +8,7 @@ try {
     Import-Module (Join-Path $src 'AulaGuard.Core.psm1') -Force
     Import-Module (Join-Path $src 'AulaGuard.Policy.psm1') -Force
     Import-Module (Join-Path $src 'AulaGuard.USB.psm1') -Force
+    Import-Module (Join-Path $src 'AulaGuard.Wallpaper.psm1') -Force
     Import-Module (Join-Path $src 'AulaGuard.AppControl.psm1') -Force
 
     # Do not create a new trust key or downgrade settings during unattended startup.
@@ -15,6 +16,8 @@ try {
 
     if ($settings.policyMode -eq 'Enforce') {
         $result = @(Apply-AulaGuardPolicies -Settings $settings)
+        $policyErrors = @($result | Where-Object { $_.Status -eq 'ERROR' })
+        if ($policyErrors.Count -gt 0) { throw "No se pudieron sincronizar políticas: $($policyErrors[0].Detail)" }
         $usbResult = @(Sync-AulaGuardUsbPolicy -BlockStorage ([bool]$settings.usb.blockStorage) -Root $root)
         $usbErrors = @($usbResult | Where-Object {$_.Status -eq 'ERROR'})
         if ($usbErrors.Count -gt 0) {

@@ -104,6 +104,12 @@ function Apply-AulaGuardPolicies {
         [switch]$WhatIfMode
     )
 
+    # Fail before touching any student's registry if an image is missing,
+    # private or malformed. The default blank wallpaper does not set a new image.
+    if (-not $WhatIfMode -and $Settings.protections.lockWallpaper -and
+        -not [string]::IsNullOrWhiteSpace([string]$Settings.wallpaper)) {
+        [void](Test-AulaGuardWallpaperFile -Path ([string]$Settings.wallpaper))
+    }
     $results = New-Object System.Collections.Generic.List[object]
     foreach ($profile in Get-TargetUserProfiles) {
         if ($WhatIfMode) {
@@ -121,9 +127,11 @@ function Apply-AulaGuardPolicies {
 
                 if ($Settings.protections.lockWallpaper) {
                     Set-RegistryDword $activeDesktop 'NoChangingWallPaper' 1
-                    if ($Settings.wallpaper -and (Test-Path $Settings.wallpaper)) {
+                    if ($Settings.wallpaper) {
                         if (-not (Test-Path $desktop)) { New-Item $desktop -Force | Out-Null }
                         New-ItemProperty $desktop -Name 'Wallpaper' -PropertyType String -Value $Settings.wallpaper -Force | Out-Null
+                        New-ItemProperty $desktop -Name 'WallpaperStyle' -PropertyType String -Value '10' -Force | Out-Null
+                        New-ItemProperty $desktop -Name 'TileWallpaper' -PropertyType String -Value '0' -Force | Out-Null
                     }
                 } else {
                     Remove-RegistryValueSafe $activeDesktop 'NoChangingWallPaper'
@@ -162,6 +170,10 @@ function Apply-AulaGuardPolicies {
 }
 
 function Reset-AulaGuardPolicies {
+    param([string[]]$ManagedWallpapers = @())
+    # When previous releases left an inaccessible wallpaper path, restore the
+    # Windows bundled image only when the value still matches AulaGuard's path.
+    $windowsWallpaper = Join-Path $env:WINDIR 'Web\Wallpaper\Windows\img0.jpg'
     $results = New-Object System.Collections.Generic.List[object]
     foreach ($profile in Get-TargetUserProfiles) {
         try {
@@ -172,6 +184,17 @@ function Reset-AulaGuardPolicies {
                 $activeDesktop = Join-Path $hive 'Software\Microsoft\Windows\CurrentVersion\Policies\ActiveDesktop'
 
                 Remove-RegistryValueSafe $activeDesktop 'NoChangingWallPaper'
+                if (@($ManagedWallpapers).Count -gt 0 -and (Test-Path -LiteralPath $windowsWallpaper -PathType Leaf)) {
+                    $desktop = Join-Path $hive 'Control Panel\Desktop'
+                    if (Test-Path -LiteralPath $desktop) {
+                        $current = [string](Get-ItemProperty -LiteralPath $desktop -Name 'Wallpaper' -ErrorAction SilentlyContinue).Wallpaper
+                        if ($current -and @($ManagedWallpapers | Where-Object { $_ -and $_ -ieq $current }).Count -gt 0) {
+                            New-ItemProperty -Path $desktop -Name 'Wallpaper' -PropertyType String -Value $windowsWallpaper -Force | Out-Null
+                            New-ItemProperty -Path $desktop -Name 'WallpaperStyle' -PropertyType String -Value '10' -Force | Out-Null
+                            New-ItemProperty -Path $desktop -Name 'TileWallpaper' -PropertyType String -Value '0' -Force | Out-Null
+                        }
+                    }
+                }
                 Remove-RegistryValueSafe $explorer 'NoThemesTab'
                 Remove-RegistryValueSafe $explorer 'NoControlPanel'
                 Remove-RegistryValueSafe $system 'DisableRegistryTools'
