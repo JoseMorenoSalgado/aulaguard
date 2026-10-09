@@ -1,0 +1,101 @@
+name: AulaGuard v0.4.3 - unsigned installer test artifact
+
+# Produces a temporary GitHub Actions artifact for manual isolated testing.
+# NOT a verified release: no Defender scan or Authenticode assurance.
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/test-installer-artifact.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test-installer:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout reviewed main code
+        uses: actions/checkout@v4
+
+      - name: Validate PowerShell syntax
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $failed = $false
+          foreach ($source in @(Get-ChildItem -Path .\src,.\build,.\tests -Recurse -Include *.ps1,*.psm1)) {
+            $tokens = $null; $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile($source.FullName,[ref]$tokens,[ref]$errors) | Out-Null
+            if ($errors.Count -gt 0) { Write-Host $errors; $failed = $true }
+          }
+          if ($failed) { throw 'PowerShell syntax validation failed' }
+
+      - name: Run security and functional regressions
+        shell: powershell
+        run: |
+          .\tests\Security.Tests.ps1
+          .\tests\Usb.Tests.ps1
+          .\tests\InstalledApps.Tests.ps1
+          .\tests\Wallpaper.Tests.ps1
+          .\tests\InstallerElevatedLaunch.Tests.ps1
+          .\tests\ReleaseSecurity.Tests.ps1
+
+      - name: Compile AulaGuard and installer
+        shell: powershell
+        run: |
+          .\build\GenerateIcon.ps1
+          .\build\GenerateBranding.ps1
+          .\build\Build-App.ps1
+          choco install innosetup -y --no-progress
+          if ($LASTEXITCODE -ne 0) { throw 'Inno Setup installation failed' }
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" '.\installer\AulaGuard.iss'
+          if ($LASTEXITCODE -ne 0) { throw 'Inno Setup build failed' }
+
+      - name: Verify installed files and clean uninstall
+        shell: powershell
+        run: |
+          $setup = (Resolve-Path '.\dist\installer\AulaGuard-Setup-v0.4.3.exe').Path
+          $p = Start-Process -FilePath $setup -ArgumentList '/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-' -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "Install failed: $($p.ExitCode)" }
+          $installed = Join-Path $env:ProgramFiles 'AulaGuard\src'
+          foreach ($file in @('AulaGuard.exe','AulaGuard.ps1','AulaGuard.Wallpaper.psm1','AulaGuard.InstalledApps.psm1')) {
+            if (-not (Test-Path (Join-Path $installed $file))) { throw "Missing installed file: $file" }
+          }
+          $env:AULAGUARD_UI_SELFTEST = '1'
+          try {
+            & powershell.exe -NoProfile -STA -ExecutionPolicy RemoteSigned -File (Join-Path $installed 'AulaGuard.ps1')
+            if ($LASTEXITCODE -ne 0) { throw "WinForms startup test failed: $LASTEXITCODE" }
+          } finally { Remove-Item Env:\AULAGUARD_UI_SELFTEST -ErrorAction SilentlyContinue }
+          .\tests\Uninstall.Tests.ps1
+
+      - name: Prepare warning and SHA-256 of test installer
+        shell: powershell
+        run: |
+          $f = '.\dist\installer\AulaGuard-Setup-v0.4.3.exe'
+          if (-not (Test-Path $f -PathType Leaf)) { throw 'Test installer not found' }
+          $sha = (Get-FileHash -Path $f -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$sha  AulaGuard-Setup-v0.4.3.exe" | Set-Content '.\dist\installer\SHA256SUMS.txt' -Encoding ASCII
+          @'
+          AULAGUARD v0.4.3 - UNVERIFIED TEST BUILD
+          This is NOT an official signed release.
+          This archive is for an isolated Windows 10/11 Pro evaluation VM only.
+          Microsoft Defender did NOT verify this build in GitHub Actions.
+          Defender previously flagged an earlier AulaGuard version.
+          Do NOT disable Defender, restore quarantined files or add exclusions.
+          If Defender detects this installer, stop and report the threat name.
+          Do not deploy on school computers or production machines.
+          '@ | Set-Content '.\dist\installer\READ_ME_FIRST_TEST_BUILD.txt' -Encoding UTF8
+          Write-Host "UNVERIFIED isolated test installer built; SHA256=$sha"
+
+      - name: Upload isolated test installer ZIP for download
+        uses: actions/upload-artifact@v4
+        with:
+          name: AulaGuard-v0.4.3-UNVERIFIED-TEST-ONLY
+          path: |
+            dist/installer/AulaGuard-Setup-v0.4.3.exe
+            dist/installer/SHA256SUMS.txt
+            dist/installer/READ_ME_FIRST_TEST_BUILD.txt
+          retention-days: 7
+          if-no-files-found: error
