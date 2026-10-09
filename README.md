@@ -2,6 +2,19 @@
 
 **AulaGuard** es una herramienta para administrar y proteger computadoras de aulas de informática con Windows 10/11 Pro.
 
+## Descargar AulaGuard (.exe) desde main
+
+**[Abrir carpeta de instaladores verificados](downloads/README.md)**
+
+La descarga se mostrará directamente aquí cuando el instalador corregido
+haya pasado las comprobaciones de Microsoft Defender y firma digital.
+**Actualmente no hay un .exe verificado de v0.4.3**: no descargues v0.4.0
+para probar las correcciones.
+
+El archivo final quedará en `main/downloads/AulaGuard-Setup-vX.Y.Z.exe`,
+junto con un enlace directo y su SHA-256. No se publicará desde compilaciones
+de prueba sin revisión antivirus.
+
 ## Versión actual
 
 **v0.4.3 (código corregido, pendiente de firma y revisión antivirus del instalador)**
