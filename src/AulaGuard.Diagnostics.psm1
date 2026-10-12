@@ -73,37 +73,37 @@ function Test-AulaGuardReadiness {
         $os = Get-CimInstance Win32_OperatingSystem -ErrorAction Stop
         $caption = [string]$os.Caption
         $supported = ($caption -match 'Windows 10|Windows 11')
-        $checks.Add((New-AulaGuardReadinessCheck -Code 'WINDOWS' -Name 'Windows compatible' -Passed $supported -Severity Critical -Detail "$caption · build $($os.BuildNumber)" -BlocksPolicies $true -BlocksAppControl $true))
+        [void]$checks.Add((New-AulaGuardReadinessCheck -Code 'WINDOWS' -Name 'Windows compatible' -Passed $supported -Severity Critical -Detail "$caption · build $($os.BuildNumber)" -BlocksPolicies $true -BlocksAppControl $true))
         $editionRecommended = ($caption -match 'Pro|Enterprise|Education')
         $editionDetail = if ($editionRecommended) { $caption } else { 'Se recomienda Windows Pro, Enterprise o Education para administración de aula.' }
-        $checks.Add((New-AulaGuardReadinessCheck -Code 'EDITION' -Name 'Edición recomendada' -Passed $editionRecommended -Severity Warning -Detail $editionDetail))
+        [void]$checks.Add((New-AulaGuardReadinessCheck -Code 'EDITION' -Name 'Edición recomendada' -Passed $editionRecommended -Severity Warning -Detail $editionDetail))
     } catch {
-        $checks.Add((New-AulaGuardReadinessCheck -Code 'WINDOWS' -Name 'Windows compatible' -Passed $false -Severity Critical -Detail $_.Exception.Message -BlocksPolicies $true -BlocksAppControl $true))
+        [void]$checks.Add((New-AulaGuardReadinessCheck -Code 'WINDOWS' -Name 'Windows compatible' -Passed $false -Severity Critical -Detail $_.Exception.Message -BlocksPolicies $true -BlocksAppControl $true))
     }
 
     $checks.Add((New-AulaGuardReadinessCheck -Code 'POWERSHELL' -Name 'PowerShell 5.1 o superior' -Passed ($PSVersionTable.PSVersion.Major -ge 5) -Severity Critical -Detail $PSVersionTable.PSVersion.ToString() -BlocksPolicies $true -BlocksAppControl $true))
 
     try {
         $freeGB = [double]((Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='C:'" -ErrorAction Stop).FreeSpace / 1GB)
-        $checks.Add((New-AulaGuardReadinessCheck -Code 'DISK' -Name 'Espacio libre' -Passed ($freeGB -ge 0.5) -Severity Warning -Detail ("{0:N1} GB libres en C:" -f $freeGB)))
+        [void]$checks.Add((New-AulaGuardReadinessCheck -Code 'DISK' -Name 'Espacio libre' -Passed ($freeGB -ge 0.5) -Severity Warning -Detail ("{0:N1} GB libres en C:" -f $freeGB)))
     } catch {
-        $checks.Add((New-AulaGuardReadinessCheck -Code 'DISK' -Name 'Espacio libre' -Passed $false -Severity Warning -Detail 'No fue posible consultar el disco del sistema.'))
+        [void]$checks.Add((New-AulaGuardReadinessCheck -Code 'DISK' -Name 'Espacio libre' -Passed $false -Severity Warning -Detail 'No fue posible consultar el disco del sistema.'))
     }
 
     try {
         Assert-AulaGuardSignedFile -Path (Join-Path $Root 'config\settings.json') -Root $Root
-        $checks.Add((New-AulaGuardReadinessCheck -Code 'SETTINGS' -Name 'Configuración protegida' -Passed $true -Detail 'Firma HMAC de configuración válida.' -BlocksPolicies $true -BlocksAppControl $true))
+        [void]$checks.Add((New-AulaGuardReadinessCheck -Code 'SETTINGS' -Name 'Configuración protegida' -Passed $true -Detail 'Firma HMAC de configuración válida.' -BlocksPolicies $true -BlocksAppControl $true))
     } catch {
-        $checks.Add((New-AulaGuardReadinessCheck -Code 'SETTINGS' -Name 'Configuración protegida' -Passed $false -Severity Critical -Detail $_.Exception.Message -BlocksPolicies $true -BlocksAppControl $true))
+        [void]$checks.Add((New-AulaGuardReadinessCheck -Code 'SETTINGS' -Name 'Configuración protegida' -Passed $false -Severity Critical -Detail $_.Exception.Message -BlocksPolicies $true -BlocksAppControl $true))
     }
 
     try {
         $users = @(Get-AulaGuardLocalUsers)
         $students = @($users | Where-Object { -not $_.IsAdministrator })
         $studentDetail = if ($students.Count -gt 0) { "$($students.Count) perfil(es) estándar detectado(s)." } else { 'No hay perfiles estándar a los que aplicar políticas.' }
-        $checks.Add((New-AulaGuardReadinessCheck -Code 'STUDENTS' -Name 'Perfiles de estudiantes' -Passed ($students.Count -gt 0) -Severity Critical -Detail $studentDetail -BlocksPolicies $true -BlocksAppControl $true))
+        [void]$checks.Add((New-AulaGuardReadinessCheck -Code 'STUDENTS' -Name 'Perfiles de estudiantes' -Passed ($students.Count -gt 0) -Severity Critical -Detail $studentDetail -BlocksPolicies $true -BlocksAppControl $true))
     } catch {
-        $checks.Add((New-AulaGuardReadinessCheck -Code 'STUDENTS' -Name 'Perfiles de estudiantes' -Passed $false -Severity Critical -Detail $_.Exception.Message -BlocksPolicies $true -BlocksAppControl $true))
+        [void]$checks.Add((New-AulaGuardReadinessCheck -Code 'STUDENTS' -Name 'Perfiles de estudiantes' -Passed $false -Severity Critical -Detail $_.Exception.Message -BlocksPolicies $true -BlocksAppControl $true))
     }
 
     try {
@@ -112,9 +112,9 @@ function Test-AulaGuardReadiness {
         $service = Get-Service -Name AppIDSvc -ErrorAction SilentlyContinue
         $ok = ($missing.Count -eq 0 -and $null -ne $service)
         $detail = if ($ok) { "AppLocker disponible · Application Identity: $($service.Status)" } else { "Faltan: $($missing -join ', ')$(if (-not $service) {' · Servicio AppIDSvc no disponible'})" }
-        $checks.Add((New-AulaGuardReadinessCheck -Code 'APPLOCKER' -Name 'Motor de control de aplicaciones' -Passed $ok -Severity Critical -Detail $detail -BlocksAppControl $true))
+        [void]$checks.Add((New-AulaGuardReadinessCheck -Code 'APPLOCKER' -Name 'Motor de control de aplicaciones' -Passed $ok -Severity Critical -Detail $detail -BlocksAppControl $true))
     } catch {
-        $checks.Add((New-AulaGuardReadinessCheck -Code 'APPLOCKER' -Name 'Motor de control de aplicaciones' -Passed $false -Severity Critical -Detail $_.Exception.Message -BlocksAppControl $true))
+        [void]$checks.Add((New-AulaGuardReadinessCheck -Code 'APPLOCKER' -Name 'Motor de control de aplicaciones' -Passed $false -Severity Critical -Detail $_.Exception.Message -BlocksAppControl $true))
     }
 
     try {
@@ -122,12 +122,12 @@ function Test-AulaGuardReadiness {
             $defender = Get-MpComputerStatus -ErrorAction Stop
             $active = [bool]$defender.AntivirusEnabled
             $defenderDetail = if ($active) { "Antivirus activo · firmas $($defender.AntivirusSignatureVersion)" } else { 'Microsoft Defender no está activo.' }
-            $checks.Add((New-AulaGuardReadinessCheck -Code 'DEFENDER' -Name 'Microsoft Defender' -Passed $active -Severity Warning -Detail $defenderDetail))
+            [void]$checks.Add((New-AulaGuardReadinessCheck -Code 'DEFENDER' -Name 'Microsoft Defender' -Passed $active -Severity Warning -Detail $defenderDetail))
         } else {
-            $checks.Add((New-AulaGuardReadinessCheck -Code 'DEFENDER' -Name 'Microsoft Defender' -Passed $false -Severity Warning -Detail 'No se puede consultar Microsoft Defender en este equipo.'))
+            [void]$checks.Add((New-AulaGuardReadinessCheck -Code 'DEFENDER' -Name 'Microsoft Defender' -Passed $false -Severity Warning -Detail 'No se puede consultar Microsoft Defender en este equipo.'))
         }
     } catch {
-        $checks.Add((New-AulaGuardReadinessCheck -Code 'DEFENDER' -Name 'Microsoft Defender' -Passed $false -Severity Warning -Detail $_.Exception.Message))
+        [void]$checks.Add((New-AulaGuardReadinessCheck -Code 'DEFENDER' -Name 'Microsoft Defender' -Passed $false -Severity Warning -Detail $_.Exception.Message))
     }
 
     if ($null -ne $Settings) {
@@ -136,9 +136,9 @@ function Test-AulaGuardReadiness {
                 [void](Test-AulaGuardWallpaperFile -Path ([string]$Settings.wallpaper))
             }
             $wallpaperDetail = if ($Settings.protections.lockWallpaper) { 'Imagen institucional disponible.' } else { 'Control de fondo desactivado.' }
-            $checks.Add((New-AulaGuardReadinessCheck -Code 'WALLPAPER' -Name 'Fondo institucional' -Passed $true -Detail $wallpaperDetail -BlocksPolicies $true))
+            [void]$checks.Add((New-AulaGuardReadinessCheck -Code 'WALLPAPER' -Name 'Fondo institucional' -Passed $true -Detail $wallpaperDetail -BlocksPolicies $true))
         } catch {
-            $checks.Add((New-AulaGuardReadinessCheck -Code 'WALLPAPER' -Name 'Fondo institucional' -Passed $false -Severity Critical -Detail $_.Exception.Message -BlocksPolicies $true))
+            [void]$checks.Add((New-AulaGuardReadinessCheck -Code 'WALLPAPER' -Name 'Fondo institucional' -Passed $false -Severity Critical -Detail $_.Exception.Message -BlocksPolicies $true))
         }
 
         try {
@@ -148,13 +148,13 @@ function Test-AulaGuardReadiness {
             } elseif (Test-Path -LiteralPath "$usbState.mac") {
                 throw 'Existe una firma USB sin su archivo de estado.'
             }
-            $checks.Add((New-AulaGuardReadinessCheck -Code 'USBSTATE' -Name 'Estado de memorias USB' -Passed $true -Detail 'Estado de restauración consistente.' -BlocksPolicies $true))
+            [void]$checks.Add((New-AulaGuardReadinessCheck -Code 'USBSTATE' -Name 'Estado de memorias USB' -Passed $true -Detail 'Estado de restauración consistente.' -BlocksPolicies $true))
         } catch {
-            $checks.Add((New-AulaGuardReadinessCheck -Code 'USBSTATE' -Name 'Estado de memorias USB' -Passed $false -Severity Critical -Detail $_.Exception.Message -BlocksPolicies $true))
+            [void]$checks.Add((New-AulaGuardReadinessCheck -Code 'USBSTATE' -Name 'Estado de memorias USB' -Passed $false -Severity Critical -Detail $_.Exception.Message -BlocksPolicies $true))
         }
     }
 
-    return @($checks)
+    return $checks.ToArray()
 }
 
 function Export-AulaGuardDiagnosticReport {
