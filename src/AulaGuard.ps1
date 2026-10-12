@@ -279,7 +279,8 @@ try {
 
     function Set-Status {
         param([string]$Message,[string]$Type='Info')
-        $status.Text = $Message
+        $prefix = '●'
+        $status.Text = "$prefix  $Message"
         switch ($Type) {
             'Success' {$status.ForeColor = $Success}
             'Warning' {$status.ForeColor = $Warning}
@@ -393,7 +394,7 @@ try {
     $footer.BackColor = [System.Drawing.Color]::White
     $form.Controls.Add($footer)
 
-    $status = New-Label 'AulaGuard listo' 18 21 9 $false $Muted
+    $status = New-Label '●  AulaGuard listo' 18 21 9 $false $Muted
     $footer.Controls.Add($status)
 
     $btnSave = New-Button 'Guardar cambios' 850 11 135 38 'Secondary'
@@ -671,10 +672,18 @@ try {
                 $healthSummaryCard.BackColor = $SoftGreen
                 $lblHealthTitle.Text = 'Equipo listo'
                 $lblHealthTitle.ForeColor = $Success
+                $homeState.BackColor = $SoftGreen
+                $lblHomeStateTitle.Text = 'Equipo listo para trabajar'
+                $lblHomeStateTitle.ForeColor = $Success
+                $lblHomeStateDetail.Text = "Diagnóstico correcto · $($summary.Passed)/$($summary.Total) comprobaciones"
             } else {
                 $healthSummaryCard.BackColor = $SoftAmber
                 $lblHealthTitle.Text = "Requiere atención · $($summary.Critical) bloqueo(s)"
                 $lblHealthTitle.ForeColor = $Danger
+                $homeState.BackColor = $(if ($summary.Critical -gt 0) {$SoftRed} else {$SoftAmber})
+                $lblHomeStateTitle.Text = $(if ($summary.Critical -gt 0) {"Requiere atención · $($summary.Critical) bloqueo(s)"} else {'Hay advertencias por revisar'})
+                $lblHomeStateTitle.ForeColor = $(if ($summary.Critical -gt 0) {$Danger} else {$Warning})
+                $lblHomeStateDetail.Text = "Correctos: $($summary.Passed)/$($summary.Total) · Advertencias: $($summary.Warnings)"
             }
             $lblHealthDetail.Text = "Correctos: $($summary.Passed)/$($summary.Total) · Advertencias: $($summary.Warnings)"
             return $summary
@@ -684,6 +693,10 @@ try {
             $lblHealthTitle.Text = 'No se pudo completar el diagnóstico'
             $lblHealthTitle.ForeColor = $Danger
             $lblHealthDetail.Text = $_.Exception.Message
+            $homeState.BackColor = $SoftRed
+            $lblHomeStateTitle.Text = 'No se pudo validar el equipo'
+            $lblHomeStateTitle.ForeColor = $Danger
+            $lblHomeStateDetail.Text = 'Abre Estado del sistema para revisar el detalle.'
             return $null
         }
     }
@@ -715,6 +728,10 @@ try {
     $toolTip.SetToolTip($radEnforce,'Aplica las restricciones reales a las cuentas estándar.')
 
     if ($settings.policyMode -eq 'Enforce') {$radEnforce.Checked = $true} else {$radAudit.Checked = $true}
+    $radAudit.Font = New-Object System.Drawing.Font('Segoe UI Semibold',9)
+    $radEnforce.Font = New-Object System.Drawing.Font('Segoe UI Semibold',9)
+    $radAudit.ForeColor = $PrimaryDark
+    $radEnforce.ForeColor = $Danger
     $tabProtection.Controls.Add($modeCard)
 
     $left = New-Card 24 204 535 292 $Card
@@ -725,6 +742,7 @@ try {
     $chkLockWallpaper.Location = New-Object System.Drawing.Point(18,55)
     $chkLockWallpaper.AutoSize = $true
     $chkLockWallpaper.Checked = [bool]$settings.protections.lockWallpaper
+    Style-Check $chkLockWallpaper
     $left.Controls.Add($chkLockWallpaper)
 
     $chkPersonalization = New-Object System.Windows.Forms.CheckBox
@@ -732,6 +750,7 @@ try {
     $chkPersonalization.Location = New-Object System.Drawing.Point(18,88)
     $chkPersonalization.AutoSize = $true
     $chkPersonalization.Checked = [bool]$settings.protections.disablePersonalization
+    Style-Check $chkPersonalization
     $left.Controls.Add($chkPersonalization)
 
     $chkProtectDesktop = New-Object System.Windows.Forms.CheckBox
@@ -739,6 +758,7 @@ try {
     $chkProtectDesktop.Location = New-Object System.Drawing.Point(18,121)
     $chkProtectDesktop.AutoSize = $true
     $chkProtectDesktop.Checked = [bool]$settings.protections.protectPublicDesktop
+    Style-Check $chkProtectDesktop
     $left.Controls.Add($chkProtectDesktop)
 
     $left.Controls.Add((New-Label 'Fondo institucional' 18 170 9 $true $Text))
@@ -747,6 +767,7 @@ try {
     $txtWallpaper.Size = New-Object System.Drawing.Size(360,28)
     $txtWallpaper.ReadOnly = $true
     $txtWallpaper.Text = [string]$settings.wallpaper
+    Style-Input $txtWallpaper
     $left.Controls.Add($txtWallpaper)
 
     $btnWallpaper = New-Button 'Elegir imagen' 390 198 120 32 'Secondary'
@@ -762,6 +783,7 @@ try {
     $chkControlPanel.Location = New-Object System.Drawing.Point(18,80)
     $chkControlPanel.AutoSize = $true
     $chkControlPanel.Checked = [bool]$settings.protections.blockControlPanel
+    Style-Check $chkControlPanel
     $right.Controls.Add($chkControlPanel)
 
     $chkRegistry = New-Object System.Windows.Forms.CheckBox
@@ -769,6 +791,7 @@ try {
     $chkRegistry.Location = New-Object System.Drawing.Point(18,113)
     $chkRegistry.AutoSize = $true
     $chkRegistry.Checked = [bool]$settings.protections.blockRegistryTools
+    Style-Check $chkRegistry
     $right.Controls.Add($chkRegistry)
 
     $chkTaskMgr = New-Object System.Windows.Forms.CheckBox
@@ -776,6 +799,7 @@ try {
     $chkTaskMgr.Location = New-Object System.Drawing.Point(18,146)
     $chkTaskMgr.AutoSize = $true
     $chkTaskMgr.Checked = [bool]$settings.protections.blockTaskManager
+    Style-Check $chkTaskMgr
     $right.Controls.Add($chkTaskMgr)
 
     $chkBrowserWhitelist = New-Object System.Windows.Forms.CheckBox
@@ -783,6 +807,7 @@ try {
     $chkBrowserWhitelist.Location = New-Object System.Drawing.Point(18,179)
     $chkBrowserWhitelist.AutoSize = $true
     $chkBrowserWhitelist.Checked = [bool]$settings.protections.browserWhitelist
+    Style-Check $chkBrowserWhitelist
     $right.Controls.Add($chkBrowserWhitelist)
 
     $tabProtection.Controls.Add($right)
@@ -795,6 +820,7 @@ try {
     $txtProfileName.Location = New-Object System.Drawing.Point(78,46)
     $txtProfileName.Size = New-Object System.Drawing.Size(260,28)
     $txtProfileName.Text = [string]$settings.profileName
+    Style-Input $txtProfileName
     $profileCard.Controls.Add($txtProfileName)
 
     $btnExport = New-Button 'Exportar perfil' 570 42 140 34 'Neutral'
@@ -871,8 +897,8 @@ try {
     $programNotice.Margin = New-Object System.Windows.Forms.Padding(0,0,0,12)
     $programNotice.BackColor = $SoftGreen
     $programNotice.Padding = New-Object System.Windows.Forms.Padding(12)
-    $programNotice.Controls.Add((New-Label 'Cómo funciona' 14 8 10 $true $PrimaryDark))
-    $programNotice.Controls.Add((New-Label 'Los interruptores modifican la selección. Guarda y valida en Control de apps antes de activar el bloqueo.' 14 34 9 $false $Text))
+    $programNotice.Controls.Add((New-Label 'Selección segura de aplicaciones' 14 8 10 $true $PrimaryDark))
+    $programNotice.Controls.Add((New-Label 'Los interruptores preparan la lista. Windows no bloquea nada hasta que lo confirmas en Control de apps.' 14 34 9 $false $Text))
     $programLayout.Controls.Add($programNotice,0,1)
 
     $programToolbar = New-Object System.Windows.Forms.TableLayoutPanel
@@ -888,7 +914,8 @@ try {
     $txtProgramSearch = New-Object System.Windows.Forms.TextBox
     $txtProgramSearch.Dock = 'Fill'
     $txtProgramSearch.Margin = New-Object System.Windows.Forms.Padding(0,8,12,13)
-    $txtProgramSearch.Font = New-Object System.Drawing.Font('Segoe UI',11)
+    $txtProgramSearch.Font = New-Object System.Drawing.Font('Segoe UI',10)
+    Style-Input $txtProgramSearch
     $programToolbar.Controls.Add($txtProgramSearch,0,0)
     $toolTip.SetToolTip($txtProgramSearch,'Buscar por nombre, editor o ruta del ejecutable')
 
@@ -1228,27 +1255,22 @@ try {
     $toggleUsb.Cursor = 'Hand'
     $toggleUsb.Checked = [bool]$settings.usb.blockStorage
     $usbCard.Controls.Add($toggleUsb)
-    $toggleUsb.Add_CheckedChanged({
+    $updateUsbVisual = {
         if ($toggleUsb.Checked) {
-            $toggleUsb.Text = '● BLOQUEAR'
-            $toggleUsb.BackColor = $Primary
+            $toggleUsb.Text = 'BLOQUEAR USB'
+            $toggleUsb.BackColor = $Danger
             $toggleUsb.ForeColor = [System.Drawing.Color]::White
+            $usbCard.BackColor = $SoftRed
         } else {
-            $toggleUsb.Text = '○ PERMITIR'
-            $toggleUsb.BackColor = [System.Drawing.Color]::FromArgb(226,232,240)
-            $toggleUsb.ForeColor = $Text
+            $toggleUsb.Text = 'PERMITIR USB'
+            $toggleUsb.BackColor = $SoftGreen
+            $toggleUsb.ForeColor = $PrimaryDark
+            $usbCard.BackColor = [System.Drawing.Color]::White
         }
-    })
-    if ($toggleUsb.Checked) {
-        $toggleUsb.Text = '● BLOQUEAR'
-        $toggleUsb.BackColor = $Primary
-        $toggleUsb.ForeColor = [System.Drawing.Color]::White
-    } else {
-        $toggleUsb.Text = '○ PERMITIR'
-        $toggleUsb.BackColor = [System.Drawing.Color]::FromArgb(226,232,240)
-        $toggleUsb.ForeColor = $Text
     }
-    $usbHint = New-Label 'Guarda y aplica en modo Protección. No desactiva puertos, teclados, ratones ni el acceso del administrador.' 158 92 9 $false $Muted
+    $toggleUsb.Add_CheckedChanged({ & $updateUsbVisual })
+    & $updateUsbVisual
+    $usbHint = New-Label 'Este ajuste afecta solo almacenamiento extraíble de estudiantes. Guarda y aplica Protección para hacerlo efectivo.' 158 92 9 $false $Muted
     $usbHint.MaximumSize = New-Object System.Drawing.Size(680,0)
     $usbCard.Controls.Add($usbHint)
 
@@ -1432,8 +1454,10 @@ try {
             Set-Status 'No se pudieron validar los usuarios; revisa Estado del sistema' 'Warning'
         }
 
-        $lblModeValue.Text = if ($radEnforce.Checked) {'Protección activa'} else {'Modo seguro: auditoría'}
+        $lblModeValue.Text = if ($radEnforce.Checked) {'Activa'} else {'Auditoría'}
         $lblAppsValue.Text = [string]$lstPrograms.Items.Count
+        $lblQuickAudit.Text = if ($radEnforce.Checked) {'Revisa auditoría antes de mantener bloqueo'} else {'Recomendado: Auditoría'}
+        $lblQuickAudit.ForeColor = if ($radEnforce.Checked) {$Warning} else {$Success}
     }
 
     $btnGoProtect.Add_Click({$tabs.SelectedTab = $tabProtection})
