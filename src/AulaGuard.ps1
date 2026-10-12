@@ -148,7 +148,7 @@ try {
         $b = New-Object System.Windows.Forms.Button
         $b.Text = $TextValue
         $b.Location = New-Object System.Drawing.Point(12,$Y)
-        $b.Size = New-Object System.Drawing.Size(160,44)
+        $b.Size = New-Object System.Drawing.Size(178,42)
         $b.FlatStyle = 'Flat'
         $b.FlatAppearance.BorderSize = 0
         $b.TextAlign = 'MiddleLeft'
@@ -157,6 +157,8 @@ try {
         $b.Font = New-Object System.Drawing.Font('Segoe UI Semibold',9)
         $b.BackColor = [System.Drawing.Color]::White
         $b.ForeColor = $Muted
+        $b.FlatAppearance.MouseOverBackColor = $SoftBlue
+        $b.FlatAppearance.MouseDownBackColor = [System.Drawing.Color]::FromArgb(220,252,231)
         return $b
     }
 
@@ -643,15 +645,22 @@ try {
                 }
             }
             if ($summary.Ready) {
-                $healthSummaryCard.BackColor = $SoftGreen
-                $lblHealthTitle.Text = 'Equipo listo'
-                $lblHealthTitle.ForeColor = $Success
+                $healthSummaryCard.BackColor = $(if ($summary.Warnings -gt 0) {$SoftAmber} else {$SoftGreen})
+                $lblHealthTitle.Text = $(if ($summary.Warnings -gt 0) {'Listo con advertencias'} else {'Equipo listo'})
+                $lblHealthTitle.ForeColor = $(if ($summary.Warnings -gt 0) {$Warning} else {$Success})
+                $homeHealthBadge.BackColor = $(if ($summary.Warnings -gt 0) {$SoftAmber} else {$SoftGreen})
+                $lblHomeHealth.Text = $(if ($summary.Warnings -gt 0) {'Listo · revisar avisos'} else {'Equipo listo'})
+                $lblHomeHealth.ForeColor = $(if ($summary.Warnings -gt 0) {$Warning} else {$Success})
             } else {
                 $healthSummaryCard.BackColor = $SoftAmber
                 $lblHealthTitle.Text = "Requiere atención · $($summary.Critical) bloqueo(s)"
                 $lblHealthTitle.ForeColor = $Danger
+                $homeHealthBadge.BackColor = $SoftAmber
+                $lblHomeHealth.Text = "Atención · $($summary.Critical) bloqueo(s)"
+                $lblHomeHealth.ForeColor = $Danger
             }
             $lblHealthDetail.Text = "Correctos: $($summary.Passed)/$($summary.Total) · Advertencias: $($summary.Warnings)"
+            $lblHomeHealthDetail.Text = "Correctos $($summary.Passed)/$($summary.Total) · avisos $($summary.Warnings)"
             return $summary
         } catch {
             $gridHealth.Rows.Clear()
@@ -659,6 +668,10 @@ try {
             $lblHealthTitle.Text = 'No se pudo completar el diagnóstico'
             $lblHealthTitle.ForeColor = $Danger
             $lblHealthDetail.Text = $_.Exception.Message
+            $homeHealthBadge.BackColor = $SoftAmber
+            $lblHomeHealth.Text = 'Diagnóstico no disponible'
+            $lblHomeHealth.ForeColor = $Danger
+            $lblHomeHealthDetail.Text = 'Abre Estado del sistema'
             return $null
         }
     }
@@ -1428,7 +1441,7 @@ try {
     $navLog.Add_Click({$tabs.SelectedTab = $tabAudit})
 
     $tabs.Add_SelectedIndexChanged({
-        if ($tabs.SelectedTab -eq $tabHome) {Set-NavActive $navHome}
+        if ($tabs.SelectedTab -eq $tabHome) { Set-NavActive $navHome; Refresh-Dashboard; & $loadReadiness | Out-Null }
         elseif ($tabs.SelectedTab -eq $tabHealth) { Set-NavActive $navHealth; & $loadReadiness | Out-Null }
         elseif ($tabs.SelectedTab -eq $tabProtection) {Set-NavActive $navProtection}
         elseif ($tabs.SelectedTab -eq $tabPrograms) {
@@ -1604,7 +1617,7 @@ try {
 
     $btnUsbRefresh.Add_Click({
         & $refreshUsb
-    & $loadReadiness | Out-Null
+        & $loadReadiness | Out-Null
         Set-Status 'Discos extraíbles actualizados' 'Success'
     })
     $btnUsbRestore.Add_Click({
@@ -1918,6 +1931,7 @@ try {
     & $loadAudit
     & $loadAppEvents
     & $refreshUsb
+    & $loadReadiness | Out-Null
 
     $form.Add_FormClosed({
         try {
