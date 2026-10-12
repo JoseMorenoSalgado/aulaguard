@@ -335,21 +335,34 @@ try {
     $footer.BackColor = [System.Drawing.Color]::White
     $form.Controls.Add($footer)
 
-    $status = New-Label 'AulaGuard listo' 18 21 9 $false $Muted
-    $footer.Controls.Add($status)
+    $footerLayout = New-Object System.Windows.Forms.TableLayoutPanel
+    $footerLayout.Dock = 'Fill'
+    $footerLayout.Padding = New-Object System.Windows.Forms.Padding(18,10,22,10)
+    $footerLayout.ColumnCount = 3
+    $footerLayout.RowCount = 1
+    [void]$footerLayout.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle('Percent',100)))
+    [void]$footerLayout.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle('Absolute',152)))
+    [void]$footerLayout.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle('Absolute',176)))
+    $footer.Controls.Add($footerLayout)
 
-    $btnSave = New-Button 'Guardar cambios' 850 11 135 38 'Secondary'
-    $btnSave.Anchor = 'Top,Right'
-    $footer.Controls.Add($btnSave)
+    $status = New-Object System.Windows.Forms.Label
+    $status.Text = 'AulaGuard listo'
+    $status.Dock = 'Fill'
+    $status.TextAlign = 'MiddleLeft'
+    $status.AutoEllipsis = $true
+    $status.ForeColor = $Muted
+    $status.Font = New-Object System.Drawing.Font('Segoe UI',9)
+    $footerLayout.Controls.Add($status,0,0)
 
-    $btnApply = New-Button 'Aplicar protección' 995 11 155 38 'Success'
-    $btnApply.Anchor = 'Top,Right'
-    $footer.Controls.Add($btnApply)
-    $footer.Add_Resize({
-        $btnApply.Left = [Math]::Max(180,$footer.ClientSize.Width - $btnApply.Width - 22)
-        $btnSave.Left = $btnApply.Left - $btnSave.Width - 12
-        $status.MaximumSize = New-Object System.Drawing.Size([Math]::Max(120,$btnSave.Left - 32),0)
-    })
+    $btnSave = New-Button 'Guardar cambios' 0 0 140 38 'Secondary'
+    $btnSave.Dock = 'Fill'
+    $btnSave.Margin = New-Object System.Windows.Forms.Padding(8,1,6,1)
+    $footerLayout.Controls.Add($btnSave,1,0)
+
+    $btnApply = New-Button 'Aplicar protección' 0 0 164 38 'Success'
+    $btnApply.Dock = 'Fill'
+    $btnApply.Margin = New-Object System.Windows.Forms.Padding(6,1,0,1)
+    $footerLayout.Controls.Add($btnApply,2,0)
 
     $workspace = New-Object System.Windows.Forms.Panel
     $workspace.Dock = 'Fill'
