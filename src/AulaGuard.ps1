@@ -1432,29 +1432,57 @@ try {
     $premiumCapabilities.Text = "Funcionalidades previstas para Premium:$([Environment]::NewLine)$([Environment]::NewLine)• Panel central de laboratorios, equipos y estado de conexión.$([Environment]::NewLine)• Alertas de acciones bloqueadas y dispositivos de almacenamiento.$([Environment]::NewLine)• Asignación de políticas por aula y por grupo de computadoras.$([Environment]::NewLine)• Historial de auditoría con permisos y retención configurables.$([Environment]::NewLine)• Comunicación cifrada TLS y registro de dispositivos autorizado.$([Environment]::NewLine)$([Environment]::NewLine)Esta pantalla es informativa: las conexiones remotas no están implementadas."
     $premiumPage.Controls.Add($premiumCapabilities,0,2)
 
-    # LOG
+    # LOG — responsive technical activity view.
     $tabAudit = New-Object System.Windows.Forms.TabPage
     $tabAudit.Text = 'Registro'
     $tabAudit.BackColor = $Bg
     $tabs.TabPages.Add($tabAudit)
 
-    $tabAudit.Controls.Add((New-Label 'Actividad de AulaGuard' 24 20 15 $true $Text))
-    $tabAudit.Controls.Add((New-Label 'Aquí puedes revisar cambios, aplicaciones de políticas y errores.' 24 52 9 $false $Muted))
+    $auditLayout = New-Object System.Windows.Forms.TableLayoutPanel
+    $auditLayout.Dock = 'Fill'
+    $auditLayout.Padding = New-Object System.Windows.Forms.Padding(24,18,24,18)
+    $auditLayout.ColumnCount = 1
+    $auditLayout.RowCount = 4
+    [void]$auditLayout.RowStyles.Add((New-Object System.Windows.Forms.RowStyle('Absolute',68)))
+    [void]$auditLayout.RowStyles.Add((New-Object System.Windows.Forms.RowStyle('Absolute',68)))
+    [void]$auditLayout.RowStyles.Add((New-Object System.Windows.Forms.RowStyle('Percent',100)))
+    [void]$auditLayout.RowStyles.Add((New-Object System.Windows.Forms.RowStyle('Absolute',52)))
+    $tabAudit.Controls.Add($auditLayout)
 
+    $auditHeader = New-Object System.Windows.Forms.Panel
+    $auditHeader.Dock = 'Fill'
+    $auditHeader.Controls.Add((New-Label 'Actividad y auditoría' 0 0 17 $true $Text))
+    $auditHeader.Controls.Add((New-Label 'Revisa cambios administrativos, aplicaciones de políticas, errores e integridad de registros.' 0 35 9 $false $Muted))
+    $auditLayout.Controls.Add($auditHeader,0,0)
+
+    $auditNotice = New-Surface -BackColor $SlateSoft -Padding 0
+    $auditNotice.Margin = New-Object System.Windows.Forms.Padding(0,0,0,12)
+    $auditNotice.Controls.Add((New-Label 'Registro protegido' 15 10 10 $true $Text))
+    $auditNotice.Controls.Add((New-Label 'AulaGuard valida la cadena HMAC antes de mostrar cada archivo de auditoría.' 15 36 9 $false $Muted))
+    $auditLayout.Controls.Add($auditNotice,0,1)
+
+    $auditSurface = New-Surface -BackColor $Card -Padding 12
+    $auditSurface.Margin = New-Object System.Windows.Forms.Padding(0,0,0,10)
     $txtAudit = New-Object System.Windows.Forms.TextBox
-    $txtAudit.Location = New-Object System.Drawing.Point(24,92)
-    $txtAudit.Size = New-Object System.Drawing.Size(1094,470)
-    $txtAudit.Anchor = 'Top,Left,Right,Bottom'
+    $txtAudit.Dock = 'Fill'
     $txtAudit.Multiline = $true
     $txtAudit.ReadOnly = $true
     $txtAudit.ScrollBars = 'Both'
     $txtAudit.Font = New-Object System.Drawing.Font('Consolas',9)
     $txtAudit.BackColor = [System.Drawing.Color]::White
-    $tabAudit.Controls.Add($txtAudit)
+    $txtAudit.ForeColor = $Text
+    $txtAudit.BorderStyle = 'None'
+    $auditSurface.Controls.Add($txtAudit)
+    $auditLayout.Controls.Add($auditSurface,0,2)
 
-    $btnRefreshAudit = New-Button 'Actualizar registro' 24 580 150 34 'Secondary'
-    $btnRefreshAudit.Anchor = 'Left,Bottom'
-    $tabAudit.Controls.Add($btnRefreshAudit)
+    $auditActions = New-Object System.Windows.Forms.FlowLayoutPanel
+    $auditActions.Dock = 'Fill'
+    $auditActions.FlowDirection = 'LeftToRight'
+    $auditActions.WrapContents = $false
+    $btnRefreshAudit = New-Button 'Actualizar registro' 0 0 165 36 'Secondary'
+    $btnRefreshAudit.Margin = New-Object System.Windows.Forms.Padding(0,5,10,4)
+    $auditActions.Controls.Add($btnRefreshAudit)
+    $auditLayout.Controls.Add($auditActions,0,3)
 
     $loadAudit = {
         $lines = @()
