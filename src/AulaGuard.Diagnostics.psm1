@@ -157,6 +157,28 @@ function Test-AulaGuardReadiness {
     return @($checks)
 }
 
+function Export-AulaGuardDiagnosticReport {
+    param(
+        [Parameter(Mandatory=$true)][string]$Path,
+        [string]$Root = (Join-Path $env:ProgramData 'AulaGuard'),
+        $Settings = $null
+    )
+    if ([string]::IsNullOrWhiteSpace($Path)) { throw 'Selecciona una ruta para el diagnóstico.' }
+    $full = [IO.Path]::GetFullPath($Path)
+    if ([IO.Path]::GetExtension($full) -ine '.json') { throw 'El diagnóstico debe guardarse como archivo .json.' }
+    $checks = @(Test-AulaGuardReadiness -Root $Root -Settings $Settings)
+    $report = [pscustomobject]@{
+        schema = 'AulaGuard-Diagnostics/1'
+        generatedUtc = (Get-Date).ToUniversalTime().ToString('o')
+        aulaGuardVersion = if ($Settings -and $Settings.version) { [string]$Settings.version } else { 'unknown' }
+        system = Get-AulaGuardSystemInfo
+        readiness = Get-AulaGuardReadinessSummary -Checks $checks
+        checks = @($checks | Select-Object Code,Name,Passed,Severity,Detail,BlocksPolicies,BlocksAppControl)
+    }
+    $report | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $full -Encoding UTF8 -ErrorAction Stop
+    return $full
+}
+
 function Get-AulaGuardReadinessSummary {
     param([object[]]$Checks)
     $all = @($Checks)
@@ -173,4 +195,4 @@ function Get-AulaGuardReadinessSummary {
     }
 }
 
-Export-ModuleMember -Function Get-AulaGuardSystemInfo,Get-AulaGuardLocalUsers,Test-AulaGuardReadiness,Get-AulaGuardReadinessSummary
+Export-ModuleMember -Function Get-AulaGuardSystemInfo,Get-AulaGuardLocalUsers,Test-AulaGuardReadiness,Get-AulaGuardReadinessSummary,Export-AulaGuardDiagnosticReport
