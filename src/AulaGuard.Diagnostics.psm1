@@ -98,6 +98,20 @@ function Test-AulaGuardReadiness {
     }
 
     try {
+        $appliedPath = Get-AulaGuardAppliedPolicyPath -Root $Root
+        if (Test-Path -LiteralPath $appliedPath -PathType Leaf) {
+            $applied = Read-AulaGuardAppliedPolicy -Root $Root
+            [void]$checks.Add((New-AulaGuardReadinessCheck -Code 'DEPLOYMENT' -Name 'Política aplicada' -Passed $true -Detail "Snapshot firmado · $($applied.appliedUtc)"))
+        } elseif ($Settings -and $Settings.policyMode -eq 'Enforce') {
+            [void]$checks.Add((New-AulaGuardReadinessCheck -Code 'DEPLOYMENT' -Name 'Política aplicada' -Passed $false -Severity Warning -Detail 'Configuración antigua marcada como activa, pero no existe un snapshot v0.5.1. Vuelve a aplicar la protección para migrarla.'))
+        } else {
+            [void]$checks.Add((New-AulaGuardReadinessCheck -Code 'DEPLOYMENT' -Name 'Política aplicada' -Passed $true -Detail 'No hay una política general desplegada actualmente.'))
+        }
+    } catch {
+        [void]$checks.Add((New-AulaGuardReadinessCheck -Code 'DEPLOYMENT' -Name 'Política aplicada' -Passed $false -Severity Warning -Detail $_.Exception.Message))
+    }
+
+    try {
         $users = @(Get-AulaGuardLocalUsers)
         $students = @($users | Where-Object { -not $_.IsAdministrator })
         $studentDetail = if ($students.Count -gt 0) { "$($students.Count) perfil(es) estándar detectado(s)." } else { 'No hay perfiles estándar a los que aplicar políticas.' }

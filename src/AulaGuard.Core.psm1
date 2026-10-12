@@ -26,9 +26,79 @@ function Get-AulaGuardSettingsPath {
     return (Join-Path $Root 'config\settings.json')
 }
 
+function Get-AulaGuardAppliedPolicyPath {
+    param([string]$Root = (Get-AulaGuardRoot))
+    return (Join-Path $Root 'config\applied-policy.json')
+}
+
+function New-AulaGuardAppliedPolicySnapshot {
+    param([Parameter(Mandatory=$true)]$Settings)
+    [pscustomobject]@{
+        schema = 'AulaGuard-AppliedPolicy/1'
+        version = '0.5.1'
+        appliedUtc = (Get-Date).ToUniversalTime().ToString('o')
+        wallpaper = [string]$Settings.wallpaper
+        allowedWebsites = @($Settings.allowedWebsites)
+        protectedShortcuts = @($Settings.protectedShortcuts)
+        protections = [pscustomobject]@{
+            lockWallpaper = [bool]$Settings.protections.lockWallpaper
+            disablePersonalization = [bool]$Settings.protections.disablePersonalization
+            protectPublicDesktop = [bool]$Settings.protections.protectPublicDesktop
+            browserWhitelist = [bool]$Settings.protections.browserWhitelist
+            blockControlPanel = [bool]$Settings.protections.blockControlPanel
+            blockRegistryTools = [bool]$Settings.protections.blockRegistryTools
+            blockTaskManager = [bool]$Settings.protections.blockTaskManager
+            blockCommandPrompt = [bool]$Settings.protections.blockCommandPrompt
+            blockPowerShell = [bool]$Settings.protections.blockPowerShell
+        }
+        usb = [pscustomobject]@{
+            blockStorage = [bool]$Settings.usb.blockStorage
+        }
+    }
+}
+
+function Save-AulaGuardAppliedPolicy {
+    param(
+        [Parameter(Mandatory=$true)]$Settings,
+        [string]$Root = (Get-AulaGuardRoot)
+    )
+    Assert-AulaGuardElevated
+    $snapshot = New-AulaGuardAppliedPolicySnapshot -Settings $Settings
+    $json = $snapshot | ConvertTo-Json -Depth 10 -ErrorAction Stop
+    if ($json.Length -gt 524288) { throw 'La política aplicada excede el tamaño permitido.' }
+    $bytes = (New-Object System.Text.UTF8Encoding($false)).GetBytes($json)
+    $path = Get-AulaGuardAppliedPolicyPath -Root $Root
+    Set-AulaGuardSignedFile -Path $path -Data $bytes -Root $Root
+    Write-AulaGuardAudit -Action 'APPLIED_POLICY_SAVED' -Level 'SECURITY' -Detail $snapshot.appliedUtc -Root $Root
+    return $snapshot
+}
+
+function Read-AulaGuardAppliedPolicy {
+    param([string]$Root = (Get-AulaGuardRoot))
+    $path = Get-AulaGuardAppliedPolicyPath -Root $Root
+    if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { return $null }
+    Assert-AulaGuardSignedFile -Path $path -Root $Root
+    $snapshot = Get-Content -LiteralPath $path -Raw -Encoding UTF8 -ErrorAction Stop |
+        ConvertFrom-Json -ErrorAction Stop
+    if ($null -eq $snapshot -or $snapshot.schema -ne 'AulaGuard-AppliedPolicy/1' -or
+        $null -eq $snapshot.protections -or $null -eq $snapshot.usb) {
+        throw 'La política aplicada guardada no tiene un formato válido.'
+    }
+    return $snapshot
+}
+
+function Clear-AulaGuardAppliedPolicy {
+    param([string]$Root = (Get-AulaGuardRoot))
+    Assert-AulaGuardElevated
+    $path = Get-AulaGuardAppliedPolicyPath -Root $Root
+    Remove-Item -LiteralPath $path -Force -ErrorAction SilentlyContinue
+    Remove-Item -LiteralPath "$path.mac" -Force -ErrorAction SilentlyContinue
+    Write-AulaGuardAudit -Action 'APPLIED_POLICY_CLEARED' -Level 'SECURITY' -Root $Root
+}
+
 function New-AulaGuardSettings {
     [pscustomobject]@{
-        version = '0.5.0'
+        version = '0.5.1'
         profileName = 'Aula principal'
         policyMode = 'Audit'
         wallpaper = ''
@@ -117,7 +187,7 @@ function Read-AulaGuardSettings {
     if ($s.policyMode -notin @('Audit','Enforce') -or $s.appControl.mode -notin @('AuditOnly','Enabled')) {
         throw 'Modo de políticas inválido en configuración protegida.'
     }
-    $s.version = '0.5.0'
+    $s.version = '0.5.1'
     return $s
 }
 

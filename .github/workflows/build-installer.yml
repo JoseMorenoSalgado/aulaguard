@@ -73,6 +73,10 @@ jobs:
         shell: powershell
         run: .\tests\ProfessionalReadiness.Tests.ps1
 
+      - name: Validate staged versus applied policy state
+        shell: powershell
+        run: .\tests\AppliedPolicy.Tests.ps1
+
       - name: Verify installer elevated launch and versions
         shell: powershell
         run: .\tests\InstallerElevatedLaunch.Tests.ps1
@@ -105,7 +109,7 @@ jobs:
       - name: Smoke test protected Windows installation
         shell: powershell
         run: |
-          $setup = (Resolve-Path 'dist/installer/AulaGuard-Setup-v0.5.0.exe').Path
+          $setup = (Resolve-Path 'dist/installer/AulaGuard-Setup-v0.5.1.exe').Path
           $process = Start-Process -FilePath $setup -ArgumentList '/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-' -Wait -PassThru
           if ($process.ExitCode -ne 0) { throw "Installer failed with $($process.ExitCode)" }
           $installedRoot = Join-Path $env:ProgramFiles 'AulaGuard'
@@ -172,9 +176,9 @@ jobs:
       - name: Record SHA-256 installer checksum
         shell: powershell
         run: |
-          $exe = 'dist/installer/AulaGuard-Setup-v0.5.0.exe'
+          $exe = 'dist/installer/AulaGuard-Setup-v0.5.1.exe'
           $hash = (Get-FileHash -Path $exe -Algorithm SHA256).Hash.ToLowerInvariant()
-          "$hash  AulaGuard-Setup-v0.5.0.exe" | Set-Content dist/installer/SHA256SUMS.txt -Encoding ASCII
+          "$hash  AulaGuard-Setup-v0.5.1.exe" | Set-Content dist/installer/SHA256SUMS.txt -Encoding ASCII
 
       # Windows GitHub-hosted runners may have Defender disabled. This job is
       # a build/test only; it NEVER publishes or uploads unscanned binaries.

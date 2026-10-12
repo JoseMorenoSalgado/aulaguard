@@ -1,4 +1,4 @@
-# AulaGuard v0.5.0
+# AulaGuard v0.5.1
 # Friendly educational administration console for Windows classrooms.
 
 $ErrorActionPreference = 'Stop'
@@ -148,7 +148,7 @@ try {
         $b = New-Object System.Windows.Forms.Button
         $b.Text = $TextValue
         $b.Location = New-Object System.Drawing.Point(12,$Y)
-        $b.Size = New-Object System.Drawing.Size(160,44)
+        $b.Size = New-Object System.Drawing.Size(178,42)
         $b.FlatStyle = 'Flat'
         $b.FlatAppearance.BorderSize = 0
         $b.TextAlign = 'MiddleLeft'
@@ -157,6 +157,8 @@ try {
         $b.Font = New-Object System.Drawing.Font('Segoe UI Semibold',9)
         $b.BackColor = [System.Drawing.Color]::White
         $b.ForeColor = $Muted
+        $b.FlatAppearance.MouseOverBackColor = $SoftBlue
+        $b.FlatAppearance.MouseDownBackColor = [System.Drawing.Color]::FromArgb(220,252,231)
         return $b
     }
 
@@ -240,7 +242,7 @@ try {
         }
 
         return [pscustomobject]@{
-            version = '0.5.0'
+            version = '0.5.1'
             profileName = $txtProfileName.Text.Trim()
             policyMode = if ($radEnforce.Checked) {'Enforce'} else {'Audit'}
             wallpaper = $txtWallpaper.Text.Trim()
@@ -264,18 +266,20 @@ try {
     }
 
     function Save-FromUi {
+        # "Guardar" stores staged configuration only. It must never change the
+        # recorded deployment state; applying policies is a separate action.
         $newSettings = Get-UiSettings
-        # Publish the file into a managed read-only student-accessible directory.
-        # Never store an administrator-only Downloads path as a student wallpaper.
         if (-not [string]::IsNullOrWhiteSpace([string]$newSettings.wallpaper)) {
             $newSettings.wallpaper = Publish-AulaGuardWallpaper -SourcePath $newSettings.wallpaper
             $txtWallpaper.Text = $newSettings.wallpaper
         }
+        $newSettings.policyMode = [string]$settings.policyMode
+        $newSettings.lastAppliedUtc = $settings.lastAppliedUtc
         $script:settings = $newSettings
         Backup-AulaGuardConfiguration -Root $root | Out-Null
         Save-AulaGuardSettings -Settings $script:settings -Root $root | Out-Null
-        Write-AulaGuardAudit -Action 'CONFIG_SAVED' -Detail "Profile=$($settings.profileName)" -Root $root
-        Set-Status "Cambios guardados a las $(Get-Date -Format 'HH:mm:ss')" 'Success'
+        Write-AulaGuardAudit -Action 'CONFIG_STAGED' -Detail "Profile=$($settings.profileName)" -Root $root
+        Set-Status "Configuración guardada a las $(Get-Date -Format 'HH:mm:ss') · todavía no aplicada" 'Success'
     }
 
     $form = New-Object System.Windows.Forms.Form
@@ -314,7 +318,7 @@ try {
     $header.Controls.Add((New-Label 'Protege el aula sin complicaciones' 94 48 10 $false ([System.Drawing.Color]::FromArgb(219,234,254))))
 
     $version = New-Object System.Windows.Forms.Label
-    $version.Text = 'v0.5.0'
+    $version.Text = 'v0.5.1'
     $version.TextAlign = 'MiddleCenter'
     $version.Location = New-Object System.Drawing.Point(1060,26)
     $version.Size = New-Object System.Drawing.Size(82,30)
@@ -331,21 +335,34 @@ try {
     $footer.BackColor = [System.Drawing.Color]::White
     $form.Controls.Add($footer)
 
-    $status = New-Label 'AulaGuard listo' 18 21 9 $false $Muted
-    $footer.Controls.Add($status)
+    $footerLayout = New-Object System.Windows.Forms.TableLayoutPanel
+    $footerLayout.Dock = 'Fill'
+    $footerLayout.Padding = New-Object System.Windows.Forms.Padding(18,10,22,10)
+    $footerLayout.ColumnCount = 3
+    $footerLayout.RowCount = 1
+    [void]$footerLayout.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle('Percent',100)))
+    [void]$footerLayout.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle('Absolute',152)))
+    [void]$footerLayout.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle('Absolute',176)))
+    $footer.Controls.Add($footerLayout)
 
-    $btnSave = New-Button 'Guardar cambios' 850 11 135 38 'Secondary'
-    $btnSave.Anchor = 'Top,Right'
-    $footer.Controls.Add($btnSave)
+    $status = New-Object System.Windows.Forms.Label
+    $status.Text = 'AulaGuard listo'
+    $status.Dock = 'Fill'
+    $status.TextAlign = 'MiddleLeft'
+    $status.AutoEllipsis = $true
+    $status.ForeColor = $Muted
+    $status.Font = New-Object System.Drawing.Font('Segoe UI',9)
+    $footerLayout.Controls.Add($status,0,0)
 
-    $btnApply = New-Button 'Aplicar protección' 995 11 155 38 'Success'
-    $btnApply.Anchor = 'Top,Right'
-    $footer.Controls.Add($btnApply)
-    $footer.Add_Resize({
-        $btnApply.Left = [Math]::Max(180,$footer.ClientSize.Width - $btnApply.Width - 22)
-        $btnSave.Left = $btnApply.Left - $btnSave.Width - 12
-        $status.MaximumSize = New-Object System.Drawing.Size([Math]::Max(120,$btnSave.Left - 32),0)
-    })
+    $btnSave = New-Button 'Guardar cambios' 0 0 140 38 'Secondary'
+    $btnSave.Dock = 'Fill'
+    $btnSave.Margin = New-Object System.Windows.Forms.Padding(8,1,6,1)
+    $footerLayout.Controls.Add($btnSave,1,0)
+
+    $btnApply = New-Button 'Aplicar protección' 0 0 164 38 'Success'
+    $btnApply.Dock = 'Fill'
+    $btnApply.Margin = New-Object System.Windows.Forms.Padding(6,1,0,1)
+    $footerLayout.Controls.Add($btnApply,2,0)
 
     $workspace = New-Object System.Windows.Forms.Panel
     $workspace.Dock = 'Fill'
@@ -396,11 +413,14 @@ try {
         $sidebar.Controls.Add($nav)
     }
 
-    $sideInfo = New-Card 12 530 178 110 $SoftGreen
-    $sideInfo.Controls.Add((New-Label 'Aula protegida' 12 12 9 $true $PrimaryDark))
-    $sideInfo.Controls.Add((New-Label 'Configura primero' 12 42 8 $false $Muted))
-    $sideInfo.Controls.Add((New-Label 'en auditoría y luego' 12 62 8 $false $Muted))
-    $sideInfo.Controls.Add((New-Label 'activa la protección.' 12 82 8 $false $Muted))
+    $sideInfo = New-Card 12 530 178 110 $Card
+    $lblSideState = New-Label 'Estado del aula' 12 12 9 $true $Text
+    $lblSideStateValue = New-Label 'Comprobando…' 12 40 9 $true $Warning
+    $lblSideStateDetail = New-Label 'Consulta el diagnóstico' 12 68 8 $false $Muted
+    $lblSideStateDetail.MaximumSize = New-Object System.Drawing.Size(152,0)
+    $sideInfo.Controls.Add($lblSideState)
+    $sideInfo.Controls.Add($lblSideStateValue)
+    $sideInfo.Controls.Add($lblSideStateDetail)
     $sidebar.Controls.Add($sideInfo)
     $sidebar.Add_Resize({
         $sideInfo.Visible = ($sidebar.ClientSize.Height -gt 690)
@@ -417,81 +437,153 @@ try {
         $Active.ForeColor = $PrimaryDark
     }
 
-    # HOME
+    # HOME — responsive professional dashboard
     $tabHome = New-Object System.Windows.Forms.TabPage
     $tabHome.Text = 'Inicio'
     $tabHome.BackColor = $Bg
     $tabs.TabPages.Add($tabHome)
 
-    $tabHome.Controls.Add((New-Label 'Bienvenido al centro de control del aula' 24 20 16 $true $Text))
-    $tabHome.Controls.Add((New-Label 'Revisa el estado del equipo y sigue la guía en orden para configurar la protección.' 24 52 9 $false $Muted))
+    $homeRoot = New-Object System.Windows.Forms.TableLayoutPanel
+    $homeRoot.Dock = 'Fill'
+    $homeRoot.Padding = New-Object System.Windows.Forms.Padding(22,16,22,14)
+    $homeRoot.ColumnCount = 1
+    $homeRoot.RowCount = 4
+    [void]$homeRoot.RowStyles.Add((New-Object System.Windows.Forms.RowStyle('Absolute',62)))
+    [void]$homeRoot.RowStyles.Add((New-Object System.Windows.Forms.RowStyle('Absolute',116)))
+    [void]$homeRoot.RowStyles.Add((New-Object System.Windows.Forms.RowStyle('Absolute',136)))
+    [void]$homeRoot.RowStyles.Add((New-Object System.Windows.Forms.RowStyle('Percent',100)))
+    $tabHome.Controls.Add($homeRoot)
 
-    $cardPc = New-Card 24 92 250 115 $Card
-    $cardPc.Controls.Add((New-Label 'EQUIPO' 16 14 8 $true $Muted))
-    $lblPcValue = New-Label '-' 16 42 12 $true $Text
-    $cardPc.Controls.Add($lblPcValue)
-    $lblWindowsValue = New-Label '-' 16 72 8 $false $Muted
-    $cardPc.Controls.Add($lblWindowsValue)
-    $tabHome.Controls.Add($cardPc)
+    $homeHeader = New-Object System.Windows.Forms.TableLayoutPanel
+    $homeHeader.Dock = 'Fill'
+    $homeHeader.ColumnCount = 2
+    $homeHeader.RowCount = 1
+    [void]$homeHeader.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle('Percent',100)))
+    [void]$homeHeader.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle('Absolute',210)))
+    $homeRoot.Controls.Add($homeHeader,0,0)
 
-    $cardUsers = New-Card 292 92 250 115 $SoftBlue
-    $cardUsers.Controls.Add((New-Label 'USUARIOS DEL AULA' 16 14 8 $true $PrimaryDark))
-    $lblUsersValue = New-Label '-' 16 42 12 $true $PrimaryDark
-    $cardUsers.Controls.Add($lblUsersValue)
-    $cardUsers.Controls.Add((New-Label 'Administradores excluidos automáticamente.' 16 72 8 $false $Muted))
-    $tabHome.Controls.Add($cardUsers)
+    $homeHeaderText = New-Object System.Windows.Forms.Panel
+    $homeHeaderText.Dock = 'Fill'
+    $homeHeaderText.Controls.Add((New-Label 'Centro de control del aula' 0 0 17 $true $Text))
+    $homeHeaderText.Controls.Add((New-Label 'Estado, configuración y acciones principales en un solo lugar.' 0 36 9 $false $Muted))
+    $homeHeader.Controls.Add($homeHeaderText,0,0)
 
-    $cardMode = New-Card 560 92 250 115 $SoftGreen
-    $cardMode.Controls.Add((New-Label 'MODO DE PROTECCIÓN' 16 14 8 $true $Success))
-    $lblModeValue = New-Label '-' 16 42 12 $true $Success
-    $cardMode.Controls.Add($lblModeValue)
-    $cardMode.Controls.Add((New-Label 'Empieza siempre en auditoría.' 16 72 8 $false $Muted))
-    $tabHome.Controls.Add($cardMode)
+    $homeHealthBadge = New-Object System.Windows.Forms.Panel
+    $homeHealthBadge.Dock = 'Fill'
+    $homeHealthBadge.Margin = New-Object System.Windows.Forms.Padding(10,2,0,12)
+    $homeHealthBadge.BackColor = $SoftAmber
+    $lblHomeHealth = New-Label 'Revisando equipo…' 14 10 10 $true $Warning
+    $lblHomeHealthDetail = New-Label 'Diagnóstico pendiente' 14 34 8 $false $Muted
+    $homeHealthBadge.Controls.Add($lblHomeHealth)
+    $homeHealthBadge.Controls.Add($lblHomeHealthDetail)
+    $homeHeader.Controls.Add($homeHealthBadge,1,0)
 
-    $cardApps = New-Card 828 92 290 115 $SoftAmber
-    $cardApps.Controls.Add((New-Label 'PROGRAMAS AUTORIZADOS' 16 14 8 $true $Warning))
-    $lblAppsValue = New-Label '0' 16 40 15 $true $Warning
-    $cardApps.Controls.Add($lblAppsValue)
-    $cardApps.Controls.Add((New-Label 'Solo agrega software usado en clase.' 16 74 8 $false $Muted))
-    $tabHome.Controls.Add($cardApps)
+    $homeStats = New-Object System.Windows.Forms.TableLayoutPanel
+    $homeStats.Dock = 'Fill'
+    $homeStats.ColumnCount = 4
+    $homeStats.RowCount = 1
+    1..4 | ForEach-Object { [void]$homeStats.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle('Percent',25))) }
+    $homeRoot.Controls.Add($homeStats,0,1)
 
-    $tabHome.Controls.Add((New-Label 'Guía rápida' 24 238 13 $true $Text))
-    $tabHome.Controls.Add((New-Label 'Tres pasos simples para preparar un equipo de forma segura.' 24 267 9 $false $Muted))
+    function Add-HomeStatCard {
+        param(
+            [System.Windows.Forms.TableLayoutPanel]$Parent,
+            [int]$Column,
+            [string]$Eyebrow,
+            [System.Drawing.Color]$Accent,
+            [System.Drawing.Color]$BackColor,
+            [ref]$ValueLabel,
+            [string]$Caption
+        )
+        $card = New-Object System.Windows.Forms.Panel
+        $card.Dock = 'Fill'
+        $card.Margin = New-Object System.Windows.Forms.Padding($(if($Column -eq 0){0}else{6}),0,$(if($Column -eq 3){0}else{6}),8)
+        $card.BackColor = $BackColor
+        $card.BorderStyle = 'FixedSingle'
+        $card.Controls.Add((New-Label $Eyebrow 14 12 8 $true $Accent))
+        $label = New-Label '-' 14 37 11 $true $Accent
+        $label.MaximumSize = New-Object System.Drawing.Size(250,0)
+        $card.Controls.Add($label)
+        $captionLabel = New-Label $Caption 14 70 8 $false $Muted
+        $captionLabel.MaximumSize = New-Object System.Drawing.Size(250,0)
+        $card.Controls.Add($captionLabel)
+        $Parent.Controls.Add($card,$Column,0)
+        $ValueLabel.Value = $label
+    }
 
-    $step1 = New-Card 24 306 340 110 $Card
-    $step1.Controls.Add((New-Label '1' 16 18 15 $true $Primary))
-    $step1.Controls.Add((New-Label 'Configura el aula' 52 18 11 $true $Text))
-    $step1.Controls.Add((New-Label 'Elige fondo, programas, sitios y accesos.' 52 49 9 $false $Muted))
-    $btnGoProtect = New-Button 'Ir a protección' 52 70 140 28 'Secondary'
-    $step1.Controls.Add($btnGoProtect)
-    $tabHome.Controls.Add($step1)
+    $refPc = [ref]$null
+    $refUsers = [ref]$null
+    $refMode = [ref]$null
+    $refApps = [ref]$null
+    Add-HomeStatCard -Parent $homeStats -Column 0 -Eyebrow 'EQUIPO' -Accent $Text -BackColor $Card -ValueLabel $refPc -Caption 'Windows y nombre del equipo'
+    Add-HomeStatCard -Parent $homeStats -Column 1 -Eyebrow 'ESTUDIANTES' -Accent $PrimaryDark -BackColor $SoftBlue -ValueLabel $refUsers -Caption 'Administradores excluidos'
+    Add-HomeStatCard -Parent $homeStats -Column 2 -Eyebrow 'PROTECCIÓN' -Accent $Success -BackColor $SoftGreen -ValueLabel $refMode -Caption 'Estado de políticas generales'
+    Add-HomeStatCard -Parent $homeStats -Column 3 -Eyebrow 'PROGRAMAS' -Accent $Warning -BackColor $SoftAmber -ValueLabel $refApps -Caption 'Aplicaciones autorizadas'
+    $lblPcValue = $refPc.Value
+    $lblUsersValue = $refUsers.Value
+    $lblModeValue = $refMode.Value
+    $lblAppsValue = $refApps.Value
+    $lblWindowsValue = New-Object System.Windows.Forms.Label
+    $lblWindowsValue.Visible = $false
 
-    $step2 = New-Card 386 306 340 110 $Card
-    $step2.Controls.Add((New-Label '2' 16 18 15 $true $Primary))
-    $step2.Controls.Add((New-Label 'Prueba en auditoría' 52 18 11 $true $Text))
-    $step2.Controls.Add((New-Label 'Observa qué pasaría sin bloquear.' 52 49 9 $false $Muted))
-    $btnGoApps = New-Button 'Revisar programas' 52 70 150 28 'Secondary'
-    $step2.Controls.Add($btnGoApps)
-    $tabHome.Controls.Add($step2)
+    $homeActions = New-Object System.Windows.Forms.TableLayoutPanel
+    $homeActions.Dock = 'Fill'
+    $homeActions.ColumnCount = 3
+    $homeActions.RowCount = 1
+    1..3 | ForEach-Object { [void]$homeActions.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle('Percent',33.3333))) }
+    $homeRoot.Controls.Add($homeActions,0,2)
 
-    $step3 = New-Card 748 306 370 110 $Card
-    $step3.Controls.Add((New-Label '3' 16 18 15 $true $Success))
-    $step3.Controls.Add((New-Label 'Activa la protección' 52 18 11 $true $Text))
-    $step3.Controls.Add((New-Label 'Hazlo solo después de revisar la auditoría.' 52 49 9 $false $Muted))
-    $step3.Controls.Add((New-Label 'Administradores protegidos' 52 76 8 $true $Success))
-    $tabHome.Controls.Add($step3)
+    function New-HomeActionCard {
+        param([string]$Number,[string]$Title,[string]$Description,[string]$ButtonText,[string]$ButtonStyle='Secondary')
+        $panel = New-Object System.Windows.Forms.Panel
+        $panel.Dock = 'Fill'
+        $panel.BackColor = $Card
+        $panel.BorderStyle = 'FixedSingle'
+        $panel.Padding = New-Object System.Windows.Forms.Padding(14)
+        $n = New-Label $Number 16 15 15 $true $Primary
+        $t = New-Label $Title 52 15 11 $true $Text
+        $d = New-Label $Description 52 44 8 $false $Muted
+        $d.MaximumSize = New-Object System.Drawing.Size(270,0)
+        $btn = New-Button $ButtonText 52 82 168 30 $ButtonStyle
+        $panel.Controls.Add($n)
+        $panel.Controls.Add($t)
+        $panel.Controls.Add($d)
+        $panel.Controls.Add($btn)
+        return [pscustomobject]@{Panel=$panel;Button=$btn}
+    }
 
-    $tabHome.Controls.Add((New-Label 'Usuarios detectados' 24 446 12 $true $Text))
+    $quickHealth = New-HomeActionCard '1' 'Verifica el equipo' 'Comprueba requisitos antes de aplicar restricciones.' 'Estado del sistema' 'Primary'
+    $quickProtect = New-HomeActionCard '2' 'Configura el aula' 'Fondo, USB, personalización y restricciones generales.' 'Abrir protección' 'Secondary'
+    $quickApps = New-HomeActionCard '3' 'Prepara aplicaciones' 'Detecta programas, prueba auditoría y después bloquea.' 'Revisar programas' 'Secondary'
+    $quickHealth.Panel.Margin = New-Object System.Windows.Forms.Padding(0,4,6,8)
+    $quickProtect.Panel.Margin = New-Object System.Windows.Forms.Padding(6,4,6,8)
+    $quickApps.Panel.Margin = New-Object System.Windows.Forms.Padding(6,4,0,8)
+    $homeActions.Controls.Add($quickHealth.Panel,0,0)
+    $homeActions.Controls.Add($quickProtect.Panel,1,0)
+    $homeActions.Controls.Add($quickApps.Panel,2,0)
+    $btnGoHealth = $quickHealth.Button
+    $btnGoProtect = $quickProtect.Button
+    $btnGoApps = $quickApps.Button
+
+    $homeUsersCard = New-Object System.Windows.Forms.Panel
+    $homeUsersCard.Dock = 'Fill'
+    $homeUsersCard.BackColor = $Card
+    $homeUsersCard.BorderStyle = 'FixedSingle'
+    $homeUsersCard.Padding = New-Object System.Windows.Forms.Padding(12,42,12,12)
+    $homeRoot.Controls.Add($homeUsersCard,0,3)
+    $homeUsersCard.Controls.Add((New-Label 'Usuarios detectados' 16 11 11 $true $Text))
+
     $gridUsers = New-Object System.Windows.Forms.DataGridView
-    $gridUsers.Location = New-Object System.Drawing.Point(24,480)
-    $gridUsers.Size = New-Object System.Drawing.Size(1094,145)
-    $gridUsers.Anchor = 'Top,Left,Right,Bottom'
+    $gridUsers.Dock = 'Fill'
     Style-Grid $gridUsers
+    $gridUsers.RowTemplate.Height = 34
     [void]$gridUsers.Columns.Add('User','Usuario')
     [void]$gridUsers.Columns.Add('Role','Tipo de cuenta')
     [void]$gridUsers.Columns.Add('State','Estado')
     [void]$gridUsers.Columns.Add('SID','Identificador')
-    $tabHome.Controls.Add($gridUsers)
+    $gridUsers.Columns['SID'].FillWeight = 160
+    $homeUsersCard.Controls.Add($gridUsers)
+    $gridUsers.BringToFront()
 
     # SYSTEM STATUS — professional preflight view.
     $tabHealth = New-Object System.Windows.Forms.TabPage
@@ -569,15 +661,22 @@ try {
                 }
             }
             if ($summary.Ready) {
-                $healthSummaryCard.BackColor = $SoftGreen
-                $lblHealthTitle.Text = 'Equipo listo'
-                $lblHealthTitle.ForeColor = $Success
+                $healthSummaryCard.BackColor = $(if ($summary.Warnings -gt 0) {$SoftAmber} else {$SoftGreen})
+                $lblHealthTitle.Text = $(if ($summary.Warnings -gt 0) {'Listo con advertencias'} else {'Equipo listo'})
+                $lblHealthTitle.ForeColor = $(if ($summary.Warnings -gt 0) {$Warning} else {$Success})
+                $homeHealthBadge.BackColor = $(if ($summary.Warnings -gt 0) {$SoftAmber} else {$SoftGreen})
+                $lblHomeHealth.Text = $(if ($summary.Warnings -gt 0) {'Listo · revisar avisos'} else {'Equipo listo'})
+                $lblHomeHealth.ForeColor = $(if ($summary.Warnings -gt 0) {$Warning} else {$Success})
             } else {
                 $healthSummaryCard.BackColor = $SoftAmber
                 $lblHealthTitle.Text = "Requiere atención · $($summary.Critical) bloqueo(s)"
                 $lblHealthTitle.ForeColor = $Danger
+                $homeHealthBadge.BackColor = $SoftAmber
+                $lblHomeHealth.Text = "Atención · $($summary.Critical) bloqueo(s)"
+                $lblHomeHealth.ForeColor = $Danger
             }
             $lblHealthDetail.Text = "Correctos: $($summary.Passed)/$($summary.Total) · Advertencias: $($summary.Warnings)"
+            $lblHomeHealthDetail.Text = "Correctos $($summary.Passed)/$($summary.Total) · avisos $($summary.Warnings)"
             return $summary
         } catch {
             $gridHealth.Rows.Clear()
@@ -585,6 +684,10 @@ try {
             $lblHealthTitle.Text = 'No se pudo completar el diagnóstico'
             $lblHealthTitle.ForeColor = $Danger
             $lblHealthDetail.Text = $_.Exception.Message
+            $homeHealthBadge.BackColor = $SoftAmber
+            $lblHomeHealth.Text = 'Diagnóstico no disponible'
+            $lblHomeHealth.ForeColor = $Danger
+            $lblHomeHealthDetail.Text = 'Abre Estado del sistema'
             return $null
         }
     }
@@ -600,6 +703,9 @@ try {
 
     $modeCard = New-Card 24 90 1094 94 $SoftBlue
     $modeCard.Controls.Add((New-Label 'Modo de trabajo' 16 14 10 $true $PrimaryDark))
+    $lblProtectionApplied = New-Label 'Estado: comprobando…' 720 14 9 $true $Muted
+    $lblProtectionApplied.Anchor = 'Top,Right'
+    $modeCard.Controls.Add($lblProtectionApplied)
 
     $radAudit = New-Object System.Windows.Forms.RadioButton
     $radAudit.Text = 'Auditoría / simulación'
@@ -614,6 +720,10 @@ try {
     $radEnforce.AutoSize = $true
     $modeCard.Controls.Add($radEnforce)
     $toolTip.SetToolTip($radEnforce,'Aplica las restricciones reales a las cuentas estándar.')
+
+    $btnProtectionValidate = New-Button 'Validar configuración' 870 44 190 34 'Secondary'
+    $btnProtectionValidate.Anchor = 'Top,Right'
+    $modeCard.Controls.Add($btnProtectionValidate)
 
     if ($settings.policyMode -eq 'Enforce') {$radEnforce.Checked = $true} else {$radAudit.Checked = $true}
     $tabProtection.Controls.Add($modeCard)
@@ -713,6 +823,7 @@ try {
         $usable = [Math]::Max(600,$tabProtection.ClientSize.Width - 52)
         $modeCard.Width = $usable
         $profileCard.Width = $usable
+        $btnProtectionValidate.Left = [Math]::Max(390,$modeCard.ClientSize.Width - $btnProtectionValidate.Width - 18)
         if ($usable -lt 940) {
             $left.Size = New-Object System.Drawing.Size($usable,280)
             $right.Location = New-Object System.Drawing.Point(24,505)
@@ -966,7 +1077,10 @@ try {
     $supportCard.Dock = 'Fill'
     $supportCard.Margin = New-Object System.Windows.Forms.Padding(0,0,0,12)
     $supportCard.BackColor = if ($appSupport.Supported) {$SoftGreen} else {$SoftAmber}
-    $supportText = if ($appSupport.Supported) {"AppLocker disponible · Servicio: $($appSupport.ServiceStatus)"} else {'AppLocker no está disponible en este equipo'}
+    $supportText = if ($appSupport.Supported) {
+        $actualAppState = if (-not $settings.appControl.enabled) {'No aplicado'} elseif ($settings.appControl.mode -eq 'Enabled') {'Bloqueo activo'} else {'Auditoría activa'}
+        "AppLocker disponible · $actualAppState · Servicio: $($appSupport.ServiceStatus)"
+    } else {'AppLocker no está disponible en este equipo'}
     $supportColor = if ($appSupport.Supported) {$Success} else {$Danger}
     $supportCard.Controls.Add((New-Label $supportText 15 10 10 $true $supportColor))
     $supportCard.Controls.Add((New-Label 'La lista permitida no bloquea nada hasta aplicar expresamente una política.' 15 38 9 $false $Muted))
@@ -1117,6 +1231,9 @@ try {
     $usbCard.BorderStyle = 'FixedSingle'
     $usbView.Controls.Add($usbCard,0,1)
     $usbCard.Controls.Add((New-Label 'Permitir / restringir memorias externas' 18 16 12 $true $Text))
+    $lblUsbApplied = New-Label 'Estado aplicado: comprobando…' 600 18 9 $true $Muted
+    $lblUsbApplied.Anchor = 'Top,Right'
+    $usbCard.Controls.Add($lblUsbApplied)
     $usbCard.Controls.Add((New-Label 'Bloquear el acceso a discos USB extraíbles para estudiantes' 18 50 10 $false $Text))
     $toggleUsb = New-Object System.Windows.Forms.CheckBox
     $toggleUsb.Appearance = 'Button'
@@ -1159,8 +1276,10 @@ try {
     $usbActions.WrapContents = $true
     $usbActions.Margin = New-Object System.Windows.Forms.Padding(0,0,0,12)
     $usbView.Controls.Add($usbActions,0,2)
-    $btnUsbRestore = New-Button 'Restaurar acceso USB' 0 0 188 40 'Secondary'
+    $btnUsbValidate = New-Button 'Validar configuración' 0 0 188 40 'Secondary'
+    $btnUsbRestore = New-Button 'Restaurar acceso USB' 0 0 188 40 'Neutral'
     $btnUsbRefresh = New-Button 'Actualizar dispositivos' 0 0 190 40 'Primary'
+    $usbActions.Controls.Add($btnUsbValidate)
     $usbActions.Controls.Add($btnUsbRestore)
     $usbActions.Controls.Add($btnUsbRefresh)
 
@@ -1303,6 +1422,41 @@ try {
         }
     }
 
+    function Update-DeploymentIndicators {
+        try {
+            $applied = Read-AulaGuardAppliedPolicy -Root $root
+            if ($null -eq $applied) {
+                $lblProtectionApplied.Text = 'Estado: no aplicada'
+                $lblProtectionApplied.ForeColor = $Muted
+                $lblUsbApplied.Text = 'Estado aplicado: sin política'
+                $lblUsbApplied.ForeColor = $Muted
+                $lblSideStateValue.Text = 'No aplicada'
+                $lblSideStateValue.ForeColor = $Muted
+                $lblSideStateDetail.Text = 'Guarda, valida y aplica'
+                $sideInfo.BackColor = $Card
+            } else {
+                $when = try { ([datetime]$applied.appliedUtc).ToLocalTime().ToString('dd/MM HH:mm') } catch { 'confirmada' }
+                $lblProtectionApplied.Text = "Estado: aplicada · $when"
+                $lblProtectionApplied.ForeColor = $Success
+                $lblUsbApplied.Text = if ($applied.usb.blockStorage) {'Estado aplicado: USB bloqueado'} else {'Estado aplicado: USB permitido'}
+                $lblUsbApplied.ForeColor = if ($applied.usb.blockStorage) {$Warning} else {$Success}
+                $lblSideStateValue.Text = 'Protección aplicada'
+                $lblSideStateValue.ForeColor = $Success
+                $lblSideStateDetail.Text = "Última: $when"
+                $sideInfo.BackColor = $SoftGreen
+            }
+        } catch {
+            $lblProtectionApplied.Text = 'Estado: requiere atención'
+            $lblProtectionApplied.ForeColor = $Danger
+            $lblUsbApplied.Text = 'Estado aplicado: no verificable'
+            $lblUsbApplied.ForeColor = $Danger
+            $lblSideStateValue.Text = 'Requiere atención'
+            $lblSideStateValue.ForeColor = $Danger
+            $lblSideStateDetail.Text = 'Abre Estado del sistema'
+            $sideInfo.BackColor = $SoftAmber
+        }
+    }
+
     function Refresh-Dashboard {
         try {
             $info = Get-AulaGuardSystemInfo
@@ -1333,10 +1487,12 @@ try {
             Set-Status 'No se pudieron validar los usuarios; revisa Estado del sistema' 'Warning'
         }
 
-        $lblModeValue.Text = if ($radEnforce.Checked) {'Protección activa'} else {'Modo seguro: auditoría'}
+        $lblModeValue.Text = if ($settings.policyMode -eq 'Enforce') {'Aplicada'} else {'Sin aplicar'}
+        $lblModeValue.ForeColor = if ($settings.policyMode -eq 'Enforce') {$Success} else {$Muted}
         $lblAppsValue.Text = [string]$lstPrograms.Items.Count
     }
 
+    $btnGoHealth.Add_Click({$tabs.SelectedTab = $tabHealth})
     $btnGoProtect.Add_Click({$tabs.SelectedTab = $tabProtection})
     $btnGoApps.Add_Click({$tabs.SelectedTab = $tabPrograms})
 
@@ -1352,7 +1508,7 @@ try {
     $navLog.Add_Click({$tabs.SelectedTab = $tabAudit})
 
     $tabs.Add_SelectedIndexChanged({
-        if ($tabs.SelectedTab -eq $tabHome) {Set-NavActive $navHome}
+        if ($tabs.SelectedTab -eq $tabHome) { Set-NavActive $navHome; Refresh-Dashboard; & $loadReadiness | Out-Null }
         elseif ($tabs.SelectedTab -eq $tabHealth) { Set-NavActive $navHealth; & $loadReadiness | Out-Null }
         elseif ($tabs.SelectedTab -eq $tabProtection) {Set-NavActive $navProtection}
         elseif ($tabs.SelectedTab -eq $tabPrograms) {
@@ -1526,9 +1682,59 @@ try {
         }
     })
 
+    $btnProtectionValidate.Add_Click({
+        try {
+            $candidate = Get-UiSettings
+            # Validation never writes registry or USB policy.
+            $checks = @(Test-AulaGuardReadiness -Root $root -Settings $settings)
+            $blocking = @($checks | Where-Object { -not $_.Passed -and $_.BlocksPolicies })
+            $policyPreview = @(Set-AulaGuardPolicies -Settings $candidate -WhatIfMode)
+            $usbPreview = @(Sync-AulaGuardUsbPolicy -BlockStorage ([bool]$candidate.usb.blockStorage) -Root $root -WhatIfMode)
+            $previewErrors = @($policyPreview + $usbPreview | Where-Object { $_.Status -eq 'ERROR' })
+
+            if ($blocking.Count -gt 0 -or $previewErrors.Count -gt 0) {
+                $tabs.SelectedTab = $tabHealth
+                & $loadReadiness | Out-Null
+                throw "La configuración necesita revisión antes de aplicarse. Bloqueos=$($blocking.Count); errores de simulación=$($previewErrors.Count)."
+            }
+
+            $wallpaperNote = if ($candidate.protections.lockWallpaper -and
+                $candidate.wallpaper -and
+                -not ($candidate.wallpaper -like (Join-Path $env:ProgramData 'AulaGuardAssets\*'))) {
+                [Environment]::NewLine + 'La imagen se copiará al almacén institucional cuando guardes/apliques.'
+            } else { '' }
+
+            Set-Status 'Configuración general validada sin realizar cambios' 'Success'
+            [System.Windows.Forms.MessageBox]::Show(
+                "Validación correcta.$([Environment]::NewLine)$([Environment]::NewLine)Perfiles simulados: $($policyPreview.Count)$([Environment]::NewLine)USB simulado: $($usbPreview.Count)$wallpaperNote",
+                'AulaGuard · Validación','OK','Information'
+            ) | Out-Null
+        } catch {
+            Set-Status 'La protección necesita revisión' 'Warning'
+            [System.Windows.Forms.MessageBox]::Show($_.Exception.Message,'AulaGuard · Validación','OK','Warning') | Out-Null
+        }
+    })
+
+    $btnUsbValidate.Add_Click({
+        try {
+            $candidate = Get-UiSettings
+            $preview = @(Sync-AulaGuardUsbPolicy -BlockStorage ([bool]$candidate.usb.blockStorage) -Root $root -WhatIfMode)
+            $errors = @($preview | Where-Object { $_.Status -eq 'ERROR' })
+            if ($errors.Count -gt 0) { throw $errors[0].Detail }
+            Set-Status 'Configuración USB validada; no se realizaron cambios' 'Success'
+            [System.Windows.Forms.MessageBox]::Show(
+                "USB validado en modo simulación.$([Environment]::NewLine)$([Environment]::NewLine)Perfiles comprobados: $($preview.Count)$([Environment]::NewLine)Estado seleccionado: $(if ($candidate.usb.blockStorage) {'Bloquear'} else {'Permitir'})",
+                'AulaGuard · USB','OK','Information'
+            ) | Out-Null
+        } catch {
+            Set-Status 'No se pudo validar USB' 'Warning'
+            [System.Windows.Forms.MessageBox]::Show($_.Exception.Message,'AulaGuard · USB','OK','Warning') | Out-Null
+        }
+    })
+
     $btnUsbRefresh.Add_Click({
         & $refreshUsb
-    & $loadReadiness | Out-Null
+        & $loadReadiness | Out-Null
         Set-Status 'Discos extraíbles actualizados' 'Success'
     })
     $btnUsbRestore.Add_Click({
@@ -1541,7 +1747,13 @@ try {
             if ($errors.Count -gt 0) { throw "No se pudo restaurar en $($errors.Count) perfil(es): $($errors[0].Detail)" }
             $toggleUsb.Checked = $false
             Save-FromUi
+            $applied = Read-AulaGuardAppliedPolicy -Root $root
+            if ($null -ne $applied) {
+                $applied.usb.blockStorage = $false
+                [void](Save-AulaGuardAppliedPolicy -Settings $applied -Root $root)
+            }
             Write-AulaGuardAudit -Action 'USB_POLICY_RESTORED' -Level 'SECURITY' -Detail "Profiles=$($result.Count)" -Root $root
+            Update-DeploymentIndicators
             Set-Status 'Acceso USB administrado restaurado; cierra y abre la sesión del estudiante.' 'Success'
         } catch {
             [System.Windows.Forms.MessageBox]::Show($_.Exception.Message,'AulaGuard · USB','OK','Error') | Out-Null
@@ -1572,8 +1784,13 @@ try {
 
         try {
             Save-FromUi
+            $candidate = Get-UiSettings
+            # Save-FromUi may normalize the wallpaper into ProgramData.
+            $candidate.wallpaper = [string]$settings.wallpaper
+            $candidate.lastAppliedUtc = $settings.lastAppliedUtc
+
             if (-not $simulation) {
-                $checks = @(Test-AulaGuardReadiness -Root $root -Settings $settings)
+                $checks = @(Test-AulaGuardReadiness -Root $root -Settings $candidate)
                 $blocking = @($checks | Where-Object { -not $_.Passed -and $_.BlocksPolicies })
                 if ($blocking.Count -gt 0) {
                     $tabs.SelectedTab = $tabHealth
@@ -1582,13 +1799,12 @@ try {
                     throw "El equipo no está listo para aplicar políticas.$([Environment]::NewLine)$([Environment]::NewLine)$detail"
                 }
             }
-            Set-Status 'Aplicando protección...' 'Warning'
-            $result = @(Set-AulaGuardPolicies -Settings $settings -WhatIfMode:$simulation)
-            $usbResults = @(Sync-AulaGuardUsbPolicy -BlockStorage ([bool]$settings.usb.blockStorage) -Root $root -WhatIfMode:$simulation)
+            Set-Status $(if ($simulation) {'Simulando protección...'} else {'Aplicando protección...'}) 'Warning'
+            $result = @(Set-AulaGuardPolicies -Settings $candidate -WhatIfMode:$simulation)
+            $usbResults = @(Sync-AulaGuardUsbPolicy -BlockStorage ([bool]$candidate.usb.blockStorage) -Root $root -WhatIfMode:$simulation)
             $result += $usbResults
 
-
-            if (-not $simulation -and $settings.protections.protectPublicDesktop) {
+            if (-not $simulation -and $candidate.protections.protectPublicDesktop) {
                 Protect-AulaGuardPublicDesktop
             }
 
@@ -1596,9 +1812,12 @@ try {
             $errors = @($result | Where-Object {$_.Status -eq 'ERROR'}).Count
 
             if (-not $simulation -and $errors -eq 0) {
-                $settings.lastAppliedUtc = (Get-Date).ToUniversalTime().ToString('o')
+                $candidate.policyMode = 'Enforce'
+                $candidate.lastAppliedUtc = (Get-Date).ToUniversalTime().ToString('o')
+                [void](Save-AulaGuardAppliedPolicy -Settings $candidate -Root $root)
+                $script:settings = $candidate
+                Save-AulaGuardSettings -Settings $settings -Root $root | Out-Null
             }
-            Save-AulaGuardSettings -Settings $settings -Root $root | Out-Null
             Write-AulaGuardAudit -Action 'POLICIES_APPLIED' -Level $(if ($errors -gt 0) {'ERROR'} else {'SECURITY'}) -Detail "Simulation=$simulation;OK=$ok;Errors=$errors" -Root $root
 
             if ($errors -gt 0) {
@@ -1608,6 +1827,7 @@ try {
             } else {
                 Set-Status "Protección aplicada: $ok operación(es)" 'Success'
             }
+            Update-DeploymentIndicators
             Refresh-Dashboard
             & $loadAudit
 
@@ -1644,9 +1864,13 @@ try {
             $usbErrors = @($usbRestored | Where-Object {$_.Status -eq 'ERROR'})
             if ($usbErrors.Count -gt 0) { throw "Error restaurando USB: $($usbErrors[0].Detail)" }
             $toggleUsb.Checked = $false
+            $settings.policyMode = 'Audit'
+            $settings.lastAppliedUtc = $null
+            Clear-AulaGuardAppliedPolicy -Root $root
             Save-FromUi
             Protect-AulaGuardPublicDesktop -Restore
             Write-AulaGuardAudit -Action 'POLICIES_RESET' -Level 'SECURITY' -Detail "Profiles=$($r.Count)" -Root $root
+            Update-DeploymentIndicators
             Set-Status 'Políticas retiradas' 'Success'
             & $loadAudit
         }
@@ -1817,16 +2041,18 @@ try {
     $radEnforce.Add_CheckedChanged({Refresh-Dashboard})
 
     foreach ($page in $tabs.TabPages) {
-        $page.AutoScroll = $true
+        $page.AutoScroll = ($page -eq $tabProtection -or $page -eq $tabWeb -or $page -eq $tabDesktop -or $page -eq $tabPremium -or $page -eq $tabAudit)
     }
 
     & $resizeProtection
     Set-NavActive $navHome
-    Write-AulaGuardAudit -Action 'APP_STARTED' -Detail 'v0.5.0' -Root $root
+    Write-AulaGuardAudit -Action 'APP_STARTED' -Detail 'v0.5.1' -Root $root
+    Update-DeploymentIndicators
     Refresh-Dashboard
     & $loadAudit
     & $loadAppEvents
     & $refreshUsb
+    & $loadReadiness | Out-Null
 
     $form.Add_FormClosed({
         try {
@@ -1876,6 +2102,59 @@ try {
         if (-not $radAppAudit.Checked -or $radAppEnforce.Checked) {
             throw 'No se puede volver a Auditoría desde Bloqueo.'
         }
+
+        # Responsive layout regression: create the native WinForms handles
+        # invisibly first. Without a handle, inactive TabPages remain at their
+        # design-time default (200x100) and do not represent the real UI.
+        $form.ShowInTaskbar = $false
+        $form.Opacity = 0
+        $form.Show()
+        [System.Windows.Forms.Application]::DoEvents()
+        $tabs.CreateControl()
+        foreach ($testPage in $tabs.TabPages) { $testPage.CreateControl() }
+
+        foreach ($testSize in @(
+            (New-Object System.Drawing.Size(1080,680)),
+            (New-Object System.Drawing.Size(1280,720)),
+            (New-Object System.Drawing.Size(1600,900))
+        )) {
+            $form.Size = $testSize
+            $form.PerformLayout()
+            $workspace.PerformLayout()
+            $shell.PerformLayout()
+            & $resizeProtection
+            [System.Windows.Forms.Application]::DoEvents()
+
+            if ($sidebar.Right -gt $shell.ClientSize.Width -or $tabs.Width -lt 620) {
+                throw "La navegación invade el contenido en $($testSize.Width)x$($testSize.Height)."
+            }
+            if ($btnApply.Right -gt $footer.ClientSize.Width -or $btnSave.Left -lt 100) {
+                throw "Los controles inferiores se recortan en $($testSize.Width)x$($testSize.Height)."
+            }
+
+            foreach ($pageCheck in @(
+                [pscustomobject]@{Page=$tabHome;Layout=$homeRoot;Name='Inicio'},
+                [pscustomobject]@{Page=$tabHealth;Layout=$healthLayout;Name='Estado'},
+                [pscustomobject]@{Page=$tabPrograms;Layout=$programLayout;Name='Programas'},
+                [pscustomobject]@{Page=$tabAppControl;Layout=$appLayout;Name='ControlApps'},
+                [pscustomobject]@{Page=$tabUsb;Layout=$usbView;Name='USB'}
+            )) {
+                $tabs.SelectedTab = $pageCheck.Page
+                $pageCheck.Page.PerformLayout()
+                $pageCheck.Layout.PerformLayout()
+                if ($pageCheck.Layout.Width -lt 580 -or $pageCheck.Layout.Height -lt 300) {
+                    throw "La página $($pageCheck.Name) no conserva un área útil en $($testSize.Width)x$($testSize.Height). Layout=$($pageCheck.Layout.Width)x$($pageCheck.Layout.Height); Page=$($pageCheck.Page.ClientSize.Width)x$($pageCheck.Page.ClientSize.Height); Workspace=$($workspace.ClientSize.Width)x$($workspace.ClientSize.Height)."
+                }
+            }
+
+            $tabs.SelectedTab = $tabProtection
+            & $resizeProtection
+            if ($modeCard.Right -gt ($tabProtection.ClientSize.Width + 2) -or
+                $left.Right -gt ($tabProtection.ClientSize.Width + 2)) {
+                throw "Protección produce desbordamiento horizontal en $($testSize.Width)x$($testSize.Height)."
+            }
+        }
+        $form.Hide()
         $form.Dispose()
         exit 0
     }
