@@ -24,7 +24,7 @@
 - [ ] Filtro visual de eventos: auditado, permitido y bloqueado.
 - [ ] Exportar reporte de incidentes.
 - [ ] Restauración automática de fondo y accesos si son alterados.
-- [ ] Modo mantenimiento temporal con expiración.
+- [x] Modo mantenimiento temporal con expiración.
 - [ ] Pruebas automatizadas de políticas antes de Enforcement.
 
 ## v0.5.1 — Experiencia profesional
@@ -45,9 +45,19 @@
 - [x] Sincronización verificada del grupo AulaGuardStudents.
 - [x] Exportación de diagnóstico técnico para soporte.
 - [ ] Validación funcional automatizada de cada restricción en un Windows de laboratorio.
-- [ ] Modo mantenimiento con expiración y restauración automática.
+- [x] Modo mantenimiento con expiración y restauración automática.
 - [ ] Reglas para aplicaciones Microsoft Store.
 - [ ] Firma Authenticode y pipeline de publicación con Microsoft Defender activo.
+
+## v0.5.2 — Mantenimiento seguro
+
+- [x] Suspensión temporal limitada de restricciones administradas por AulaGuard.
+- [x] Duración acotada entre 5 y 480 minutos.
+- [x] Conservación firmada del estado previo de Protección y AppLocker.
+- [x] Restauración automática al iniciar Windows cuando el plazo venció.
+- [x] Controles de inicio/finalización desde Estado del sistema.
+- [x] Eventos de auditoría para inicio, expiración, finalización y errores.
+- [x] Pruebas CI del estado y de invariantes de seguridad.
 
 ## v0.6 — Administración central
 
