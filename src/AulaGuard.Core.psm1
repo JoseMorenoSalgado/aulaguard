@@ -28,7 +28,7 @@ function Get-AulaGuardSettingsPath {
 
 function New-AulaGuardSettings {
     [pscustomobject]@{
-        version = '0.4.3'
+        version = '0.4.4'
         profileName = 'Aula principal'
         policyMode = 'Audit'
         wallpaper = ''
@@ -117,7 +117,7 @@ function Read-AulaGuardSettings {
     if ($s.policyMode -notin @('Audit','Enforce') -or $s.appControl.mode -notin @('AuditOnly','Enabled')) {
         throw 'Modo de políticas inválido en configuración protegida.'
     }
-    $s.version = '0.4.3'
+    $s.version = '0.4.4'
     return $s
 }
 
@@ -184,12 +184,38 @@ function Import-AulaGuardProfile {
         [string]$Root = (Get-AulaGuardRoot)
     )
     $settings = Get-Content -LiteralPath $Path -Raw -Encoding UTF8 | ConvertFrom-Json -ErrorAction Stop
-    if (-not ($settings.PSObject.Properties.Name -contains 'protections') -or
-        -not ($settings.PSObject.Properties.Name -contains 'appControl')) {
+    if ($null -eq $settings -or
+        -not ($settings.PSObject.Properties.Name -contains 'protections') -or
+        -not ($settings.PSObject.Properties.Name -contains 'appControl') -or
+        $null -eq $settings.protections) {
         throw 'El archivo importado no es un perfil AulaGuard válido.'
     }
+    # Exported JSON is not authenticated. It must NEVER activate a policy just
+    # because a third-party or older machine exported policyMode=Enforce.
+    $previous = Read-AulaGuardSettings -Root $Root
+    $defaults = New-AulaGuardSettings
+    foreach ($property in $defaults.PSObject.Properties.Name) {
+        if (-not ($settings.PSObject.Properties.Name -contains $property)) {
+            $settings | Add-Member NoteProperty $property $defaults.$property
+        }
+    }
+    foreach ($name in $defaults.protections.PSObject.Properties.Name) {
+        if (-not ($settings.protections.PSObject.Properties.Name -contains $name)) {
+            $settings.protections | Add-Member NoteProperty $name $defaults.protections.$name
+        }
+    }
+    # Preserve the actual AppLocker state recorded for this computer. Importing
+    # another machine's flags must not falsely claim that policies were applied.
+    $settings.appControl = $previous.appControl
+    $settings.policyMode = 'Audit'
+    $settings.wallpaper = ''
+    $settings.protections.lockWallpaper = $false
+    $settings.usb = $defaults.usb
+    $settings.premium = $defaults.premium
+    $settings.lastAppliedUtc = $previous.lastAppliedUtc
+    $settings.version = $defaults.version
     Save-AulaGuardSettings -Settings $settings -Root $Root | Out-Null
-    Write-AulaGuardAudit -Action 'PROFILE_IMPORT' -Detail $Path -Root $Root
+    Write-AulaGuardAudit -Action 'PROFILE_IMPORT' -Detail 'Perfil externo importado en modo Auditoría; estado AppLocker local preservado; fondo y USB requieren nueva configuración.' -Root $Root
     return $settings
 }
 
