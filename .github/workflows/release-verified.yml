@@ -85,6 +85,7 @@ jobs:
           .\tests\FunctionalWorkflows.Tests.ps1
           .\tests\ProfessionalReadiness.Tests.ps1
           .\tests\ProfessionalUi.Tests.ps1
+          .\tests\Maintenance.Tests.ps1
           .\tests\InstallerElevatedLaunch.Tests.ps1
           .\tests\ReleaseSecurity.Tests.ps1
 
