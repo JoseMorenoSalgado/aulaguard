@@ -1675,6 +1675,46 @@ try {
 
     # Optional WinForms construction self-test; do not show a blocking dialog.
     if ($script:AulaGuardUiTest) {
+        # Exercise the actual inventory navigation and toggle event binding,
+        # not merely the construction of otherwise inert WinForms controls.
+        $tabs.SelectedTab = $tabPrograms
+        if (-not $script:inventoryLoaded) { & $loadPrograms }
+        if (-not $script:inventoryLoaded -or $script:programCatalog.Count -lt 1 -or $gridPrograms.Rows.Count -lt 1) {
+            throw 'La pestaña Programas no pudo detectar o mostrar las aplicaciones de Windows.'
+        }
+        $firstCompatible = @($script:programCatalog | Where-Object {
+            $_.CanAllow -and $_.ExecutablePath
+        } | Select-Object -First 1)
+        if ($firstCompatible.Count -gt 0) {
+            $candidate = [string]$firstCompatible[0].ExecutablePath
+            $previous = $script:allowedProgramMap.ContainsKey($candidate)
+            $targetRow = -1
+            foreach ($visibleRow in $gridPrograms.Rows) {
+                if ($visibleRow.Tag -and $visibleRow.Tag.ExecutablePath -eq $candidate) {
+                    $targetRow = $visibleRow.Index
+                    break
+                }
+            }
+            if ($targetRow -lt 0) { throw 'El catálogo no vinculó la aplicación compatible con su interruptor.' }
+            & $toggleProgramRow $targetRow
+            if ($script:allowedProgramMap.ContainsKey($candidate) -eq $previous) {
+                throw 'El interruptor de Programas no modificó la lista de aplicaciones.'
+            }
+            & $toggleProgramRow $targetRow
+            if ($script:allowedProgramMap.ContainsKey($candidate) -ne $previous) {
+                throw 'El interruptor no restauró el estado inicial.'
+            }
+        }
+        $tabs.SelectedTab = $tabAppControl
+        $radAppAudit.Checked = $true
+        $radAppEnforce.Checked = $true
+        if ($radAppAudit.Checked -or -not $radAppEnforce.Checked) {
+            throw 'Los modos Auditoría y Bloqueo de apps no son excluyentes.'
+        }
+        $radAppAudit.Checked = $true
+        if (-not $radAppAudit.Checked -or $radAppEnforce.Checked) {
+            throw 'No se puede volver a Auditoría desde Bloqueo.'
+        }
         $form.Dispose()
         exit 0
     }
