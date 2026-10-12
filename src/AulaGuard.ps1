@@ -1496,6 +1496,7 @@ try {
 
     $btnUsbRefresh.Add_Click({
         & $refreshUsb
+    & $loadReadiness | Out-Null
         Set-Status 'Discos extraíbles actualizados' 'Success'
     })
     $btnUsbRestore.Add_Click({
@@ -1539,6 +1540,16 @@ try {
 
         try {
             Save-FromUi
+            if (-not $simulation) {
+                $checks = @(Test-AulaGuardReadiness -Root $root -Settings $settings)
+                $blocking = @($checks | Where-Object { -not $_.Passed -and $_.BlocksPolicies })
+                if ($blocking.Count -gt 0) {
+                    $tabs.SelectedTab = $tabHealth
+                    & $loadReadiness | Out-Null
+                    $detail = ($blocking | Select-Object -First 3 | ForEach-Object { "• $($_.Name): $($_.Detail)" }) -join [Environment]::NewLine
+                    throw "El equipo no está listo para aplicar políticas.$([Environment]::NewLine)$([Environment]::NewLine)$detail"
+                }
+            }
             Set-Status 'Aplicando protección...' 'Warning'
             $result = @(Apply-AulaGuardPolicies -Settings $settings -WhatIfMode:$simulation)
             $usbResults = @(Sync-AulaGuardUsbPolicy -BlockStorage ([bool]$settings.usb.blockStorage) -Root $root -WhatIfMode:$simulation)
@@ -1552,11 +1563,19 @@ try {
             $ok = @($result | Where-Object {$_.Status -in @('OK','SIMULADO')}).Count
             $errors = @($result | Where-Object {$_.Status -eq 'ERROR'}).Count
 
-            $settings.lastAppliedUtc = (Get-Date).ToUniversalTime().ToString('o')
+            if (-not $simulation -and $errors -eq 0) {
+                $settings.lastAppliedUtc = (Get-Date).ToUniversalTime().ToString('o')
+            }
             Save-AulaGuardSettings -Settings $settings -Root $root | Out-Null
-            Write-AulaGuardAudit -Action 'POLICIES_APPLIED' -Level 'SECURITY' -Detail "Simulation=$simulation;OK=$ok;Errors=$errors" -Root $root
+            Write-AulaGuardAudit -Action 'POLICIES_APPLIED' -Level $(if ($errors -gt 0) {'ERROR'} else {'SECURITY'}) -Detail "Simulation=$simulation;OK=$ok;Errors=$errors" -Root $root
 
-            Set-Status "Protección procesada: $ok correcto(s)" 'Success'
+            if ($errors -gt 0) {
+                Set-Status "Protección incompleta: $errors error(es)" 'Warning'
+            } elseif ($simulation) {
+                Set-Status "Simulación completada: $ok comprobación(es)" 'Success'
+            } else {
+                Set-Status "Protección aplicada: $ok operación(es)" 'Success'
+            }
             Refresh-Dashboard
             & $loadAudit
 
@@ -1699,15 +1718,24 @@ try {
                 }
             }
 
-            Save-FromUi
-            Set-Status 'Configurando control de aplicaciones...' 'Warning'
+            $appChecks = @(Test-AulaGuardReadiness -Root $root -Settings $settings)
+            $appBlocking = @($appChecks | Where-Object { -not $_.Passed -and $_.BlocksAppControl })
+            if ($appBlocking.Count -gt 0) {
+                $tabs.SelectedTab = $tabHealth
+                & $loadReadiness | Out-Null
+                $detail = ($appBlocking | Select-Object -First 3 | ForEach-Object { "• $($_.Name): $($_.Detail)" }) -join [Environment]::NewLine
+                throw "El equipo no está listo para AppLocker.$([Environment]::NewLine)$([Environment]::NewLine)$detail"
+            }
 
+            Set-Status 'Configurando control de aplicaciones...' 'Warning'
+            $selectedPrograms = @(Get-ListItems $lstPrograms)
             $parameters = @{
-                AllowedPrograms = @(Get-ListItems $lstPrograms)
+                AllowedPrograms = $selectedPrograms
                 Mode = $mode
                 BackupDirectory = (Join-Path $root 'backup')
             }
             $result = Set-AulaGuardAppControlPolicy @parameters
+            $settings.allowedPrograms = $selectedPrograms
 
             $settings.appControl.mode = $mode
             $settings.appControl.enabled = $true
@@ -1737,6 +1765,10 @@ try {
         try {
             $restored = Restore-AulaGuardAppLockerPolicy -BackupDirectory (Join-Path $root 'backup')
             $settings.appControl.enabled = $false
+            $settings.appControl.mode = 'AuditOnly'
+            $settings.appControl.lastAppliedUtc = $null
+            $settings.appControl.lastBackup = $null
+            $radAppAudit.Checked = $true
             Save-AulaGuardSettings -Settings $settings -Root $root | Out-Null
             Write-AulaGuardAudit -Action 'APPLOCKER_RESTORED' -Level 'SECURITY' -Detail $restored.RestoredFrom -Root $root
             Set-Status 'Política anterior restaurada' 'Success'
