@@ -9,11 +9,24 @@ try {
     Import-Module (Join-Path $src 'AulaGuard.Policy.psm1') -Force
     Import-Module (Join-Path $src 'AulaGuard.USB.psm1') -Force
     Import-Module (Join-Path $src 'AulaGuard.Wallpaper.psm1') -Force
+    Import-Module (Join-Path $src 'AulaGuard.Maintenance.psm1') -Force
     Import-Module (Join-Path $src 'AulaGuard.AppControl.psm1') -Force
     Import-Module (Join-Path $src 'AulaGuard.Diagnostics.psm1') -Force
 
     # Do not create a new trust key or downgrade settings during unattended startup.
     $settings = Read-AulaGuardSettings -Root $root
+
+    $maintenance = Get-AulaGuardMaintenanceStatus -Settings $settings
+    if ($maintenance.Enabled) {
+        if ($maintenance.Expired) {
+            Invoke-AulaGuardMaintenanceExpiry -Root $root | Out-Null
+            $settings = Read-AulaGuardSettings -Root $root
+            Write-AulaGuardAudit -Action 'STARTUP_MAINTENANCE_EXPIRED' -Level 'SECURITY' -Detail 'Protecciones anteriores restauradas automáticamente.' -Root $root
+        } else {
+            Write-AulaGuardAudit -Action 'STARTUP_MAINTENANCE_ACTIVE' -Level 'WARN' -Detail "RemainingMinutes=$($maintenance.RemainingMinutes)" -Root $root
+            exit 0
+        }
+    }
 
     if ($settings.policyMode -eq 'Enforce') {
         $checks = @(Test-AulaGuardReadiness -Root $root -Settings $settings)
