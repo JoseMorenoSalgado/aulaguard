@@ -3,12 +3,18 @@ Set-StrictMode -Version Latest
 function Get-TargetUserProfiles {
     $adminSids = @()
     try {
-        $adminSids = @(Get-LocalGroupMember -Group (Get-LocalGroup -SID 'S-1-5-32-544').Name -ErrorAction Stop | ForEach-Object { $_.SID.Value })
-    } catch {}
-
-    Get-CimInstance Win32_UserProfile | Where-Object {
-        -not $_.Special -and $_.SID -and $_.LocalPath -and ($adminSids -notcontains $_.SID)
+        $adminGroup = Get-LocalGroup -SID 'S-1-5-32-544' -ErrorAction Stop
+        $adminSids = @(Get-LocalGroupMember -Group $adminGroup.Name -ErrorAction Stop |
+            Where-Object { $null -ne $_.SID } | ForEach-Object { $_.SID.Value })
+    } catch {
+        # An empty administrator list would include administrator profiles.
+        # Fail closed rather than risk applying classroom restrictions to admins.
+        throw "No se pudo identificar a los administradores de Windows: $($_.Exception.Message)"
     }
+    $profiles = @(Get-CimInstance Win32_UserProfile -ErrorAction Stop | Where-Object {
+        -not $_.Special -and $_.SID -and $_.LocalPath -and ($adminSids -notcontains $_.SID)
+    })
+    return $profiles
 }
 
 function Invoke-WithUserHive {
@@ -30,7 +36,9 @@ function Invoke-WithUserHive {
         }
 
         $ntUser = Join-Path $Profile.LocalPath 'NTUSER.DAT'
-        if (-not (Test-Path $ntUser)) { return }
+        if (-not (Test-Path -LiteralPath $ntUser -PathType Leaf)) {
+            throw "No se encontró el perfil NTUSER.DAT de $sid; no se aplicó ninguna política."
+        }
 
         & reg.exe load "HKU\$mountName" "$ntUser" | Out-Null
         if ($LASTEXITCODE -ne 0) { throw "No se pudo cargar $ntUser" }
