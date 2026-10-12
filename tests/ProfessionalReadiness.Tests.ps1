@@ -35,9 +35,9 @@ try {
     Write-Host '[OK] Support report contains readiness metadata without secret/audit payloads'
 
     $ui = Get-Content -LiteralPath (Join-Path $repo 'src\AulaGuard.ps1') -Raw
-    Require ($ui -match "\$tabHealth = New-Object System\.Windows\.Forms\.TabPage") 'System Status page missing'
+    Require ($ui -match '\$tabHealth = New-Object System\.Windows\.Forms\.TabPage') 'System Status page missing'
     Require ($ui -match 'BlocksPolicies' -and $ui -match 'BlocksAppControl') 'Apply actions are not gated by readiness'
-    Require ($ui -match "Protección incompleta: \$errors error\(es\)") 'Partial failures are still presented as success'
+    Require ($ui -match 'Protección incompleta: \$errors error\(es\)') 'Partial failures are still presented as success'
     Require ($ui -match '\$simulation[\s\S]*?lastAppliedUtc') 'Applied timestamp logic missing simulation distinction'
 
     $startup = Get-Content -LiteralPath (Join-Path $repo 'src\AulaGuard.Startup.ps1') -Raw
