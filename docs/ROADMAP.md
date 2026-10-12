@@ -27,6 +27,16 @@
 - [ ] Modo mantenimiento temporal con expiración.
 - [ ] Pruebas automatizadas de políticas antes de Enforcement.
 
+## v0.5.1 — Experiencia profesional
+
+- [x] Dashboard adaptable y orientado a estado.
+- [x] Navegación y sistema visual coherentes.
+- [x] Internet, Escritorio y Registro sin coordenadas fijas.
+- [x] Estados de USB y diagnóstico reflejados visualmente.
+- [x] Prueba automática de estructura responsiva.
+- [ ] Prueba visual manual en Windows 10 y 11 con escalado 100%, 125% y 150%.
+- [ ] Revisión de accesibilidad por teclado y contraste.
+
 ## v0.5 — Profesionalización local
 
 - [x] Diagnóstico previo del equipo y del motor de políticas.
