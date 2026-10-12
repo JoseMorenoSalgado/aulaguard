@@ -23,7 +23,7 @@ try {
             Write-AulaGuardAudit -Action 'STARTUP_PREFLIGHT_BLOCKED' -Level 'ERROR' -Detail $reason -Root $root
             throw "Prevalidación bloqueó la sincronización automática: $reason"
         }
-        $result = @(Apply-AulaGuardPolicies -Settings $settings)
+        $result = @(Set-AulaGuardPolicies -Settings $settings)
         $policyErrors = @($result | Where-Object { $_.Status -eq 'ERROR' })
         if ($policyErrors.Count -gt 0) { throw "No se pudieron sincronizar políticas: $($policyErrors[0].Detail)" }
         $usbResult = @(Sync-AulaGuardUsbPolicy -BlockStorage ([bool]$settings.usb.blockStorage) -Root $root)
