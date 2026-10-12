@@ -1583,7 +1583,7 @@ try {
                 }
             }
             Set-Status 'Aplicando protección...' 'Warning'
-            $result = @(Apply-AulaGuardPolicies -Settings $settings -WhatIfMode:$simulation)
+            $result = @(Set-AulaGuardPolicies -Settings $settings -WhatIfMode:$simulation)
             $usbResults = @(Sync-AulaGuardUsbPolicy -BlockStorage ([bool]$settings.usb.blockStorage) -Root $root -WhatIfMode:$simulation)
             $result += $usbResults
 
