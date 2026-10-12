@@ -400,11 +400,14 @@ try {
         $sidebar.Controls.Add($nav)
     }
 
-    $sideInfo = New-Card 12 530 178 110 $SoftGreen
-    $sideInfo.Controls.Add((New-Label 'Aula protegida' 12 12 9 $true $PrimaryDark))
-    $sideInfo.Controls.Add((New-Label 'Configura primero' 12 42 8 $false $Muted))
-    $sideInfo.Controls.Add((New-Label 'en auditoría y luego' 12 62 8 $false $Muted))
-    $sideInfo.Controls.Add((New-Label 'activa la protección.' 12 82 8 $false $Muted))
+    $sideInfo = New-Card 12 530 178 110 $Card
+    $lblSideState = New-Label 'Estado del aula' 12 12 9 $true $Text
+    $lblSideStateValue = New-Label 'Comprobando…' 12 40 9 $true $Warning
+    $lblSideStateDetail = New-Label 'Consulta el diagnóstico' 12 68 8 $false $Muted
+    $lblSideStateDetail.MaximumSize = New-Object System.Drawing.Size(152,0)
+    $sideInfo.Controls.Add($lblSideState)
+    $sideInfo.Controls.Add($lblSideStateValue)
+    $sideInfo.Controls.Add($lblSideStateDetail)
     $sidebar.Controls.Add($sideInfo)
     $sidebar.Add_Resize({
         $sideInfo.Visible = ($sidebar.ClientSize.Height -gt 690)
@@ -687,6 +690,9 @@ try {
 
     $modeCard = New-Card 24 90 1094 94 $SoftBlue
     $modeCard.Controls.Add((New-Label 'Modo de trabajo' 16 14 10 $true $PrimaryDark))
+    $lblProtectionApplied = New-Label 'Estado: comprobando…' 720 14 9 $true $Muted
+    $lblProtectionApplied.Anchor = 'Top,Right'
+    $modeCard.Controls.Add($lblProtectionApplied)
 
     $radAudit = New-Object System.Windows.Forms.RadioButton
     $radAudit.Text = 'Auditoría / simulación'
@@ -1053,7 +1059,10 @@ try {
     $supportCard.Dock = 'Fill'
     $supportCard.Margin = New-Object System.Windows.Forms.Padding(0,0,0,12)
     $supportCard.BackColor = if ($appSupport.Supported) {$SoftGreen} else {$SoftAmber}
-    $supportText = if ($appSupport.Supported) {"AppLocker disponible · Servicio: $($appSupport.ServiceStatus)"} else {'AppLocker no está disponible en este equipo'}
+    $supportText = if ($appSupport.Supported) {
+        $actualAppState = if (-not $settings.appControl.enabled) {'No aplicado'} elseif ($settings.appControl.mode -eq 'Enabled') {'Bloqueo activo'} else {'Auditoría activa'}
+        "AppLocker disponible · $actualAppState · Servicio: $($appSupport.ServiceStatus)"
+    } else {'AppLocker no está disponible en este equipo'}
     $supportColor = if ($appSupport.Supported) {$Success} else {$Danger}
     $supportCard.Controls.Add((New-Label $supportText 15 10 10 $true $supportColor))
     $supportCard.Controls.Add((New-Label 'La lista permitida no bloquea nada hasta aplicar expresamente una política.' 15 38 9 $false $Muted))
@@ -1204,6 +1213,9 @@ try {
     $usbCard.BorderStyle = 'FixedSingle'
     $usbView.Controls.Add($usbCard,0,1)
     $usbCard.Controls.Add((New-Label 'Permitir / restringir memorias externas' 18 16 12 $true $Text))
+    $lblUsbApplied = New-Label 'Estado aplicado: comprobando…' 600 18 9 $true $Muted
+    $lblUsbApplied.Anchor = 'Top,Right'
+    $usbCard.Controls.Add($lblUsbApplied)
     $usbCard.Controls.Add((New-Label 'Bloquear el acceso a discos USB extraíbles para estudiantes' 18 50 10 $false $Text))
     $toggleUsb = New-Object System.Windows.Forms.CheckBox
     $toggleUsb.Appearance = 'Button'
@@ -1387,6 +1399,41 @@ try {
                 $(if ($e.File) {$e.File} else {''}),
                 $detail
             )
+        }
+    }
+
+    function Update-DeploymentIndicators {
+        try {
+            $applied = Read-AulaGuardAppliedPolicy -Root $root
+            if ($null -eq $applied) {
+                $lblProtectionApplied.Text = 'Estado: no aplicada'
+                $lblProtectionApplied.ForeColor = $Muted
+                $lblUsbApplied.Text = 'Estado aplicado: sin política'
+                $lblUsbApplied.ForeColor = $Muted
+                $lblSideStateValue.Text = 'No aplicada'
+                $lblSideStateValue.ForeColor = $Muted
+                $lblSideStateDetail.Text = 'Guarda, valida y aplica'
+                $sideInfo.BackColor = $Card
+            } else {
+                $when = try { ([datetime]$applied.appliedUtc).ToLocalTime().ToString('dd/MM HH:mm') } catch { 'confirmada' }
+                $lblProtectionApplied.Text = "Estado: aplicada · $when"
+                $lblProtectionApplied.ForeColor = $Success
+                $lblUsbApplied.Text = if ($applied.usb.blockStorage) {'Estado aplicado: USB bloqueado'} else {'Estado aplicado: USB permitido'}
+                $lblUsbApplied.ForeColor = if ($applied.usb.blockStorage) {$Warning} else {$Success}
+                $lblSideStateValue.Text = 'Protección aplicada'
+                $lblSideStateValue.ForeColor = $Success
+                $lblSideStateDetail.Text = "Última: $when"
+                $sideInfo.BackColor = $SoftGreen
+            }
+        } catch {
+            $lblProtectionApplied.Text = 'Estado: requiere atención'
+            $lblProtectionApplied.ForeColor = $Danger
+            $lblUsbApplied.Text = 'Estado aplicado: no verificable'
+            $lblUsbApplied.ForeColor = $Danger
+            $lblSideStateValue.Text = 'Requiere atención'
+            $lblSideStateValue.ForeColor = $Danger
+            $lblSideStateDetail.Text = 'Abre Estado del sistema'
+            $sideInfo.BackColor = $SoftAmber
         }
     }
 
@@ -1636,6 +1683,7 @@ try {
                 [void](Save-AulaGuardAppliedPolicy -Settings $applied -Root $root)
             }
             Write-AulaGuardAudit -Action 'USB_POLICY_RESTORED' -Level 'SECURITY' -Detail "Profiles=$($result.Count)" -Root $root
+            Update-DeploymentIndicators
             Set-Status 'Acceso USB administrado restaurado; cierra y abre la sesión del estudiante.' 'Success'
         } catch {
             [System.Windows.Forms.MessageBox]::Show($_.Exception.Message,'AulaGuard · USB','OK','Error') | Out-Null
@@ -1709,6 +1757,7 @@ try {
             } else {
                 Set-Status "Protección aplicada: $ok operación(es)" 'Success'
             }
+            Update-DeploymentIndicators
             Refresh-Dashboard
             & $loadAudit
 
@@ -1751,6 +1800,7 @@ try {
             Save-FromUi
             Protect-AulaGuardPublicDesktop -Restore
             Write-AulaGuardAudit -Action 'POLICIES_RESET' -Level 'SECURITY' -Detail "Profiles=$($r.Count)" -Root $root
+            Update-DeploymentIndicators
             Set-Status 'Políticas retiradas' 'Success'
             & $loadAudit
         }
@@ -1927,6 +1977,7 @@ try {
     & $resizeProtection
     Set-NavActive $navHome
     Write-AulaGuardAudit -Action 'APP_STARTED' -Detail 'v0.5.1' -Root $root
+    Update-DeploymentIndicators
     Refresh-Dashboard
     & $loadAudit
     & $loadAppEvents
