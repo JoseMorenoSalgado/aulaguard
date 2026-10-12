@@ -56,7 +56,8 @@ try {
 
     $startup = Get-Content -LiteralPath (Join-Path $repo 'src\AulaGuard.Startup.ps1') -Raw
     Require ($startup -match 'Read-AulaGuardAppliedPolicy') 'Startup does not load deployed snapshot'
-    Require ($startup -notmatch 'if \(\$settings\.policyMode -eq ''Enforce''\)') 'Startup still trusts staged policyMode'
+    Require ($startup -match 'Set-AulaGuardPolicies -Settings \$applied') 'Startup does not reapply the signed deployment snapshot'
+    Require ($startup -notmatch 'Set-AulaGuardPolicies -Settings \$settings') 'Startup still applies staged settings directly'
     Require ($startup -match 'STARTUP_NO_APPLIED_POLICY') 'Startup lacks safe no-deployment state'
 
     $ui = Get-Content -LiteralPath (Join-Path $repo 'src\AulaGuard.ps1') -Raw
