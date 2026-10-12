@@ -1304,25 +1304,37 @@ try {
     }
 
     function Refresh-Dashboard {
-        $info = Get-AulaGuardSystemInfo
-        $users = @(Get-AulaGuardLocalUsers)
-        $standard = @($users | Where-Object {-not $_.IsAdministrator})
-
-        $lblPcValue.Text = $info.ComputerName
-        $lblWindowsValue.Text = "$($info.Windows) · build $($info.Build)"
-        $lblUsersValue.Text = "$($standard.Count) estudiante(s)"
-        $lblModeValue.Text = if ($radEnforce.Checked) {'Protección activa'} else {'Modo seguro: auditoría'}
-        $lblAppsValue.Text = [string]$lstPrograms.Items.Count
+        try {
+            $info = Get-AulaGuardSystemInfo
+            $lblPcValue.Text = $info.ComputerName
+            $lblWindowsValue.Text = "$($info.Windows) · build $($info.Build)"
+        } catch {
+            $lblPcValue.Text = $env:COMPUTERNAME
+            $lblWindowsValue.Text = 'No se pudo consultar Windows'
+            Set-Status 'Hay información del sistema que requiere revisión' 'Warning'
+        }
 
         $gridUsers.Rows.Clear()
-        foreach ($u in $users) {
-            [void]$gridUsers.Rows.Add(
-                $u.User,
-                $(if ($u.IsAdministrator) {'Administrador'} else {'Estudiante / estándar'}),
-                $(if ($u.Loaded) {'Sesión iniciada'} else {'Sin sesión'}),
-                $u.SID
-            )
+        try {
+            $users = @(Get-AulaGuardLocalUsers)
+            $standard = @($users | Where-Object {-not $_.IsAdministrator})
+            $lblUsersValue.Text = "$($standard.Count) estudiante(s)"
+            foreach ($u in $users) {
+                [void]$gridUsers.Rows.Add(
+                    $u.User,
+                    $(if ($u.IsAdministrator) {'Administrador'} else {'Estudiante / estándar'}),
+                    $(if ($u.Loaded) {'Sesión iniciada'} else {'Sin sesión'}),
+                    $u.SID
+                )
+            }
+        } catch {
+            $lblUsersValue.Text = 'Requiere atención'
+            [void]$gridUsers.Rows.Add('No disponible','Diagnóstico','No se pudieron enumerar los perfiles', $_.Exception.Message)
+            Set-Status 'No se pudieron validar los usuarios; revisa Estado del sistema' 'Warning'
         }
+
+        $lblModeValue.Text = if ($radEnforce.Checked) {'Protección activa'} else {'Modo seguro: auditoría'}
+        $lblAppsValue.Text = [string]$lstPrograms.Items.Count
     }
 
     $btnGoProtect.Add_Click({$tabs.SelectedTab = $tabProtection})
