@@ -21,6 +21,17 @@ de prueba sin revisión antivirus.
 
 El proyecto incorpora control USB por usuario estándar, la vista de Servidor Premium (preparación sin conexión real), interfaz verde y la desinstalación para retirar los directorios del programa en Program Files y corrige la carga de módulos del programa compilado y mantiene la corrección del error de elevación 740. Incluye DPAPI, HMAC-SHA-256, auditoría encadenada, permisos NTFS restrictivos y validación de integridad. Mantiene el control avanzado de aplicaciones con AppLocker, auditoría previa al bloqueo, eventos de ejecución, aislamiento de cuentas administradoras y sincronización automática de políticas al iniciar Windows.
 
+## AulaGuard 0.5.1 — interfaz profesional
+
+La fase 0.5.1 consolida la experiencia visual sin alterar las protecciones del sistema:
+
+- **Inicio adaptable** con estado real del equipo, métricas principales, acciones guiadas y tabla de usuarios.
+- Navegación lateral más clara, encabezado compacto y lenguaje visual uniforme.
+- **Protección**, **Programas** y **USB** utilizan estados visuales coherentes; una acción sensible se distingue de una opción segura.
+- **Internet**, **Escritorio** y **Registro** ya no dependen de coordenadas fijas: usan paneles adaptables para DPI y diferentes resoluciones.
+- El panel de Inicio refleja el resultado del diagnóstico: listo, advertencia o bloqueo crítico.
+- La prueba WinForms recorre todas las pantallas profesionales y CI evita regresiones hacia diseños de posición fija.
+
 ## AulaGuard 0.5.1 — base profesional
 
 La versión 0.5.1 introduce una capa de **prevalidación profesional** antes de modificar Windows:
