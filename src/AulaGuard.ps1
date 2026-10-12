@@ -1521,12 +1521,43 @@ try {
     $btnImport.Add_Click({
         $d = New-Object System.Windows.Forms.OpenFileDialog
         $d.Filter = 'Perfil AulaGuard (*.json)|*.json'
-        if ($d.ShowDialog() -eq 'OK') {
+        if ($d.ShowDialog() -ne 'OK') { return }
+        try {
             Import-AulaGuardProfile -Path $d.FileName -Root $root | Out-Null
+            $script:settings = Read-AulaGuardSettings -Root $root
+            $txtProfileName.Text = [string]$settings.profileName
+            $radAudit.Checked = $true
+            $txtWallpaper.Text = [string]$settings.wallpaper
+            $chkLockWallpaper.Checked = [bool]$settings.protections.lockWallpaper
+            $chkPersonalization.Checked = [bool]$settings.protections.disablePersonalization
+            $chkProtectDesktop.Checked = [bool]$settings.protections.protectPublicDesktop
+            $chkControlPanel.Checked = [bool]$settings.protections.blockControlPanel
+            $chkRegistry.Checked = [bool]$settings.protections.blockRegistryTools
+            $chkTaskMgr.Checked = [bool]$settings.protections.blockTaskManager
+            $chkBrowserWhitelist.Checked = [bool]$settings.protections.browserWhitelist
+            $toggleUsb.Checked = [bool]$settings.usb.blockStorage
+            Add-ListItems $lstWebsites @($settings.allowedWebsites)
+            Add-ListItems $lstShortcuts @($settings.protectedShortcuts)
+            $script:allowedProgramMap = @{}
+            foreach ($path in @($settings.allowedPrograms)) {
+                if ($path -and -not [string]::IsNullOrWhiteSpace([string]$path)) {
+                    $script:allowedProgramMap[[string]$path] = [string]$path
+                }
+            }
+            & $syncProgramSelection
+            $script:inventoryLoaded = $false
+            & $loadPrograms
+            $radAppEnforce.Checked = ($settings.appControl.mode -eq 'Enabled')
+            $radAppAudit.Checked = -not $radAppEnforce.Checked
+            Refresh-Dashboard
+            Set-Status 'Perfil importado y controles actualizados (modo Auditoría)' 'Success'
             [System.Windows.Forms.MessageBox]::Show(
-                'Perfil importado. Cierra y vuelve a abrir AulaGuard para cargar todos los valores.',
-                'AulaGuard','OK','Information'
+                'Perfil cargado correctamente en modo Auditoría. El fondo y el USB se deben configurar de nuevo. Las reglas AppLocker actuales del equipo no se modificaron.',
+                'AulaGuard · Importación segura','OK','Information'
             ) | Out-Null
+        } catch {
+            Set-Status 'No se pudo importar el perfil' 'Error'
+            [System.Windows.Forms.MessageBox]::Show($_.Exception.Message,'AulaGuard · Importación','OK','Error') | Out-Null
         }
     })
 
