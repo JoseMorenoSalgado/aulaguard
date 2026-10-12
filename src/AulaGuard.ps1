@@ -2032,6 +2032,50 @@ try {
         if (-not $radAppAudit.Checked -or $radAppEnforce.Checked) {
             throw 'No se puede volver a Auditoría desde Bloqueo.'
         }
+
+        # Responsive layout regression: exercise the supported minimum size and
+        # two common classroom resolutions without showing the window.
+        foreach ($testSize in @(
+            (New-Object System.Drawing.Size(1080,680)),
+            (New-Object System.Drawing.Size(1280,720)),
+            (New-Object System.Drawing.Size(1600,900))
+        )) {
+            $form.Size = $testSize
+            $form.PerformLayout()
+            $workspace.PerformLayout()
+            $shell.PerformLayout()
+            & $resizeProtection
+            [System.Windows.Forms.Application]::DoEvents()
+
+            if ($sidebar.Right -gt $shell.ClientSize.Width -or $tabs.Width -lt 620) {
+                throw "La navegación invade el contenido en $($testSize.Width)x$($testSize.Height)."
+            }
+            if ($btnApply.Right -gt $footer.ClientSize.Width -or $btnSave.Left -lt 100) {
+                throw "Los controles inferiores se recortan en $($testSize.Width)x$($testSize.Height)."
+            }
+
+            foreach ($pageCheck in @(
+                [pscustomobject]@{Page=$tabHome;Layout=$homeRoot;Name='Inicio'},
+                [pscustomobject]@{Page=$tabHealth;Layout=$healthLayout;Name='Estado'},
+                [pscustomobject]@{Page=$tabPrograms;Layout=$programLayout;Name='Programas'},
+                [pscustomobject]@{Page=$tabAppControl;Layout=$appLayout;Name='ControlApps'},
+                [pscustomobject]@{Page=$tabUsb;Layout=$usbView;Name='USB'}
+            )) {
+                $tabs.SelectedTab = $pageCheck.Page
+                $pageCheck.Page.PerformLayout()
+                $pageCheck.Layout.PerformLayout()
+                if ($pageCheck.Layout.Width -lt 580 -or $pageCheck.Layout.Height -lt 300) {
+                    throw "La página $($pageCheck.Name) no conserva un área útil en $($testSize.Width)x$($testSize.Height)."
+                }
+            }
+
+            $tabs.SelectedTab = $tabProtection
+            & $resizeProtection
+            if ($modeCard.Right -gt ($tabProtection.ClientSize.Width + 2) -or
+                $left.Right -gt ($tabProtection.ClientSize.Width + 2)) {
+                throw "Protección produce desbordamiento horizontal en $($testSize.Width)x$($testSize.Height)."
+            }
+        }
         $form.Dispose()
         exit 0
     }
