@@ -543,7 +543,11 @@ try {
     $healthActions.FlowDirection = 'LeftToRight'
     $healthActions.WrapContents = $false
     $btnHealthRefresh = New-Button 'Actualizar diagnóstico' 0 0 190 38 'Primary'
+    $btnHealthExport = New-Button 'Exportar diagnóstico' 0 0 185 38 'Secondary'
+    $btnHealthRefresh.Margin = New-Object System.Windows.Forms.Padding(0,5,10,4)
+    $btnHealthExport.Margin = New-Object System.Windows.Forms.Padding(0,5,10,4)
     $healthActions.Controls.Add($btnHealthRefresh)
+    $healthActions.Controls.Add($btnHealthExport)
     $healthLayout.Controls.Add($healthActions,0,3)
 
     $script:lastReadinessChecks = @()
@@ -1352,6 +1356,22 @@ try {
     })
 
     $btnHealthRefresh.Add_Click({ & $loadReadiness | Out-Null })
+    $btnHealthExport.Add_Click({
+        try {
+            $d = New-Object System.Windows.Forms.SaveFileDialog
+            $d.Filter = 'Diagnóstico AulaGuard (*.json)|*.json'
+            $d.FileName = "AulaGuard-diagnostico-$($env:COMPUTERNAME)-$(Get-Date -Format 'yyyyMMdd-HHmm').json"
+            if ($d.ShowDialog() -ne 'OK') { return }
+            $candidateSettings = Get-UiSettings
+            $saved = Export-AulaGuardDiagnosticReport -Path $d.FileName -Root $root -Settings $candidateSettings
+            Set-Status 'Diagnóstico exportado' 'Success'
+            [System.Windows.Forms.MessageBox]::Show("Diagnóstico guardado en:$([Environment]::NewLine)$saved",'AulaGuard · Diagnóstico','OK','Information') | Out-Null
+        } catch {
+            Set-Status 'No se pudo exportar el diagnóstico' 'Error'
+            [System.Windows.Forms.MessageBox]::Show($_.Exception.Message,'AulaGuard · Diagnóstico','OK','Error') | Out-Null
+        }
+    })
+
 
     $btnWallpaper.Add_Click({
         $d = New-Object System.Windows.Forms.OpenFileDialog
