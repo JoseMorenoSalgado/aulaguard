@@ -8,7 +8,7 @@
 
 La descarga se mostrará directamente aquí cuando el instalador corregido
 haya pasado las comprobaciones de Microsoft Defender y firma digital.
-**Actualmente no hay un .exe verificado de v0.5.0**: no descargues v0.4.0
+**Actualmente no hay un .exe verificado de v0.5.1**: no descargues v0.4.0
 para probar las correcciones.
 
 El archivo final quedará en `main/downloads/AulaGuard-Setup-vX.Y.Z.exe`,
@@ -17,9 +17,19 @@ de prueba sin revisión antivirus.
 
 ## Versión actual
 
-**v0.5.0 (código corregido, pendiente de firma y revisión antivirus del instalador)**
+**v0.5.1 (interfaz profesional y estado aplicado separado, pendiente de firma y revisión antivirus)**
 
 El proyecto incorpora control USB por usuario estándar, la vista de Servidor Premium (preparación sin conexión real), interfaz verde y la desinstalación para retirar los directorios del programa en Program Files y corrige la carga de módulos del programa compilado y mantiene la corrección del error de elevación 740. Incluye DPAPI, HMAC-SHA-256, auditoría encadenada, permisos NTFS restrictivos y validación de integridad. Mantiene el control avanzado de aplicaciones con AppLocker, auditoría previa al bloqueo, eventos de ejecución, aislamiento de cuentas administradoras y sincronización automática de políticas al iniciar Windows.
+
+## AulaGuard 0.5.1 — interfaz profesional y despliegue explícito
+
+- Nuevo **Inicio responsivo** con estado general, tarjetas del equipo y accesos directos.
+- La interfaz diferencia **configuración guardada** de **protección realmente aplicada**.
+- `Guardar cambios` ya no puede provocar que una política nueva se active automáticamente al reiniciar.
+- Al aplicar con éxito se crea `%ProgramData%\AulaGuard\config\applied-policy.json`, firmado con el mismo mecanismo HMAC del producto.
+- El inicio de Windows solo revalida ese snapshot firmado; nunca usa una configuración pendiente como si estuviera desplegada.
+- Protección, USB y la barra lateral muestran el **estado aplicado real**.
+- Las pruebas WinForms validan el diseño en 1080×680, 1280×720 y 1600×900.
 
 ## AulaGuard 0.5.0 — base profesional
 
@@ -121,7 +131,7 @@ Las nuevas compilaciones requieren un análisis activo con Microsoft Defender de
 
 **No se recomienda instalar la versión v0.4.0** hasta investigar el aviso antivirus reportado en un equipo Windows. Una advertencia SmartScreen de reputación no es lo mismo que una detección real de Microsoft Defender; todavía falta el nombre exacto de la amenaza.
 
-El código de **v0.5.0** conserva los cambios para exigir:
+El código de **v0.5.1** conserva los cambios para exigir:
 
 - Certificado Authenticode real (instalador y EXE) con clave privada protegida en Windows.
 - Versión **ps2exe 1.0.18** fijada explícitamente.
@@ -134,7 +144,7 @@ Para revisar una detección y preparar el entorno, lea [Investigación con Defen
 
 ## Instalación
 
-1. Espere a que la revisión antivirus se complete y aparezca un instalador firmado de v0.5.0 o posterior en [Releases](https://github.com/JoseMorenoSalgado/aulaguard/releases). No instale una versión que Defender haya puesto en cuarentena.
+1. Espere a que la revisión antivirus se complete y aparezca un instalador firmado de v0.5.1 o posterior en [Releases](https://github.com/JoseMorenoSalgado/aulaguard/releases). No instale una versión que Defender haya puesto en cuarentena.
 2. Ejecute el instalador con permisos de administrador en Windows 10/11 Pro.
 3. Los binarios se instalan en `Program Files`; la configuración privada se almacena en `%ProgramData%\\AulaGuard`.
 4. Se instalarán los módulos de políticas, diagnóstico, seguridad y control de aplicaciones.
@@ -190,7 +200,7 @@ La primera implantación debe realizarse en un equipo de prueba antes de despleg
 
 El proyecto tiene preparado el código de un instalador de Windows:
 
-`AulaGuard-Setup-v0.5.0.exe` (pendiente de firma y verificación antivirus; no disponible todavía)
+`AulaGuard-Setup-v0.5.1.exe` (pendiente de firma y verificación antivirus; no disponible todavía)
 
 Características del instalador:
 
