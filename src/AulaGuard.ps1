@@ -1157,60 +1157,139 @@ try {
     $gridAppEvents.Columns['Message'].FillWeight = 220
     $appLayout.Controls.Add($gridAppEvents,0,4)
 
-    # INTERNET
+    # INTERNET — responsive allow-list workspace.
     $tabWeb = New-Object System.Windows.Forms.TabPage
     $tabWeb.Text = 'Internet'
     $tabWeb.BackColor = $Bg
     $tabs.TabPages.Add($tabWeb)
 
-    $tabWeb.Controls.Add((New-Label 'Sitios web permitidos' 24 20 15 $true $Text))
-    $tabWeb.Controls.Add((New-Label 'Si activas la lista blanca, Edge y Chrome permitirán únicamente los sitios definidos aquí.' 24 52 9 $false $Muted))
+    $webLayout = New-Object System.Windows.Forms.TableLayoutPanel
+    $webLayout.Dock = 'Fill'
+    $webLayout.Padding = New-Object System.Windows.Forms.Padding(24,18,24,18)
+    $webLayout.ColumnCount = 1
+    $webLayout.RowCount = 4
+    [void]$webLayout.RowStyles.Add((New-Object System.Windows.Forms.RowStyle('Absolute',68)))
+    [void]$webLayout.RowStyles.Add((New-Object System.Windows.Forms.RowStyle('Absolute',72)))
+    [void]$webLayout.RowStyles.Add((New-Object System.Windows.Forms.RowStyle('Absolute',58)))
+    [void]$webLayout.RowStyles.Add((New-Object System.Windows.Forms.RowStyle('Percent',100)))
+    $tabWeb.Controls.Add($webLayout)
+
+    $webHeader = New-Object System.Windows.Forms.Panel
+    $webHeader.Dock = 'Fill'
+    $webHeader.Controls.Add((New-Label 'Internet permitido' 0 0 17 $true $Text))
+    $webHeader.Controls.Add((New-Label 'Define los sitios necesarios para la clase cuando uses la lista blanca del navegador.' 0 35 9 $false $Muted))
+    $webLayout.Controls.Add($webHeader,0,0)
+
+    $webNotice = New-Surface -BackColor $SoftAmber -Padding 0
+    $webNotice.Margin = New-Object System.Windows.Forms.Padding(0,0,0,12)
+    $webNotice.Controls.Add((New-Label 'Lista blanca del navegador' 15 10 10 $true $Warning))
+    $webNotice.Controls.Add((New-Label 'Si la activas en Protección, Edge y Chrome permitirán únicamente los dominios definidos aquí.' 15 36 9 $false $Text))
+    $webLayout.Controls.Add($webNotice,0,1)
+
+    $webAdd = New-Object System.Windows.Forms.TableLayoutPanel
+    $webAdd.Dock = 'Fill'
+    $webAdd.ColumnCount = 2
+    $webAdd.RowCount = 1
+    [void]$webAdd.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle('Percent',100)))
+    [void]$webAdd.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle('Absolute',165)))
+    $webLayout.Controls.Add($webAdd,0,2)
 
     $txtWebsite = New-Object System.Windows.Forms.TextBox
-    $txtWebsite.Location = New-Object System.Drawing.Point(24,94)
-    $txtWebsite.Size = New-Object System.Drawing.Size(720,30)
-    $txtWebsite.Font = New-Object System.Drawing.Font('Segoe UI',10)
-    $tabWeb.Controls.Add($txtWebsite)
+    $txtWebsite.Dock = 'Fill'
+    $txtWebsite.Margin = New-Object System.Windows.Forms.Padding(0,6,12,10)
+    Style-Input $txtWebsite
+    $webAdd.Controls.Add($txtWebsite,0,0)
+    $toolTip.SetToolTip($txtWebsite,'Ejemplo: classroom.google.com o *.example.edu')
 
-    $btnAddWebsite = New-Button 'Agregar sitio' 760 90 150 36 'Primary'
-    $tabWeb.Controls.Add($btnAddWebsite)
+    $btnAddWebsite = New-Button 'Agregar sitio' 0 0 150 36 'Primary'
+    $btnAddWebsite.Dock = 'Fill'
+    $btnAddWebsite.Margin = New-Object System.Windows.Forms.Padding(0,5,0,10)
+    $webAdd.Controls.Add($btnAddWebsite,1,0)
 
+    $webContent = New-Object System.Windows.Forms.TableLayoutPanel
+    $webContent.Dock = 'Fill'
+    $webContent.ColumnCount = 2
+    $webContent.RowCount = 1
+    [void]$webContent.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle('Percent',100)))
+    [void]$webContent.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle('Absolute',190)))
+    $webLayout.Controls.Add($webContent,0,3)
+
+    $webListSurface = New-Surface -BackColor $Card -Padding 12
+    $webListSurface.Margin = New-Object System.Windows.Forms.Padding(0,0,12,0)
     $lstWebsites = New-Object System.Windows.Forms.ListBox
-    $lstWebsites.Location = New-Object System.Drawing.Point(24,150)
-    $lstWebsites.Size = New-Object System.Drawing.Size(884,430)
-    $lstWebsites.Anchor = 'Top,Left,Right,Bottom'
-    $lstWebsites.Font = New-Object System.Drawing.Font('Segoe UI',9)
-    $tabWeb.Controls.Add($lstWebsites)
+    $lstWebsites.Dock = 'Fill'
+    $lstWebsites.BorderStyle = 'None'
+    $lstWebsites.Font = New-Object System.Drawing.Font('Segoe UI',10)
+    $lstWebsites.BackColor = $Card
+    $webListSurface.Controls.Add($lstWebsites)
     Add-ListItems $lstWebsites @($settings.allowedWebsites)
+    $webContent.Controls.Add($webListSurface,0,0)
 
-    $btnRemoveWebsite = New-Button 'Quitar seleccionado' 930 150 168 38 'Danger'
-    $btnRemoveWebsite.Anchor = 'Top,Right'
-    $tabWeb.Controls.Add($btnRemoveWebsite)
+    $webActions = New-Object System.Windows.Forms.FlowLayoutPanel
+    $webActions.Dock = 'Fill'
+    $webActions.FlowDirection = 'TopDown'
+    $webActions.WrapContents = $false
+    $webContent.Controls.Add($webActions,1,0)
+    $btnRemoveWebsite = New-Button 'Quitar seleccionado' 0 0 178 38 'Danger'
+    $btnRemoveWebsite.Margin = New-Object System.Windows.Forms.Padding(0,0,0,8)
+    $webActions.Controls.Add($btnRemoveWebsite)
 
-    # DESKTOP
+    # DESKTOP — responsive shortcuts workspace.
     $tabDesktop = New-Object System.Windows.Forms.TabPage
     $tabDesktop.Text = 'Escritorio'
     $tabDesktop.BackColor = $Bg
     $tabs.TabPages.Add($tabDesktop)
 
-    $tabDesktop.Controls.Add((New-Label 'Accesos directos del aula' 24 20 15 $true $Text))
-    $tabDesktop.Controls.Add((New-Label 'Selecciona los accesos que quieres conservar y proteger para los estudiantes.' 24 52 9 $false $Muted))
+    $desktopLayout = New-Object System.Windows.Forms.TableLayoutPanel
+    $desktopLayout.Dock = 'Fill'
+    $desktopLayout.Padding = New-Object System.Windows.Forms.Padding(24,18,24,18)
+    $desktopLayout.ColumnCount = 1
+    $desktopLayout.RowCount = 3
+    [void]$desktopLayout.RowStyles.Add((New-Object System.Windows.Forms.RowStyle('Absolute',68)))
+    [void]$desktopLayout.RowStyles.Add((New-Object System.Windows.Forms.RowStyle('Absolute',72)))
+    [void]$desktopLayout.RowStyles.Add((New-Object System.Windows.Forms.RowStyle('Percent',100)))
+    $tabDesktop.Controls.Add($desktopLayout)
 
+    $desktopHeader = New-Object System.Windows.Forms.Panel
+    $desktopHeader.Dock = 'Fill'
+    $desktopHeader.Controls.Add((New-Label 'Accesos del aula' 0 0 17 $true $Text))
+    $desktopHeader.Controls.Add((New-Label 'Conserva únicamente los accesos directos que deben permanecer disponibles para estudiantes.' 0 35 9 $false $Muted))
+    $desktopLayout.Controls.Add($desktopHeader,0,0)
+
+    $desktopNotice = New-Surface -BackColor $SoftGreen -Padding 0
+    $desktopNotice.Margin = New-Object System.Windows.Forms.Padding(0,0,0,12)
+    $desktopNotice.Controls.Add((New-Label 'Escritorio administrado' 15 10 10 $true $PrimaryDark))
+    $desktopNotice.Controls.Add((New-Label 'La protección se aplica al escritorio público; las cuentas administradoras siguen excluidas.' 15 36 9 $false $Text))
+    $desktopLayout.Controls.Add($desktopNotice,0,1)
+
+    $desktopContent = New-Object System.Windows.Forms.TableLayoutPanel
+    $desktopContent.Dock = 'Fill'
+    $desktopContent.ColumnCount = 2
+    $desktopContent.RowCount = 1
+    [void]$desktopContent.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle('Percent',100)))
+    [void]$desktopContent.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle('Absolute',190)))
+    $desktopLayout.Controls.Add($desktopContent,0,2)
+
+    $desktopListSurface = New-Surface -BackColor $Card -Padding 12
+    $desktopListSurface.Margin = New-Object System.Windows.Forms.Padding(0,0,12,0)
     $lstShortcuts = New-Object System.Windows.Forms.ListBox
-    $lstShortcuts.Location = New-Object System.Drawing.Point(24,96)
-    $lstShortcuts.Size = New-Object System.Drawing.Size(884,480)
-    $lstShortcuts.Anchor = 'Top,Left,Right,Bottom'
-    $lstShortcuts.Font = New-Object System.Drawing.Font('Segoe UI',9)
-    $tabDesktop.Controls.Add($lstShortcuts)
+    $lstShortcuts.Dock = 'Fill'
+    $lstShortcuts.BorderStyle = 'None'
+    $lstShortcuts.Font = New-Object System.Drawing.Font('Segoe UI',10)
+    $desktopListSurface.Controls.Add($lstShortcuts)
     Add-ListItems $lstShortcuts @($settings.protectedShortcuts)
+    $desktopContent.Controls.Add($desktopListSurface,0,0)
 
-    $btnAddShortcut = New-Button 'Agregar acceso' 930 96 168 38 'Primary'
-    $btnAddShortcut.Anchor = 'Top,Right'
-    $tabDesktop.Controls.Add($btnAddShortcut)
-
-    $btnRemoveShortcut = New-Button 'Quitar seleccionado' 930 144 168 38 'Danger'
-    $btnRemoveShortcut.Anchor = 'Top,Right'
-    $tabDesktop.Controls.Add($btnRemoveShortcut)
+    $desktopActions = New-Object System.Windows.Forms.FlowLayoutPanel
+    $desktopActions.Dock = 'Fill'
+    $desktopActions.FlowDirection = 'TopDown'
+    $desktopActions.WrapContents = $false
+    $desktopContent.Controls.Add($desktopActions,1,0)
+    $btnAddShortcut = New-Button 'Agregar acceso' 0 0 178 38 'Primary'
+    $btnRemoveShortcut = New-Button 'Quitar seleccionado' 0 0 178 38 'Danger'
+    $btnAddShortcut.Margin = New-Object System.Windows.Forms.Padding(0,0,0,8)
+    $desktopActions.Controls.Add($btnAddShortcut)
+    $desktopActions.Controls.Add($btnRemoveShortcut)
 
     # USB REMOVABLE STORAGE CONTROL — per-user, never the entire USB controller.
     $tabUsb = New-Object System.Windows.Forms.TabPage
