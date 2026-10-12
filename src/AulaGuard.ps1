@@ -2067,6 +2067,20 @@ try {
 
     # Optional WinForms construction self-test; do not show a blocking dialog.
     if ($script:AulaGuardUiTest) {
+        # Exercise the complete responsive screen tree before testing actions.
+        foreach ($layout in @($homeLayout,$healthLayout,$programLayout,$appLayout,$webLayout,$desktopLayout,$usbView,$auditLayout)) {
+            if ($layout.Dock -ne [System.Windows.Forms.DockStyle]::Fill) {
+                throw "Una pantalla profesional no ocupa el área disponible: $($layout.Name)"
+            }
+        }
+        if ($metrics.ColumnCount -ne 4 -or $quick.ColumnCount -ne 3) {
+            throw 'El panel de Inicio perdió su estructura adaptable.'
+        }
+        foreach ($page in @($tabHome,$tabHealth,$tabProtection,$tabPrograms,$tabAppControl,$tabWeb,$tabDesktop,$tabUsb,$tabAudit)) {
+            $tabs.SelectedTab = $page
+            $page.PerformLayout()
+        }
+
         # Exercise the actual inventory navigation and toggle event binding,
         # not merely the construction of otherwise inert WinForms controls.
         $tabs.SelectedTab = $tabPrograms
