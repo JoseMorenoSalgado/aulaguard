@@ -26,6 +26,13 @@
   "usb": {
     "blockStorage": false
   },
+  "maintenance": {
+    "enabled": false,
+    "expiresUtc": null,
+    "previousPolicyMode": "Audit",
+    "previousAppControlMode": "AuditOnly",
+    "previousAppControlEnabled": false
+  },
   "premium": {
     "serverMode": "LocalOnly",
     "endpoint": "",
