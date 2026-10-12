@@ -25,7 +25,7 @@ Require ($ui -match 'function New-Surface' -and $ui -match 'function New-MetricS
 Require ($ui -match '\$homeState\.BackColor = \$SoftGreen' -and $ui -match '\$homeState\.BackColor = \$SoftRed') 'Dashboard health banner is not synchronized with readiness state'
 Require ($ui -match "BLOQUEAR USB" -and $ui -match "PERMITIR USB") 'USB control language is ambiguous'
 Require ($ui -match '\$usbCard\.BackColor = \$SoftRed') 'USB destructive state lacks visual warning'
-Require ($ui -match "\$status\.Text = \"\$prefix  \$Message\"") 'Footer status does not use consistent semantic indicator'
+Require ($ui -match '\$status\.Text = "\$prefix  \$Message"') 'Footer status does not use consistent semantic indicator'
 Require ($ui -match 'foreach \(\$layout in @\(\$homeLayout,\$healthLayout,\$programLayout,\$appLayout,\$webLayout,\$desktopLayout,\$usbView,\$auditLayout\)\)') 'Runtime UI self-test does not cover all professional pages'
 
 $core = Get-Content -LiteralPath (Join-Path $repo 'src\AulaGuard.Core.psm1') -Raw -Encoding UTF8
