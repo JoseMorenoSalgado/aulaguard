@@ -40,6 +40,11 @@ try {
     Require ($ui -match "Protección incompleta: \$errors error\(es\)") 'Partial failures are still presented as success'
     Require ($ui -match '\$simulation[\s\S]*?lastAppliedUtc') 'Applied timestamp logic missing simulation distinction'
 
+    $startup = Get-Content -LiteralPath (Join-Path $repo 'src\AulaGuard.Startup.ps1') -Raw
+    Require ($startup -match 'STARTUP_PREFLIGHT_BLOCKED' -and $startup -match 'BlocksPolicies') 'Unattended startup can bypass readiness preflight'
+    Require ($startup -match 'BlocksAppControl') 'Startup AppLocker state can bypass readiness checks'
+    Write-Host '[OK] Scheduled startup uses the same readiness gate as the UI'
+
     $app = Get-Content -LiteralPath (Join-Path $repo 'src\AulaGuard.AppControl.psm1') -Raw
     Require ($app -match 'Faltantes=\$\(\$missing\.Count\); inesperados=\$\(\$unexpected\.Count\)') 'AppLocker group membership is not verified'
     Require ($app -notmatch 'Remove-LocalGroupMember[\s\S]{0,160}ErrorAction SilentlyContinue') 'AppLocker group sync still hides failures'
