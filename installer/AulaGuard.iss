@@ -67,6 +67,7 @@ Source: "..\src\AulaGuard.Core.psm1"; DestDir: "{app}\src"; Flags: ignoreversion
 Source: "..\src\AulaGuard.Policy.psm1"; DestDir: "{app}\src"; Flags: ignoreversion
 Source: "..\src\AulaGuard.USB.psm1"; DestDir: "{app}\src"; Flags: ignoreversion
 Source: "..\src\AulaGuard.Wallpaper.psm1"; DestDir: "{app}\src"; Flags: ignoreversion
+Source: "..\src\AulaGuard.Maintenance.psm1"; DestDir: "{app}\src"; Flags: ignoreversion
 Source: "..\src\AulaGuard.InstalledApps.psm1"; DestDir: "{app}\src"; Flags: ignoreversion
 Source: "..\src\AulaGuard.Diagnostics.psm1"; DestDir: "{app}\src"; Flags: ignoreversion
 Source: "..\src\AulaGuard.AppControl.psm1"; DestDir: "{app}\src"; Flags: ignoreversion
