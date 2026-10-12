@@ -1,4 +1,4 @@
-# AulaGuard v0.4.3
+# AulaGuard v0.4.4
 # Friendly educational administration console for Windows classrooms.
 
 $ErrorActionPreference = 'Stop'
@@ -240,7 +240,7 @@ try {
         }
 
         return [pscustomobject]@{
-            version = '0.4.3'
+            version = '0.4.4'
             profileName = $txtProfileName.Text.Trim()
             policyMode = if ($radEnforce.Checked) {'Enforce'} else {'Audit'}
             wallpaper = $txtWallpaper.Text.Trim()
@@ -253,7 +253,7 @@ try {
             }
             premium = $settings.premium
             appControl = [pscustomobject]@{
-                mode = if ($radAppEnforce.Checked) {'Enabled'} else {'AuditOnly'}
+                mode = [string]$settings.appControl.mode
                 enabled = [bool]$settings.appControl.enabled
                 lastAppliedUtc = $settings.appControl.lastAppliedUtc
                 lastBackup = $settings.appControl.lastBackup
@@ -314,7 +314,7 @@ try {
     $header.Controls.Add((New-Label 'Protege el aula sin complicaciones' 94 48 10 $false ([System.Drawing.Color]::FromArgb(219,234,254))))
 
     $version = New-Object System.Windows.Forms.Label
-    $version.Text = 'v0.4.3'
+    $version.Text = 'v0.4.4'
     $version.TextAlign = 'MiddleCenter'
     $version.Location = New-Object System.Drawing.Point(1060,26)
     $version.Size = New-Object System.Drawing.Size(82,30)
@@ -1233,10 +1233,7 @@ try {
 
     $navHome.Add_Click({$tabs.SelectedTab = $tabHome})
     $navProtection.Add_Click({$tabs.SelectedTab = $tabProtection})
-    $navPrograms.Add_Click({
-        $tabs.SelectedTab = $tabPrograms
-        if (-not $script:inventoryLoaded) { & $loadPrograms }
-    })
+    $navPrograms.Add_Click({$tabs.SelectedTab = $tabPrograms})
     $navAppControl.Add_Click({$tabs.SelectedTab = $tabAppControl})
     $navInternet.Add_Click({$tabs.SelectedTab = $tabWeb})
     $navDesktop.Add_Click({$tabs.SelectedTab = $tabDesktop})
@@ -1247,7 +1244,10 @@ try {
     $tabs.Add_SelectedIndexChanged({
         if ($tabs.SelectedTab -eq $tabHome) {Set-NavActive $navHome}
         elseif ($tabs.SelectedTab -eq $tabProtection) {Set-NavActive $navProtection}
-        elseif ($tabs.SelectedTab -eq $tabPrograms) {Set-NavActive $navPrograms}
+        elseif ($tabs.SelectedTab -eq $tabPrograms) {
+            Set-NavActive $navPrograms
+            if (-not $script:inventoryLoaded) { & $loadPrograms }
+        }
         elseif ($tabs.SelectedTab -eq $tabAppControl) {Set-NavActive $navAppControl}
         elseif ($tabs.SelectedTab -eq $tabWeb) {Set-NavActive $navInternet}
         elseif ($tabs.SelectedTab -eq $tabDesktop) {Set-NavActive $navDesktop}
@@ -1429,12 +1429,6 @@ try {
     })
 
     $btnApply.Add_Click({
-        try { Save-FromUi }
-        catch {
-            Set-Status 'No se pudo validar el fondo institucional' 'Error'
-            [System.Windows.Forms.MessageBox]::Show($_.Exception.Message,'AulaGuard · Fondo institucional','OK','Error') | Out-Null
-            return
-        }
         $simulation = -not $radEnforce.Checked
         $message = if ($simulation) {
             'AulaGuard realizará una simulación y no hará cambios reales en Windows. ¿Continuar?'
@@ -1447,6 +1441,7 @@ try {
         }
 
         try {
+            Save-FromUi
             Set-Status 'Aplicando protección...' 'Warning'
             $result = @(Apply-AulaGuardPolicies -Settings $settings -WhatIfMode:$simulation)
             $usbResults = @(Sync-AulaGuardUsbPolicy -BlockStorage ([bool]$settings.usb.blockStorage) -Root $root -WhatIfMode:$simulation)
@@ -1482,7 +1477,7 @@ try {
 
     $btnReset.Add_Click({
         if ([System.Windows.Forms.MessageBox]::Show(
-            'Se retirarán las políticas administradas por AulaGuard de las cuentas estándar. ¿Continuar?',
+            'Se retirarán las políticas generales y USB de los estudiantes. AppLocker se restaura aparte desde Control de apps. ¿Continuar?',
             'AulaGuard','YesNo','Warning'
         ) -ne 'Yes') {
             return
@@ -1490,6 +1485,8 @@ try {
 
         try {
             $r = @(Reset-AulaGuardPolicies -ManagedWallpapers @([string]$settings.wallpaper,[string]$script:originalWallpaperPath))
+            $policyErrors = @($r | Where-Object { $_.Status -eq 'ERROR' })
+            if ($policyErrors.Count -gt 0) { throw "Error retirando políticas: $($policyErrors[0].Detail)" }
             $radAudit.Checked = $true
             # A reset must not fail while trying to re-import the very image path
             # that caused the black background. Re-select it deliberately later.
@@ -1524,12 +1521,43 @@ try {
     $btnImport.Add_Click({
         $d = New-Object System.Windows.Forms.OpenFileDialog
         $d.Filter = 'Perfil AulaGuard (*.json)|*.json'
-        if ($d.ShowDialog() -eq 'OK') {
+        if ($d.ShowDialog() -ne 'OK') { return }
+        try {
             Import-AulaGuardProfile -Path $d.FileName -Root $root | Out-Null
+            $script:settings = Read-AulaGuardSettings -Root $root
+            $txtProfileName.Text = [string]$settings.profileName
+            $radAudit.Checked = $true
+            $txtWallpaper.Text = [string]$settings.wallpaper
+            $chkLockWallpaper.Checked = [bool]$settings.protections.lockWallpaper
+            $chkPersonalization.Checked = [bool]$settings.protections.disablePersonalization
+            $chkProtectDesktop.Checked = [bool]$settings.protections.protectPublicDesktop
+            $chkControlPanel.Checked = [bool]$settings.protections.blockControlPanel
+            $chkRegistry.Checked = [bool]$settings.protections.blockRegistryTools
+            $chkTaskMgr.Checked = [bool]$settings.protections.blockTaskManager
+            $chkBrowserWhitelist.Checked = [bool]$settings.protections.browserWhitelist
+            $toggleUsb.Checked = [bool]$settings.usb.blockStorage
+            Add-ListItems $lstWebsites @($settings.allowedWebsites)
+            Add-ListItems $lstShortcuts @($settings.protectedShortcuts)
+            $script:allowedProgramMap = @{}
+            foreach ($path in @($settings.allowedPrograms)) {
+                if ($path -and -not [string]::IsNullOrWhiteSpace([string]$path)) {
+                    $script:allowedProgramMap[[string]$path] = [string]$path
+                }
+            }
+            & $syncProgramSelection
+            $script:inventoryLoaded = $false
+            & $loadPrograms
+            $radAppEnforce.Checked = ($settings.appControl.mode -eq 'Enabled')
+            $radAppAudit.Checked = -not $radAppEnforce.Checked
+            Refresh-Dashboard
+            Set-Status 'Perfil importado y controles actualizados (modo Auditoría)' 'Success'
             [System.Windows.Forms.MessageBox]::Show(
-                'Perfil importado. Cierra y vuelve a abrir AulaGuard para cargar todos los valores.',
-                'AulaGuard','OK','Information'
+                'Perfil cargado correctamente en modo Auditoría. El fondo y el USB se deben configurar de nuevo. Las reglas AppLocker actuales del equipo no se modificaron.',
+                'AulaGuard · Importación segura','OK','Information'
             ) | Out-Null
+        } catch {
+            Set-Status 'No se pudo importar el perfil' 'Error'
+            [System.Windows.Forms.MessageBox]::Show($_.Exception.Message,'AulaGuard · Importación','OK','Error') | Out-Null
         }
     })
 
@@ -1558,7 +1586,6 @@ try {
 
     $btnAppApply.Add_Click({
         try {
-            Save-FromUi
             $mode = if ($radAppEnforce.Checked) {'Enabled'} else {'AuditOnly'}
 
             if ($mode -eq 'Enabled') {
@@ -1575,6 +1602,7 @@ try {
                 }
             }
 
+            Save-FromUi
             Set-Status 'Configurando control de aplicaciones...' 'Warning'
 
             $parameters = @{
@@ -1633,7 +1661,7 @@ try {
 
     & $resizeProtection
     Set-NavActive $navHome
-    Write-AulaGuardAudit -Action 'APP_STARTED' -Detail 'v0.4.3' -Root $root
+    Write-AulaGuardAudit -Action 'APP_STARTED' -Detail 'v0.4.4' -Root $root
     Refresh-Dashboard
     & $loadAudit
     & $loadAppEvents
@@ -1647,6 +1675,46 @@ try {
 
     # Optional WinForms construction self-test; do not show a blocking dialog.
     if ($script:AulaGuardUiTest) {
+        # Exercise the actual inventory navigation and toggle event binding,
+        # not merely the construction of otherwise inert WinForms controls.
+        $tabs.SelectedTab = $tabPrograms
+        if (-not $script:inventoryLoaded) { & $loadPrograms }
+        if (-not $script:inventoryLoaded -or $script:programCatalog.Count -lt 1 -or $gridPrograms.Rows.Count -lt 1) {
+            throw 'La pestaña Programas no pudo detectar o mostrar las aplicaciones de Windows.'
+        }
+        $firstCompatible = @($script:programCatalog | Where-Object {
+            $_.CanAllow -and $_.ExecutablePath
+        } | Select-Object -First 1)
+        if ($firstCompatible.Count -gt 0) {
+            $candidate = [string]$firstCompatible[0].ExecutablePath
+            $previous = $script:allowedProgramMap.ContainsKey($candidate)
+            $targetRow = -1
+            foreach ($visibleRow in $gridPrograms.Rows) {
+                if ($visibleRow.Tag -and $visibleRow.Tag.ExecutablePath -eq $candidate) {
+                    $targetRow = $visibleRow.Index
+                    break
+                }
+            }
+            if ($targetRow -lt 0) { throw 'El catálogo no vinculó la aplicación compatible con su interruptor.' }
+            & $toggleProgramRow $targetRow
+            if ($script:allowedProgramMap.ContainsKey($candidate) -eq $previous) {
+                throw 'El interruptor de Programas no modificó la lista de aplicaciones.'
+            }
+            & $toggleProgramRow $targetRow
+            if ($script:allowedProgramMap.ContainsKey($candidate) -ne $previous) {
+                throw 'El interruptor no restauró el estado inicial.'
+            }
+        }
+        $tabs.SelectedTab = $tabAppControl
+        $radAppAudit.Checked = $true
+        $radAppEnforce.Checked = $true
+        if ($radAppAudit.Checked -or -not $radAppEnforce.Checked) {
+            throw 'Los modos Auditoría y Bloqueo de apps no son excluyentes.'
+        }
+        $radAppAudit.Checked = $true
+        if (-not $radAppAudit.Checked -or $radAppEnforce.Checked) {
+            throw 'No se puede volver a Auditoría desde Bloqueo.'
+        }
         $form.Dispose()
         exit 0
     }
