@@ -448,9 +448,9 @@ try {
     $homeRoot.Padding = New-Object System.Windows.Forms.Padding(22,16,22,14)
     $homeRoot.ColumnCount = 1
     $homeRoot.RowCount = 4
-    [void]$homeRoot.RowStyles.Add((New-Object System.Windows.Forms.RowStyle('Absolute',72)))
-    [void]$homeRoot.RowStyles.Add((New-Object System.Windows.Forms.RowStyle('Absolute',132)))
-    [void]$homeRoot.RowStyles.Add((New-Object System.Windows.Forms.RowStyle('Absolute',158)))
+    [void]$homeRoot.RowStyles.Add((New-Object System.Windows.Forms.RowStyle('Absolute',62)))
+    [void]$homeRoot.RowStyles.Add((New-Object System.Windows.Forms.RowStyle('Absolute',116)))
+    [void]$homeRoot.RowStyles.Add((New-Object System.Windows.Forms.RowStyle('Absolute',136)))
     [void]$homeRoot.RowStyles.Add((New-Object System.Windows.Forms.RowStyle('Percent',100)))
     $tabHome.Controls.Add($homeRoot)
 
@@ -497,14 +497,14 @@ try {
         )
         $card = New-Object System.Windows.Forms.Panel
         $card.Dock = 'Fill'
-        $card.Margin = New-Object System.Windows.Forms.Padding($(if($Column -eq 0){0}else{8}),0,$(if($Column -eq 3){0}else{8}),12)
+        $card.Margin = New-Object System.Windows.Forms.Padding($(if($Column -eq 0){0}else{6}),0,$(if($Column -eq 3){0}else{6}),8)
         $card.BackColor = $BackColor
         $card.BorderStyle = 'FixedSingle'
         $card.Controls.Add((New-Label $Eyebrow 14 12 8 $true $Accent))
-        $label = New-Label '-' 14 40 12 $true $Accent
+        $label = New-Label '-' 14 37 11 $true $Accent
         $label.MaximumSize = New-Object System.Drawing.Size(250,0)
         $card.Controls.Add($label)
-        $captionLabel = New-Label $Caption 14 76 8 $false $Muted
+        $captionLabel = New-Label $Caption 14 70 8 $false $Muted
         $captionLabel.MaximumSize = New-Object System.Drawing.Size(250,0)
         $card.Controls.Add($captionLabel)
         $Parent.Controls.Add($card,$Column,0)
@@ -542,9 +542,9 @@ try {
         $panel.Padding = New-Object System.Windows.Forms.Padding(14)
         $n = New-Label $Number 16 15 15 $true $Primary
         $t = New-Label $Title 52 15 11 $true $Text
-        $d = New-Label $Description 52 48 9 $false $Muted
-        $d.MaximumSize = New-Object System.Drawing.Size(280,0)
-        $btn = New-Button $ButtonText 52 92 168 32 $ButtonStyle
+        $d = New-Label $Description 52 44 8 $false $Muted
+        $d.MaximumSize = New-Object System.Drawing.Size(270,0)
+        $btn = New-Button $ButtonText 52 82 168 30 $ButtonStyle
         $panel.Controls.Add($n)
         $panel.Controls.Add($t)
         $panel.Controls.Add($d)
@@ -555,9 +555,9 @@ try {
     $quickHealth = New-HomeActionCard '1' 'Verifica el equipo' 'Comprueba requisitos antes de aplicar restricciones.' 'Estado del sistema' 'Primary'
     $quickProtect = New-HomeActionCard '2' 'Configura el aula' 'Fondo, USB, personalización y restricciones generales.' 'Abrir protección' 'Secondary'
     $quickApps = New-HomeActionCard '3' 'Prepara aplicaciones' 'Detecta programas, prueba auditoría y después bloquea.' 'Revisar programas' 'Secondary'
-    $quickHealth.Panel.Margin = New-Object System.Windows.Forms.Padding(0,6,8,12)
-    $quickProtect.Panel.Margin = New-Object System.Windows.Forms.Padding(8,6,8,12)
-    $quickApps.Panel.Margin = New-Object System.Windows.Forms.Padding(8,6,0,12)
+    $quickHealth.Panel.Margin = New-Object System.Windows.Forms.Padding(0,4,6,8)
+    $quickProtect.Panel.Margin = New-Object System.Windows.Forms.Padding(6,4,6,8)
+    $quickApps.Panel.Margin = New-Object System.Windows.Forms.Padding(6,4,0,8)
     $homeActions.Controls.Add($quickHealth.Panel,0,0)
     $homeActions.Controls.Add($quickProtect.Panel,1,0)
     $homeActions.Controls.Add($quickApps.Panel,2,0)
@@ -2041,7 +2041,7 @@ try {
     $radEnforce.Add_CheckedChanged({Refresh-Dashboard})
 
     foreach ($page in $tabs.TabPages) {
-        $page.AutoScroll = $true
+        $page.AutoScroll = ($page -eq $tabProtection -or $page -eq $tabWeb -or $page -eq $tabDesktop -or $page -eq $tabPremium -or $page -eq $tabAudit)
     }
 
     & $resizeProtection
@@ -2135,7 +2135,7 @@ try {
                 $pageCheck.Page.PerformLayout()
                 $pageCheck.Layout.PerformLayout()
                 if ($pageCheck.Layout.Width -lt 580 -or $pageCheck.Layout.Height -lt 300) {
-                    throw "La página $($pageCheck.Name) no conserva un área útil en $($testSize.Width)x$($testSize.Height)."
+                    throw "La página $($pageCheck.Name) no conserva un área útil en $($testSize.Width)x$($testSize.Height). Layout=$($pageCheck.Layout.Width)x$($pageCheck.Layout.Height); Page=$($pageCheck.Page.ClientSize.Width)x$($pageCheck.Page.ClientSize.Height); Workspace=$($workspace.ClientSize.Width)x$($workspace.ClientSize.Height)."
                 }
             }
 
