@@ -12,31 +12,34 @@ try {
     Import-Module (Join-Path $src 'AulaGuard.AppControl.psm1') -Force
     Import-Module (Join-Path $src 'AulaGuard.Diagnostics.psm1') -Force
 
-    # Do not create a new trust key or downgrade settings during unattended startup.
+    # Settings are staged preferences. Startup may only re-apply the last
+    # explicitly confirmed, signed deployment snapshot.
     $settings = Read-AulaGuardSettings -Root $root
+    $applied = Read-AulaGuardAppliedPolicy -Root $root
 
-    if ($settings.policyMode -eq 'Enforce') {
-        $checks = @(Test-AulaGuardReadiness -Root $root -Settings $settings)
+    if ($null -ne $applied) {
+        $checks = @(Test-AulaGuardReadiness -Root $root -Settings $applied)
         $blocking = @($checks | Where-Object { -not $_.Passed -and $_.BlocksPolicies })
         if ($blocking.Count -gt 0) {
             $reason = ($blocking | Select-Object -First 3 | ForEach-Object { "$($_.Code): $($_.Detail)" }) -join ' | '
             Write-AulaGuardAudit -Action 'STARTUP_PREFLIGHT_BLOCKED' -Level 'ERROR' -Detail $reason -Root $root
             throw "Prevalidación bloqueó la sincronización automática: $reason"
         }
-        $result = @(Set-AulaGuardPolicies -Settings $settings)
+        $result = @(Set-AulaGuardPolicies -Settings $applied)
         $policyErrors = @($result | Where-Object { $_.Status -eq 'ERROR' })
         if ($policyErrors.Count -gt 0) { throw "No se pudieron sincronizar políticas: $($policyErrors[0].Detail)" }
-        $usbResult = @(Sync-AulaGuardUsbPolicy -BlockStorage ([bool]$settings.usb.blockStorage) -Root $root)
+        $usbResult = @(Sync-AulaGuardUsbPolicy -BlockStorage ([bool]$applied.usb.blockStorage) -Root $root)
         $usbErrors = @($usbResult | Where-Object {$_.Status -eq 'ERROR'})
         if ($usbErrors.Count -gt 0) {
             throw "Falló la sincronización USB para $($usbErrors.Count) perfil(es): $($usbErrors[0].Detail)"
         }
-        if ($settings.protections.protectPublicDesktop) {
+        if ($applied.protections.protectPublicDesktop) {
             Protect-AulaGuardPublicDesktop
         }
-        Write-AulaGuardAudit -Action 'STARTUP_POLICIES_SYNC' -Level 'SECURITY' -Detail "Profiles=$($result.Count);USB=$($usbResult.Count)" -Root $root
+        Write-AulaGuardAudit -Action 'STARTUP_POLICIES_SYNC' -Level 'SECURITY' -Detail "Snapshot=$($applied.appliedUtc);Profiles=$($result.Count);USB=$($usbResult.Count)" -Root $root
     } else {
-        Write-AulaGuardAudit -Action 'STARTUP_AUDIT_MODE' -Detail 'Las políticas generales permanecen en modo auditoría.' -Root $root
+        $legacy = if ($settings.policyMode -eq 'Enforce') {'; LegacyEnforceState=True'} else {''}
+        Write-AulaGuardAudit -Action 'STARTUP_NO_APPLIED_POLICY' -Level 'WARN' -Detail "No existe una política firmada confirmada; no se aplican cambios al arrancar$legacy" -Root $root
     }
 
     if ($settings.appControl.enabled) {
