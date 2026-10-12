@@ -2103,8 +2103,16 @@ try {
             throw 'No se puede volver a Auditoría desde Bloqueo.'
         }
 
-        # Responsive layout regression: exercise the supported minimum size and
-        # two common classroom resolutions without showing the window.
+        # Responsive layout regression: create the native WinForms handles
+        # invisibly first. Without a handle, inactive TabPages remain at their
+        # design-time default (200x100) and do not represent the real UI.
+        $form.ShowInTaskbar = $false
+        $form.Opacity = 0
+        $form.Show()
+        [System.Windows.Forms.Application]::DoEvents()
+        $tabs.CreateControl()
+        foreach ($testPage in $tabs.TabPages) { $testPage.CreateControl() }
+
         foreach ($testSize in @(
             (New-Object System.Drawing.Size(1080,680)),
             (New-Object System.Drawing.Size(1280,720)),
@@ -2146,6 +2154,7 @@ try {
                 throw "Protección produce desbordamiento horizontal en $($testSize.Width)x$($testSize.Height)."
             }
         }
+        $form.Hide()
         $form.Dispose()
         exit 0
     }
