@@ -1,4 +1,4 @@
-# AulaGuard v0.5.0
+# AulaGuard v0.5.1
 # Friendly educational administration console for Windows classrooms.
 
 $ErrorActionPreference = 'Stop'
@@ -68,14 +68,17 @@ try {
     $Success = [System.Drawing.Color]::FromArgb(22,163,74)
     $Warning = [System.Drawing.Color]::FromArgb(217,119,6)
     $Danger = [System.Drawing.Color]::FromArgb(220,38,38)
-    $Bg = [System.Drawing.Color]::FromArgb(245,247,250)
+    $Bg = [System.Drawing.Color]::FromArgb(246,248,250)
     $Card = [System.Drawing.Color]::White
-    $Text = [System.Drawing.Color]::FromArgb(30,41,59)
+    $Text = [System.Drawing.Color]::FromArgb(15,23,42)
     $Muted = [System.Drawing.Color]::FromArgb(100,116,139)
     $Border = [System.Drawing.Color]::FromArgb(226,232,240)
+    $BorderStrong = [System.Drawing.Color]::FromArgb(203,213,225)
     $SoftBlue = [System.Drawing.Color]::FromArgb(236,253,245)
     $SoftGreen = [System.Drawing.Color]::FromArgb(240,253,244)
     $SoftAmber = [System.Drawing.Color]::FromArgb(255,251,235)
+    $SoftRed = [System.Drawing.Color]::FromArgb(254,242,242)
+    $SlateSoft = [System.Drawing.Color]::FromArgb(248,250,252)
 
     function New-Label {
         param(
@@ -110,8 +113,10 @@ try {
         $b.Size = New-Object System.Drawing.Size($W,$H)
         $b.FlatStyle = 'Flat'
         $b.FlatAppearance.BorderSize = 1
+        $b.FlatAppearance.MouseDownBackColor = [System.Drawing.Color]::FromArgb(220,252,231)
         $b.Cursor = 'Hand'
         $b.Font = New-Object System.Drawing.Font('Segoe UI Semibold',9)
+        $b.UseVisualStyleBackColor = $false
 
         switch ($Style) {
             'Primary' {
@@ -148,11 +153,12 @@ try {
         $b = New-Object System.Windows.Forms.Button
         $b.Text = $TextValue
         $b.Location = New-Object System.Drawing.Point(12,$Y)
-        $b.Size = New-Object System.Drawing.Size(160,44)
+        $b.Size = New-Object System.Drawing.Size(184,42)
         $b.FlatStyle = 'Flat'
         $b.FlatAppearance.BorderSize = 0
+        $b.FlatAppearance.MouseOverBackColor = $SlateSoft
         $b.TextAlign = 'MiddleLeft'
-        $b.Padding = New-Object System.Windows.Forms.Padding(14,0,0,0)
+        $b.Padding = New-Object System.Windows.Forms.Padding(16,0,0,0)
         $b.Cursor = 'Hand'
         $b.Font = New-Object System.Drawing.Font('Segoe UI Semibold',9)
         $b.BackColor = [System.Drawing.Color]::White
@@ -171,6 +177,62 @@ try {
         $p.BackColor = $BackColor
         $p.BorderStyle = 'FixedSingle'
         return $p
+    }
+
+    function New-Surface {
+        param(
+            [System.Drawing.Color]$BackColor = $Card,
+            [int]$Padding = 16
+        )
+        $p = New-Object System.Windows.Forms.Panel
+        $p.Dock = 'Fill'
+        $p.BackColor = $BackColor
+        $p.BorderStyle = 'FixedSingle'
+        $p.Padding = New-Object System.Windows.Forms.Padding($Padding)
+        $p.Margin = New-Object System.Windows.Forms.Padding(0,0,12,12)
+        return $p
+    }
+
+    function Style-Input {
+        param([System.Windows.Forms.Control]$Control)
+        $Control.Font = New-Object System.Drawing.Font('Segoe UI',10)
+        $Control.BackColor = [System.Drawing.Color]::White
+        $Control.ForeColor = $Text
+        $Control.Margin = New-Object System.Windows.Forms.Padding(0,5,0,5)
+    }
+
+    function Style-Check {
+        param([System.Windows.Forms.CheckBox]$Control)
+        $Control.FlatStyle = 'Flat'
+        $Control.Font = New-Object System.Drawing.Font('Segoe UI',9)
+        $Control.ForeColor = $Text
+        $Control.Cursor = 'Hand'
+    }
+
+    function New-MetricSurface {
+        param(
+            [string]$Caption,
+            [string]$InitialValue,
+            [string]$Hint,
+            [System.Drawing.Color]$Accent = $Primary
+        )
+        $panel = New-Surface -BackColor $Card -Padding 0
+        $panel.Margin = New-Object System.Windows.Forms.Padding(0,0,12,0)
+
+        $accentPanel = New-Object System.Windows.Forms.Panel
+        $accentPanel.Dock = 'Left'
+        $accentPanel.Width = 4
+        $accentPanel.BackColor = $Accent
+        $panel.Controls.Add($accentPanel)
+
+        $captionLabel = New-Label $Caption 18 14 8 $true $Muted
+        $valueLabel = New-Label $InitialValue 18 40 15 $true $Text
+        $hintLabel = New-Label $Hint 18 77 8 $false $Muted
+        $hintLabel.MaximumSize = New-Object System.Drawing.Size(230,34)
+        $panel.Controls.Add($captionLabel)
+        $panel.Controls.Add($valueLabel)
+        $panel.Controls.Add($hintLabel)
+        return [pscustomobject]@{ Panel=$panel; Value=$valueLabel; Hint=$hintLabel }
     }
 
     function Style-Grid {
@@ -217,7 +279,8 @@ try {
 
     function Set-Status {
         param([string]$Message,[string]$Type='Info')
-        $status.Text = $Message
+        $prefix = '●'
+        $status.Text = "$prefix  $Message"
         switch ($Type) {
             'Success' {$status.ForeColor = $Success}
             'Warning' {$status.ForeColor = $Warning}
@@ -240,7 +303,7 @@ try {
         }
 
         return [pscustomobject]@{
-            version = '0.5.0'
+            version = '0.5.1'
             profileName = $txtProfileName.Text.Trim()
             policyMode = if ($radEnforce.Checked) {'Enforce'} else {'Audit'}
             wallpaper = $txtWallpaper.Text.Trim()
@@ -296,27 +359,27 @@ try {
 
     $header = New-Object System.Windows.Forms.Panel
     $header.Dock = 'Top'
-    $header.Height = 92
+    $header.Height = 82
     $header.BackColor = $PrimaryDark
     $form.Controls.Add($header)
 
     $logo = New-Object System.Windows.Forms.Label
     $logo.Text = 'AG'
     $logo.TextAlign = 'MiddleCenter'
-    $logo.Location = New-Object System.Drawing.Point(22,18)
-    $logo.Size = New-Object System.Drawing.Size(54,54)
+    $logo.Location = New-Object System.Drawing.Point(22,14)
+    $logo.Size = New-Object System.Drawing.Size(52,52)
     $logo.BackColor = [System.Drawing.Color]::White
     $logo.ForeColor = $PrimaryDark
     $logo.Font = New-Object System.Drawing.Font('Segoe UI Semibold',15)
     $header.Controls.Add($logo)
 
-    $header.Controls.Add((New-Label 'AulaGuard' 92 15 21 $true ([System.Drawing.Color]::White)))
-    $header.Controls.Add((New-Label 'Protege el aula sin complicaciones' 94 48 10 $false ([System.Drawing.Color]::FromArgb(219,234,254))))
+    $header.Controls.Add((New-Label 'AulaGuard' 92 12 20 $true ([System.Drawing.Color]::White)))
+    $header.Controls.Add((New-Label 'Administración segura para aulas Windows' 94 43 9 $false ([System.Drawing.Color]::FromArgb(220,252,231))))
 
     $version = New-Object System.Windows.Forms.Label
-    $version.Text = 'v0.5.0'
+    $version.Text = 'v0.5.1'
     $version.TextAlign = 'MiddleCenter'
-    $version.Location = New-Object System.Drawing.Point(1060,26)
+    $version.Location = New-Object System.Drawing.Point(1060,22)
     $version.Size = New-Object System.Drawing.Size(82,30)
     $version.Anchor = 'Top,Right'
     $version.BackColor = [System.Drawing.Color]::FromArgb(21,128,61)
@@ -331,7 +394,7 @@ try {
     $footer.BackColor = [System.Drawing.Color]::White
     $form.Controls.Add($footer)
 
-    $status = New-Label 'AulaGuard listo' 18 21 9 $false $Muted
+    $status = New-Label '●  AulaGuard listo' 18 21 9 $false $Muted
     $footer.Controls.Add($status)
 
     $btnSave = New-Button 'Guardar cambios' 850 11 135 38 'Secondary'
@@ -359,7 +422,7 @@ try {
     $shell.ColumnCount = 2
     $shell.RowCount = 1
     $shell.Margin = New-Object System.Windows.Forms.Padding(0)
-    [void]$shell.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle('Absolute',202)))
+    [void]$shell.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle('Absolute',220)))
     [void]$shell.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle('Percent',100)))
     $workspace.Controls.Add($shell)
 
@@ -379,7 +442,7 @@ try {
     $tabs.Font = New-Object System.Drawing.Font('Segoe UI',9)
     $shell.Controls.Add($tabs,1,0)
 
-    $sidebar.Controls.Add((New-Label 'NAVEGACIÓN' 24 18 8 $true $Muted))
+    $sidebar.Controls.Add((New-Label 'NAVEGACIÓN' 22 18 8 $true $Muted))
 
     $navHome = New-NavButton 'Inicio' 46
     $navHealth = New-NavButton 'Estado del sistema' 92
@@ -396,11 +459,11 @@ try {
         $sidebar.Controls.Add($nav)
     }
 
-    $sideInfo = New-Card 12 530 178 110 $SoftGreen
-    $sideInfo.Controls.Add((New-Label 'Aula protegida' 12 12 9 $true $PrimaryDark))
-    $sideInfo.Controls.Add((New-Label 'Configura primero' 12 42 8 $false $Muted))
-    $sideInfo.Controls.Add((New-Label 'en auditoría y luego' 12 62 8 $false $Muted))
-    $sideInfo.Controls.Add((New-Label 'activa la protección.' 12 82 8 $false $Muted))
+    $sideInfo = New-Card 12 530 194 110 $SoftGreen
+    $sideInfo.Controls.Add((New-Label 'Consejo de despliegue' 12 12 9 $true $PrimaryDark))
+    $sideInfo.Controls.Add((New-Label 'Prueba primero en' 12 42 8 $false $Muted))
+    $sideInfo.Controls.Add((New-Label 'auditoría y luego' 12 62 8 $false $Muted))
+    $sideInfo.Controls.Add((New-Label 'activa restricciones.' 12 82 8 $false $Muted))
     $sidebar.Controls.Add($sideInfo)
     $sidebar.Add_Resize({
         $sideInfo.Visible = ($sidebar.ClientSize.Height -gt 690)
@@ -412,86 +475,123 @@ try {
         foreach ($nav in @($navHome,$navHealth,$navProtection,$navPrograms,$navAppControl,$navInternet,$navDesktop,$navUsb,$navPremium,$navLog)) {
             $nav.BackColor = [System.Drawing.Color]::White
             $nav.ForeColor = $Muted
+            $nav.Font = New-Object System.Drawing.Font('Segoe UI Semibold',9)
         }
-        $Active.BackColor = $SoftBlue
+        $Active.BackColor = $SoftGreen
         $Active.ForeColor = $PrimaryDark
+        $Active.Font = New-Object System.Drawing.Font('Segoe UI Semibold',9.5)
     }
 
-    # HOME
+    # HOME — responsive executive overview.
     $tabHome = New-Object System.Windows.Forms.TabPage
     $tabHome.Text = 'Inicio'
     $tabHome.BackColor = $Bg
     $tabs.TabPages.Add($tabHome)
 
-    $tabHome.Controls.Add((New-Label 'Bienvenido al centro de control del aula' 24 20 16 $true $Text))
-    $tabHome.Controls.Add((New-Label 'Revisa el estado del equipo y sigue la guía en orden para configurar la protección.' 24 52 9 $false $Muted))
+    $homeLayout = New-Object System.Windows.Forms.TableLayoutPanel
+    $homeLayout.Dock = 'Fill'
+    $homeLayout.Padding = New-Object System.Windows.Forms.Padding(24,18,24,18)
+    $homeLayout.ColumnCount = 1
+    $homeLayout.RowCount = 5
+    [void]$homeLayout.RowStyles.Add((New-Object System.Windows.Forms.RowStyle('Absolute',68)))
+    [void]$homeLayout.RowStyles.Add((New-Object System.Windows.Forms.RowStyle('Absolute',88)))
+    [void]$homeLayout.RowStyles.Add((New-Object System.Windows.Forms.RowStyle('Absolute',126)))
+    [void]$homeLayout.RowStyles.Add((New-Object System.Windows.Forms.RowStyle('Absolute',148)))
+    [void]$homeLayout.RowStyles.Add((New-Object System.Windows.Forms.RowStyle('Percent',100)))
+    $tabHome.Controls.Add($homeLayout)
 
-    $cardPc = New-Card 24 92 250 115 $Card
-    $cardPc.Controls.Add((New-Label 'EQUIPO' 16 14 8 $true $Muted))
-    $lblPcValue = New-Label '-' 16 42 12 $true $Text
-    $cardPc.Controls.Add($lblPcValue)
-    $lblWindowsValue = New-Label '-' 16 72 8 $false $Muted
-    $cardPc.Controls.Add($lblWindowsValue)
-    $tabHome.Controls.Add($cardPc)
+    $homeHeader = New-Object System.Windows.Forms.Panel
+    $homeHeader.Dock = 'Fill'
+    $homeHeader.Controls.Add((New-Label 'Centro de control del aula' 0 0 18 $true $Text))
+    $homeHeader.Controls.Add((New-Label 'Supervisa el equipo, prepara la configuración y aplica cambios con seguridad.' 0 36 9 $false $Muted))
+    $homeLayout.Controls.Add($homeHeader,0,0)
 
-    $cardUsers = New-Card 292 92 250 115 $SoftBlue
-    $cardUsers.Controls.Add((New-Label 'USUARIOS DEL AULA' 16 14 8 $true $PrimaryDark))
-    $lblUsersValue = New-Label '-' 16 42 12 $true $PrimaryDark
-    $cardUsers.Controls.Add($lblUsersValue)
-    $cardUsers.Controls.Add((New-Label 'Administradores excluidos automáticamente.' 16 72 8 $false $Muted))
-    $tabHome.Controls.Add($cardUsers)
+    $homeState = New-Surface -BackColor $SoftGreen -Padding 0
+    $homeState.Margin = New-Object System.Windows.Forms.Padding(0,0,0,12)
+    $lblHomeStateTitle = New-Label 'Comprobando el equipo...' 18 14 11 $true $PrimaryDark
+    $lblHomeStateDetail = New-Label 'AulaGuard validará Windows antes de aplicar restricciones.' 18 43 9 $false $Muted
+    $btnGoHealth = New-Button 'Ver estado' 0 0 125 34 'Secondary'
+    $btnGoHealth.Anchor = 'Top,Right'
+    $btnGoHealth.Location = New-Object System.Drawing.Point(900,19)
+    $homeState.Controls.Add($lblHomeStateTitle)
+    $homeState.Controls.Add($lblHomeStateDetail)
+    $homeState.Controls.Add($btnGoHealth)
+    $homeState.Add_Resize({ $btnGoHealth.Left = [Math]::Max(540,$homeState.ClientSize.Width - $btnGoHealth.Width - 18) })
+    $homeLayout.Controls.Add($homeState,0,1)
 
-    $cardMode = New-Card 560 92 250 115 $SoftGreen
-    $cardMode.Controls.Add((New-Label 'MODO DE PROTECCIÓN' 16 14 8 $true $Success))
-    $lblModeValue = New-Label '-' 16 42 12 $true $Success
-    $cardMode.Controls.Add($lblModeValue)
-    $cardMode.Controls.Add((New-Label 'Empieza siempre en auditoría.' 16 72 8 $false $Muted))
-    $tabHome.Controls.Add($cardMode)
+    $metrics = New-Object System.Windows.Forms.TableLayoutPanel
+    $metrics.Dock = 'Fill'
+    $metrics.ColumnCount = 4
+    $metrics.RowCount = 1
+    $metrics.Margin = New-Object System.Windows.Forms.Padding(0,0,0,12)
+    foreach ($i in 1..4) { [void]$metrics.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle('Percent',25))) }
+    $homeLayout.Controls.Add($metrics,0,2)
 
-    $cardApps = New-Card 828 92 290 115 $SoftAmber
-    $cardApps.Controls.Add((New-Label 'PROGRAMAS AUTORIZADOS' 16 14 8 $true $Warning))
-    $lblAppsValue = New-Label '0' 16 40 15 $true $Warning
-    $cardApps.Controls.Add($lblAppsValue)
-    $cardApps.Controls.Add((New-Label 'Solo agrega software usado en clase.' 16 74 8 $false $Muted))
-    $tabHome.Controls.Add($cardApps)
+    $metricPc = New-MetricSurface 'EQUIPO' '-' 'Nombre y edición de Windows' $Primary
+    $metricUsers = New-MetricSurface 'ESTUDIANTES' '-' 'Administradores excluidos' $Success
+    $metricMode = New-MetricSurface 'PROTECCIÓN' '-' 'Estado general del equipo' $Warning
+    $metricApps = New-MetricSurface 'APPS PERMITIDAS' '0' 'Selección para AppLocker' $PrimaryDark
+    $metrics.Controls.Add($metricPc.Panel,0,0)
+    $metrics.Controls.Add($metricUsers.Panel,1,0)
+    $metrics.Controls.Add($metricMode.Panel,2,0)
+    $metrics.Controls.Add($metricApps.Panel,3,0)
+    $lblPcValue = $metricPc.Value
+    $lblWindowsValue = $metricPc.Hint
+    $lblUsersValue = $metricUsers.Value
+    $lblModeValue = $metricMode.Value
+    $lblAppsValue = $metricApps.Value
 
-    $tabHome.Controls.Add((New-Label 'Guía rápida' 24 238 13 $true $Text))
-    $tabHome.Controls.Add((New-Label 'Tres pasos simples para preparar un equipo de forma segura.' 24 267 9 $false $Muted))
+    $quick = New-Object System.Windows.Forms.TableLayoutPanel
+    $quick.Dock = 'Fill'
+    $quick.ColumnCount = 3
+    $quick.RowCount = 1
+    $quick.Margin = New-Object System.Windows.Forms.Padding(0,0,0,12)
+    foreach ($i in 1..3) { [void]$quick.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle('Percent',33.333))) }
+    $homeLayout.Controls.Add($quick,0,3)
 
-    $step1 = New-Card 24 306 340 110 $Card
-    $step1.Controls.Add((New-Label '1' 16 18 15 $true $Primary))
-    $step1.Controls.Add((New-Label 'Configura el aula' 52 18 11 $true $Text))
-    $step1.Controls.Add((New-Label 'Elige fondo, programas, sitios y accesos.' 52 49 9 $false $Muted))
-    $btnGoProtect = New-Button 'Ir a protección' 52 70 140 28 'Secondary'
-    $step1.Controls.Add($btnGoProtect)
-    $tabHome.Controls.Add($step1)
+    $quickProtect = New-Surface -BackColor $Card -Padding 0
+    $quickProtect.Controls.Add((New-Label '1 · Preparar políticas' 18 16 11 $true $Text))
+    $quickProtect.Controls.Add((New-Label 'Fondo, herramientas del sistema, Internet y USB.' 18 48 9 $false $Muted))
+    $btnGoProtect = New-Button 'Configurar protección' 18 86 165 34 'Secondary'
+    $quickProtect.Controls.Add($btnGoProtect)
+    $quick.Controls.Add($quickProtect,0,0)
 
-    $step2 = New-Card 386 306 340 110 $Card
-    $step2.Controls.Add((New-Label '2' 16 18 15 $true $Primary))
-    $step2.Controls.Add((New-Label 'Prueba en auditoría' 52 18 11 $true $Text))
-    $step2.Controls.Add((New-Label 'Observa qué pasaría sin bloquear.' 52 49 9 $false $Muted))
-    $btnGoApps = New-Button 'Revisar programas' 52 70 150 28 'Secondary'
-    $step2.Controls.Add($btnGoApps)
-    $tabHome.Controls.Add($step2)
+    $quickPrograms = New-Surface -BackColor $Card -Padding 0
+    $quickPrograms.Controls.Add((New-Label '2 · Elegir aplicaciones' 18 16 11 $true $Text))
+    $quickPrograms.Controls.Add((New-Label 'Detecta software instalado y decide qué necesita el aula.' 18 48 9 $false $Muted))
+    $btnGoApps = New-Button 'Revisar programas' 18 86 158 34 'Secondary'
+    $quickPrograms.Controls.Add($btnGoApps)
+    $quick.Controls.Add($quickPrograms,1,0)
 
-    $step3 = New-Card 748 306 370 110 $Card
-    $step3.Controls.Add((New-Label '3' 16 18 15 $true $Success))
-    $step3.Controls.Add((New-Label 'Activa la protección' 52 18 11 $true $Text))
-    $step3.Controls.Add((New-Label 'Hazlo solo después de revisar la auditoría.' 52 49 9 $false $Muted))
-    $step3.Controls.Add((New-Label 'Administradores protegidos' 52 76 8 $true $Success))
-    $tabHome.Controls.Add($step3)
+    $quickAudit = New-Surface -BackColor $SoftGreen -Padding 0
+    $quickAudit.Controls.Add((New-Label '3 · Validar antes de bloquear' 18 16 11 $true $PrimaryDark))
+    $quickAudit.Controls.Add((New-Label 'Usa auditoría, revisa eventos y activa bloqueo al final.' 18 48 9 $false $Muted))
+    $lblQuickAudit = New-Label 'Recomendado: Auditoría' 18 90 9 $true $Success
+    $quickAudit.Controls.Add($lblQuickAudit)
+    $quick.Controls.Add($quickAudit,2,0)
 
-    $tabHome.Controls.Add((New-Label 'Usuarios detectados' 24 446 12 $true $Text))
+    $usersSurface = New-Surface -BackColor $Card -Padding 0
+    $usersSurface.Margin = New-Object System.Windows.Forms.Padding(0)
+    $usersHeader = New-Object System.Windows.Forms.Panel
+    $usersHeader.Dock = 'Top'
+    $usersHeader.Height = 48
+    $usersHeader.BackColor = $Card
+    $usersHeader.Controls.Add((New-Label 'Usuarios detectados' 16 13 11 $true $Text))
+    $usersSurface.Controls.Add($usersHeader)
+
     $gridUsers = New-Object System.Windows.Forms.DataGridView
-    $gridUsers.Location = New-Object System.Drawing.Point(24,480)
-    $gridUsers.Size = New-Object System.Drawing.Size(1094,145)
-    $gridUsers.Anchor = 'Top,Left,Right,Bottom'
+    $gridUsers.Dock = 'Fill'
+    $gridUsers.Margin = New-Object System.Windows.Forms.Padding(0)
     Style-Grid $gridUsers
+    $gridUsers.RowTemplate.Height = 34
     [void]$gridUsers.Columns.Add('User','Usuario')
     [void]$gridUsers.Columns.Add('Role','Tipo de cuenta')
     [void]$gridUsers.Columns.Add('State','Estado')
     [void]$gridUsers.Columns.Add('SID','Identificador')
-    $tabHome.Controls.Add($gridUsers)
+    $gridUsers.Columns['SID'].FillWeight = 160
+    $usersSurface.Controls.Add($gridUsers)
+    $gridUsers.BringToFront()
+    $homeLayout.Controls.Add($usersSurface,0,4)
 
     # SYSTEM STATUS — professional preflight view.
     $tabHealth = New-Object System.Windows.Forms.TabPage
@@ -572,10 +672,18 @@ try {
                 $healthSummaryCard.BackColor = $SoftGreen
                 $lblHealthTitle.Text = 'Equipo listo'
                 $lblHealthTitle.ForeColor = $Success
+                $homeState.BackColor = $SoftGreen
+                $lblHomeStateTitle.Text = 'Equipo listo para trabajar'
+                $lblHomeStateTitle.ForeColor = $Success
+                $lblHomeStateDetail.Text = "Diagnóstico correcto · $($summary.Passed)/$($summary.Total) comprobaciones"
             } else {
                 $healthSummaryCard.BackColor = $SoftAmber
                 $lblHealthTitle.Text = "Requiere atención · $($summary.Critical) bloqueo(s)"
                 $lblHealthTitle.ForeColor = $Danger
+                $homeState.BackColor = $(if ($summary.Critical -gt 0) {$SoftRed} else {$SoftAmber})
+                $lblHomeStateTitle.Text = $(if ($summary.Critical -gt 0) {"Requiere atención · $($summary.Critical) bloqueo(s)"} else {'Hay advertencias por revisar'})
+                $lblHomeStateTitle.ForeColor = $(if ($summary.Critical -gt 0) {$Danger} else {$Warning})
+                $lblHomeStateDetail.Text = "Correctos: $($summary.Passed)/$($summary.Total) · Advertencias: $($summary.Warnings)"
             }
             $lblHealthDetail.Text = "Correctos: $($summary.Passed)/$($summary.Total) · Advertencias: $($summary.Warnings)"
             return $summary
@@ -585,6 +693,10 @@ try {
             $lblHealthTitle.Text = 'No se pudo completar el diagnóstico'
             $lblHealthTitle.ForeColor = $Danger
             $lblHealthDetail.Text = $_.Exception.Message
+            $homeState.BackColor = $SoftRed
+            $lblHomeStateTitle.Text = 'No se pudo validar el equipo'
+            $lblHomeStateTitle.ForeColor = $Danger
+            $lblHomeStateDetail.Text = 'Abre Estado del sistema para revisar el detalle.'
             return $null
         }
     }
@@ -616,6 +728,10 @@ try {
     $toolTip.SetToolTip($radEnforce,'Aplica las restricciones reales a las cuentas estándar.')
 
     if ($settings.policyMode -eq 'Enforce') {$radEnforce.Checked = $true} else {$radAudit.Checked = $true}
+    $radAudit.Font = New-Object System.Drawing.Font('Segoe UI Semibold',9)
+    $radEnforce.Font = New-Object System.Drawing.Font('Segoe UI Semibold',9)
+    $radAudit.ForeColor = $PrimaryDark
+    $radEnforce.ForeColor = $Danger
     $tabProtection.Controls.Add($modeCard)
 
     $left = New-Card 24 204 535 292 $Card
@@ -626,6 +742,7 @@ try {
     $chkLockWallpaper.Location = New-Object System.Drawing.Point(18,55)
     $chkLockWallpaper.AutoSize = $true
     $chkLockWallpaper.Checked = [bool]$settings.protections.lockWallpaper
+    Style-Check $chkLockWallpaper
     $left.Controls.Add($chkLockWallpaper)
 
     $chkPersonalization = New-Object System.Windows.Forms.CheckBox
@@ -633,6 +750,7 @@ try {
     $chkPersonalization.Location = New-Object System.Drawing.Point(18,88)
     $chkPersonalization.AutoSize = $true
     $chkPersonalization.Checked = [bool]$settings.protections.disablePersonalization
+    Style-Check $chkPersonalization
     $left.Controls.Add($chkPersonalization)
 
     $chkProtectDesktop = New-Object System.Windows.Forms.CheckBox
@@ -640,6 +758,7 @@ try {
     $chkProtectDesktop.Location = New-Object System.Drawing.Point(18,121)
     $chkProtectDesktop.AutoSize = $true
     $chkProtectDesktop.Checked = [bool]$settings.protections.protectPublicDesktop
+    Style-Check $chkProtectDesktop
     $left.Controls.Add($chkProtectDesktop)
 
     $left.Controls.Add((New-Label 'Fondo institucional' 18 170 9 $true $Text))
@@ -648,6 +767,7 @@ try {
     $txtWallpaper.Size = New-Object System.Drawing.Size(360,28)
     $txtWallpaper.ReadOnly = $true
     $txtWallpaper.Text = [string]$settings.wallpaper
+    Style-Input $txtWallpaper
     $left.Controls.Add($txtWallpaper)
 
     $btnWallpaper = New-Button 'Elegir imagen' 390 198 120 32 'Secondary'
@@ -663,6 +783,7 @@ try {
     $chkControlPanel.Location = New-Object System.Drawing.Point(18,80)
     $chkControlPanel.AutoSize = $true
     $chkControlPanel.Checked = [bool]$settings.protections.blockControlPanel
+    Style-Check $chkControlPanel
     $right.Controls.Add($chkControlPanel)
 
     $chkRegistry = New-Object System.Windows.Forms.CheckBox
@@ -670,6 +791,7 @@ try {
     $chkRegistry.Location = New-Object System.Drawing.Point(18,113)
     $chkRegistry.AutoSize = $true
     $chkRegistry.Checked = [bool]$settings.protections.blockRegistryTools
+    Style-Check $chkRegistry
     $right.Controls.Add($chkRegistry)
 
     $chkTaskMgr = New-Object System.Windows.Forms.CheckBox
@@ -677,6 +799,7 @@ try {
     $chkTaskMgr.Location = New-Object System.Drawing.Point(18,146)
     $chkTaskMgr.AutoSize = $true
     $chkTaskMgr.Checked = [bool]$settings.protections.blockTaskManager
+    Style-Check $chkTaskMgr
     $right.Controls.Add($chkTaskMgr)
 
     $chkBrowserWhitelist = New-Object System.Windows.Forms.CheckBox
@@ -684,6 +807,7 @@ try {
     $chkBrowserWhitelist.Location = New-Object System.Drawing.Point(18,179)
     $chkBrowserWhitelist.AutoSize = $true
     $chkBrowserWhitelist.Checked = [bool]$settings.protections.browserWhitelist
+    Style-Check $chkBrowserWhitelist
     $right.Controls.Add($chkBrowserWhitelist)
 
     $tabProtection.Controls.Add($right)
@@ -696,6 +820,7 @@ try {
     $txtProfileName.Location = New-Object System.Drawing.Point(78,46)
     $txtProfileName.Size = New-Object System.Drawing.Size(260,28)
     $txtProfileName.Text = [string]$settings.profileName
+    Style-Input $txtProfileName
     $profileCard.Controls.Add($txtProfileName)
 
     $btnExport = New-Button 'Exportar perfil' 570 42 140 34 'Neutral'
@@ -772,8 +897,8 @@ try {
     $programNotice.Margin = New-Object System.Windows.Forms.Padding(0,0,0,12)
     $programNotice.BackColor = $SoftGreen
     $programNotice.Padding = New-Object System.Windows.Forms.Padding(12)
-    $programNotice.Controls.Add((New-Label 'Cómo funciona' 14 8 10 $true $PrimaryDark))
-    $programNotice.Controls.Add((New-Label 'Los interruptores modifican la selección. Guarda y valida en Control de apps antes de activar el bloqueo.' 14 34 9 $false $Text))
+    $programNotice.Controls.Add((New-Label 'Selección segura de aplicaciones' 14 8 10 $true $PrimaryDark))
+    $programNotice.Controls.Add((New-Label 'Los interruptores preparan la lista. Windows no bloquea nada hasta que lo confirmas en Control de apps.' 14 34 9 $false $Text))
     $programLayout.Controls.Add($programNotice,0,1)
 
     $programToolbar = New-Object System.Windows.Forms.TableLayoutPanel
@@ -789,7 +914,8 @@ try {
     $txtProgramSearch = New-Object System.Windows.Forms.TextBox
     $txtProgramSearch.Dock = 'Fill'
     $txtProgramSearch.Margin = New-Object System.Windows.Forms.Padding(0,8,12,13)
-    $txtProgramSearch.Font = New-Object System.Drawing.Font('Segoe UI',11)
+    $txtProgramSearch.Font = New-Object System.Drawing.Font('Segoe UI',10)
+    Style-Input $txtProgramSearch
     $programToolbar.Controls.Add($txtProgramSearch,0,0)
     $toolTip.SetToolTip($txtProgramSearch,'Buscar por nombre, editor o ruta del ejecutable')
 
@@ -1031,60 +1157,139 @@ try {
     $gridAppEvents.Columns['Message'].FillWeight = 220
     $appLayout.Controls.Add($gridAppEvents,0,4)
 
-    # INTERNET
+    # INTERNET — responsive allow-list workspace.
     $tabWeb = New-Object System.Windows.Forms.TabPage
     $tabWeb.Text = 'Internet'
     $tabWeb.BackColor = $Bg
     $tabs.TabPages.Add($tabWeb)
 
-    $tabWeb.Controls.Add((New-Label 'Sitios web permitidos' 24 20 15 $true $Text))
-    $tabWeb.Controls.Add((New-Label 'Si activas la lista blanca, Edge y Chrome permitirán únicamente los sitios definidos aquí.' 24 52 9 $false $Muted))
+    $webLayout = New-Object System.Windows.Forms.TableLayoutPanel
+    $webLayout.Dock = 'Fill'
+    $webLayout.Padding = New-Object System.Windows.Forms.Padding(24,18,24,18)
+    $webLayout.ColumnCount = 1
+    $webLayout.RowCount = 4
+    [void]$webLayout.RowStyles.Add((New-Object System.Windows.Forms.RowStyle('Absolute',68)))
+    [void]$webLayout.RowStyles.Add((New-Object System.Windows.Forms.RowStyle('Absolute',72)))
+    [void]$webLayout.RowStyles.Add((New-Object System.Windows.Forms.RowStyle('Absolute',58)))
+    [void]$webLayout.RowStyles.Add((New-Object System.Windows.Forms.RowStyle('Percent',100)))
+    $tabWeb.Controls.Add($webLayout)
+
+    $webHeader = New-Object System.Windows.Forms.Panel
+    $webHeader.Dock = 'Fill'
+    $webHeader.Controls.Add((New-Label 'Internet permitido' 0 0 17 $true $Text))
+    $webHeader.Controls.Add((New-Label 'Define los sitios necesarios para la clase cuando uses la lista blanca del navegador.' 0 35 9 $false $Muted))
+    $webLayout.Controls.Add($webHeader,0,0)
+
+    $webNotice = New-Surface -BackColor $SoftAmber -Padding 0
+    $webNotice.Margin = New-Object System.Windows.Forms.Padding(0,0,0,12)
+    $webNotice.Controls.Add((New-Label 'Lista blanca del navegador' 15 10 10 $true $Warning))
+    $webNotice.Controls.Add((New-Label 'Si la activas en Protección, Edge y Chrome permitirán únicamente los dominios definidos aquí.' 15 36 9 $false $Text))
+    $webLayout.Controls.Add($webNotice,0,1)
+
+    $webAdd = New-Object System.Windows.Forms.TableLayoutPanel
+    $webAdd.Dock = 'Fill'
+    $webAdd.ColumnCount = 2
+    $webAdd.RowCount = 1
+    [void]$webAdd.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle('Percent',100)))
+    [void]$webAdd.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle('Absolute',165)))
+    $webLayout.Controls.Add($webAdd,0,2)
 
     $txtWebsite = New-Object System.Windows.Forms.TextBox
-    $txtWebsite.Location = New-Object System.Drawing.Point(24,94)
-    $txtWebsite.Size = New-Object System.Drawing.Size(720,30)
-    $txtWebsite.Font = New-Object System.Drawing.Font('Segoe UI',10)
-    $tabWeb.Controls.Add($txtWebsite)
+    $txtWebsite.Dock = 'Fill'
+    $txtWebsite.Margin = New-Object System.Windows.Forms.Padding(0,6,12,10)
+    Style-Input $txtWebsite
+    $webAdd.Controls.Add($txtWebsite,0,0)
+    $toolTip.SetToolTip($txtWebsite,'Ejemplo: classroom.google.com o *.example.edu')
 
-    $btnAddWebsite = New-Button 'Agregar sitio' 760 90 150 36 'Primary'
-    $tabWeb.Controls.Add($btnAddWebsite)
+    $btnAddWebsite = New-Button 'Agregar sitio' 0 0 150 36 'Primary'
+    $btnAddWebsite.Dock = 'Fill'
+    $btnAddWebsite.Margin = New-Object System.Windows.Forms.Padding(0,5,0,10)
+    $webAdd.Controls.Add($btnAddWebsite,1,0)
 
+    $webContent = New-Object System.Windows.Forms.TableLayoutPanel
+    $webContent.Dock = 'Fill'
+    $webContent.ColumnCount = 2
+    $webContent.RowCount = 1
+    [void]$webContent.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle('Percent',100)))
+    [void]$webContent.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle('Absolute',190)))
+    $webLayout.Controls.Add($webContent,0,3)
+
+    $webListSurface = New-Surface -BackColor $Card -Padding 12
+    $webListSurface.Margin = New-Object System.Windows.Forms.Padding(0,0,12,0)
     $lstWebsites = New-Object System.Windows.Forms.ListBox
-    $lstWebsites.Location = New-Object System.Drawing.Point(24,150)
-    $lstWebsites.Size = New-Object System.Drawing.Size(884,430)
-    $lstWebsites.Anchor = 'Top,Left,Right,Bottom'
-    $lstWebsites.Font = New-Object System.Drawing.Font('Segoe UI',9)
-    $tabWeb.Controls.Add($lstWebsites)
+    $lstWebsites.Dock = 'Fill'
+    $lstWebsites.BorderStyle = 'None'
+    $lstWebsites.Font = New-Object System.Drawing.Font('Segoe UI',10)
+    $lstWebsites.BackColor = $Card
+    $webListSurface.Controls.Add($lstWebsites)
     Add-ListItems $lstWebsites @($settings.allowedWebsites)
+    $webContent.Controls.Add($webListSurface,0,0)
 
-    $btnRemoveWebsite = New-Button 'Quitar seleccionado' 930 150 168 38 'Danger'
-    $btnRemoveWebsite.Anchor = 'Top,Right'
-    $tabWeb.Controls.Add($btnRemoveWebsite)
+    $webActions = New-Object System.Windows.Forms.FlowLayoutPanel
+    $webActions.Dock = 'Fill'
+    $webActions.FlowDirection = 'TopDown'
+    $webActions.WrapContents = $false
+    $webContent.Controls.Add($webActions,1,0)
+    $btnRemoveWebsite = New-Button 'Quitar seleccionado' 0 0 178 38 'Danger'
+    $btnRemoveWebsite.Margin = New-Object System.Windows.Forms.Padding(0,0,0,8)
+    $webActions.Controls.Add($btnRemoveWebsite)
 
-    # DESKTOP
+    # DESKTOP — responsive shortcuts workspace.
     $tabDesktop = New-Object System.Windows.Forms.TabPage
     $tabDesktop.Text = 'Escritorio'
     $tabDesktop.BackColor = $Bg
     $tabs.TabPages.Add($tabDesktop)
 
-    $tabDesktop.Controls.Add((New-Label 'Accesos directos del aula' 24 20 15 $true $Text))
-    $tabDesktop.Controls.Add((New-Label 'Selecciona los accesos que quieres conservar y proteger para los estudiantes.' 24 52 9 $false $Muted))
+    $desktopLayout = New-Object System.Windows.Forms.TableLayoutPanel
+    $desktopLayout.Dock = 'Fill'
+    $desktopLayout.Padding = New-Object System.Windows.Forms.Padding(24,18,24,18)
+    $desktopLayout.ColumnCount = 1
+    $desktopLayout.RowCount = 3
+    [void]$desktopLayout.RowStyles.Add((New-Object System.Windows.Forms.RowStyle('Absolute',68)))
+    [void]$desktopLayout.RowStyles.Add((New-Object System.Windows.Forms.RowStyle('Absolute',72)))
+    [void]$desktopLayout.RowStyles.Add((New-Object System.Windows.Forms.RowStyle('Percent',100)))
+    $tabDesktop.Controls.Add($desktopLayout)
 
+    $desktopHeader = New-Object System.Windows.Forms.Panel
+    $desktopHeader.Dock = 'Fill'
+    $desktopHeader.Controls.Add((New-Label 'Accesos del aula' 0 0 17 $true $Text))
+    $desktopHeader.Controls.Add((New-Label 'Conserva únicamente los accesos directos que deben permanecer disponibles para estudiantes.' 0 35 9 $false $Muted))
+    $desktopLayout.Controls.Add($desktopHeader,0,0)
+
+    $desktopNotice = New-Surface -BackColor $SoftGreen -Padding 0
+    $desktopNotice.Margin = New-Object System.Windows.Forms.Padding(0,0,0,12)
+    $desktopNotice.Controls.Add((New-Label 'Escritorio administrado' 15 10 10 $true $PrimaryDark))
+    $desktopNotice.Controls.Add((New-Label 'La protección se aplica al escritorio público; las cuentas administradoras siguen excluidas.' 15 36 9 $false $Text))
+    $desktopLayout.Controls.Add($desktopNotice,0,1)
+
+    $desktopContent = New-Object System.Windows.Forms.TableLayoutPanel
+    $desktopContent.Dock = 'Fill'
+    $desktopContent.ColumnCount = 2
+    $desktopContent.RowCount = 1
+    [void]$desktopContent.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle('Percent',100)))
+    [void]$desktopContent.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle('Absolute',190)))
+    $desktopLayout.Controls.Add($desktopContent,0,2)
+
+    $desktopListSurface = New-Surface -BackColor $Card -Padding 12
+    $desktopListSurface.Margin = New-Object System.Windows.Forms.Padding(0,0,12,0)
     $lstShortcuts = New-Object System.Windows.Forms.ListBox
-    $lstShortcuts.Location = New-Object System.Drawing.Point(24,96)
-    $lstShortcuts.Size = New-Object System.Drawing.Size(884,480)
-    $lstShortcuts.Anchor = 'Top,Left,Right,Bottom'
-    $lstShortcuts.Font = New-Object System.Drawing.Font('Segoe UI',9)
-    $tabDesktop.Controls.Add($lstShortcuts)
+    $lstShortcuts.Dock = 'Fill'
+    $lstShortcuts.BorderStyle = 'None'
+    $lstShortcuts.Font = New-Object System.Drawing.Font('Segoe UI',10)
+    $desktopListSurface.Controls.Add($lstShortcuts)
     Add-ListItems $lstShortcuts @($settings.protectedShortcuts)
+    $desktopContent.Controls.Add($desktopListSurface,0,0)
 
-    $btnAddShortcut = New-Button 'Agregar acceso' 930 96 168 38 'Primary'
-    $btnAddShortcut.Anchor = 'Top,Right'
-    $tabDesktop.Controls.Add($btnAddShortcut)
-
-    $btnRemoveShortcut = New-Button 'Quitar seleccionado' 930 144 168 38 'Danger'
-    $btnRemoveShortcut.Anchor = 'Top,Right'
-    $tabDesktop.Controls.Add($btnRemoveShortcut)
+    $desktopActions = New-Object System.Windows.Forms.FlowLayoutPanel
+    $desktopActions.Dock = 'Fill'
+    $desktopActions.FlowDirection = 'TopDown'
+    $desktopActions.WrapContents = $false
+    $desktopContent.Controls.Add($desktopActions,1,0)
+    $btnAddShortcut = New-Button 'Agregar acceso' 0 0 178 38 'Primary'
+    $btnRemoveShortcut = New-Button 'Quitar seleccionado' 0 0 178 38 'Danger'
+    $btnAddShortcut.Margin = New-Object System.Windows.Forms.Padding(0,0,0,8)
+    $desktopActions.Controls.Add($btnAddShortcut)
+    $desktopActions.Controls.Add($btnRemoveShortcut)
 
     # USB REMOVABLE STORAGE CONTROL — per-user, never the entire USB controller.
     $tabUsb = New-Object System.Windows.Forms.TabPage
@@ -1129,27 +1334,22 @@ try {
     $toggleUsb.Cursor = 'Hand'
     $toggleUsb.Checked = [bool]$settings.usb.blockStorage
     $usbCard.Controls.Add($toggleUsb)
-    $toggleUsb.Add_CheckedChanged({
+    $updateUsbVisual = {
         if ($toggleUsb.Checked) {
-            $toggleUsb.Text = '● BLOQUEAR'
-            $toggleUsb.BackColor = $Primary
+            $toggleUsb.Text = 'BLOQUEAR USB'
+            $toggleUsb.BackColor = $Danger
             $toggleUsb.ForeColor = [System.Drawing.Color]::White
+            $usbCard.BackColor = $SoftRed
         } else {
-            $toggleUsb.Text = '○ PERMITIR'
-            $toggleUsb.BackColor = [System.Drawing.Color]::FromArgb(226,232,240)
-            $toggleUsb.ForeColor = $Text
+            $toggleUsb.Text = 'PERMITIR USB'
+            $toggleUsb.BackColor = $SoftGreen
+            $toggleUsb.ForeColor = $PrimaryDark
+            $usbCard.BackColor = [System.Drawing.Color]::White
         }
-    })
-    if ($toggleUsb.Checked) {
-        $toggleUsb.Text = '● BLOQUEAR'
-        $toggleUsb.BackColor = $Primary
-        $toggleUsb.ForeColor = [System.Drawing.Color]::White
-    } else {
-        $toggleUsb.Text = '○ PERMITIR'
-        $toggleUsb.BackColor = [System.Drawing.Color]::FromArgb(226,232,240)
-        $toggleUsb.ForeColor = $Text
     }
-    $usbHint = New-Label 'Guarda y aplica en modo Protección. No desactiva puertos, teclados, ratones ni el acceso del administrador.' 158 92 9 $false $Muted
+    $toggleUsb.Add_CheckedChanged({ & $updateUsbVisual })
+    & $updateUsbVisual
+    $usbHint = New-Label 'Este ajuste afecta solo almacenamiento extraíble de estudiantes. Guarda y aplica Protección para hacerlo efectivo.' 158 92 9 $false $Muted
     $usbHint.MaximumSize = New-Object System.Drawing.Size(680,0)
     $usbCard.Controls.Add($usbHint)
 
@@ -1232,29 +1432,57 @@ try {
     $premiumCapabilities.Text = "Funcionalidades previstas para Premium:$([Environment]::NewLine)$([Environment]::NewLine)• Panel central de laboratorios, equipos y estado de conexión.$([Environment]::NewLine)• Alertas de acciones bloqueadas y dispositivos de almacenamiento.$([Environment]::NewLine)• Asignación de políticas por aula y por grupo de computadoras.$([Environment]::NewLine)• Historial de auditoría con permisos y retención configurables.$([Environment]::NewLine)• Comunicación cifrada TLS y registro de dispositivos autorizado.$([Environment]::NewLine)$([Environment]::NewLine)Esta pantalla es informativa: las conexiones remotas no están implementadas."
     $premiumPage.Controls.Add($premiumCapabilities,0,2)
 
-    # LOG
+    # LOG — responsive technical activity view.
     $tabAudit = New-Object System.Windows.Forms.TabPage
     $tabAudit.Text = 'Registro'
     $tabAudit.BackColor = $Bg
     $tabs.TabPages.Add($tabAudit)
 
-    $tabAudit.Controls.Add((New-Label 'Actividad de AulaGuard' 24 20 15 $true $Text))
-    $tabAudit.Controls.Add((New-Label 'Aquí puedes revisar cambios, aplicaciones de políticas y errores.' 24 52 9 $false $Muted))
+    $auditLayout = New-Object System.Windows.Forms.TableLayoutPanel
+    $auditLayout.Dock = 'Fill'
+    $auditLayout.Padding = New-Object System.Windows.Forms.Padding(24,18,24,18)
+    $auditLayout.ColumnCount = 1
+    $auditLayout.RowCount = 4
+    [void]$auditLayout.RowStyles.Add((New-Object System.Windows.Forms.RowStyle('Absolute',68)))
+    [void]$auditLayout.RowStyles.Add((New-Object System.Windows.Forms.RowStyle('Absolute',68)))
+    [void]$auditLayout.RowStyles.Add((New-Object System.Windows.Forms.RowStyle('Percent',100)))
+    [void]$auditLayout.RowStyles.Add((New-Object System.Windows.Forms.RowStyle('Absolute',52)))
+    $tabAudit.Controls.Add($auditLayout)
 
+    $auditHeader = New-Object System.Windows.Forms.Panel
+    $auditHeader.Dock = 'Fill'
+    $auditHeader.Controls.Add((New-Label 'Actividad y auditoría' 0 0 17 $true $Text))
+    $auditHeader.Controls.Add((New-Label 'Revisa cambios administrativos, aplicaciones de políticas, errores e integridad de registros.' 0 35 9 $false $Muted))
+    $auditLayout.Controls.Add($auditHeader,0,0)
+
+    $auditNotice = New-Surface -BackColor $SlateSoft -Padding 0
+    $auditNotice.Margin = New-Object System.Windows.Forms.Padding(0,0,0,12)
+    $auditNotice.Controls.Add((New-Label 'Registro protegido' 15 10 10 $true $Text))
+    $auditNotice.Controls.Add((New-Label 'AulaGuard valida la cadena HMAC antes de mostrar cada archivo de auditoría.' 15 36 9 $false $Muted))
+    $auditLayout.Controls.Add($auditNotice,0,1)
+
+    $auditSurface = New-Surface -BackColor $Card -Padding 12
+    $auditSurface.Margin = New-Object System.Windows.Forms.Padding(0,0,0,10)
     $txtAudit = New-Object System.Windows.Forms.TextBox
-    $txtAudit.Location = New-Object System.Drawing.Point(24,92)
-    $txtAudit.Size = New-Object System.Drawing.Size(1094,470)
-    $txtAudit.Anchor = 'Top,Left,Right,Bottom'
+    $txtAudit.Dock = 'Fill'
     $txtAudit.Multiline = $true
     $txtAudit.ReadOnly = $true
     $txtAudit.ScrollBars = 'Both'
     $txtAudit.Font = New-Object System.Drawing.Font('Consolas',9)
     $txtAudit.BackColor = [System.Drawing.Color]::White
-    $tabAudit.Controls.Add($txtAudit)
+    $txtAudit.ForeColor = $Text
+    $txtAudit.BorderStyle = 'None'
+    $auditSurface.Controls.Add($txtAudit)
+    $auditLayout.Controls.Add($auditSurface,0,2)
 
-    $btnRefreshAudit = New-Button 'Actualizar registro' 24 580 150 34 'Secondary'
-    $btnRefreshAudit.Anchor = 'Left,Bottom'
-    $tabAudit.Controls.Add($btnRefreshAudit)
+    $auditActions = New-Object System.Windows.Forms.FlowLayoutPanel
+    $auditActions.Dock = 'Fill'
+    $auditActions.FlowDirection = 'LeftToRight'
+    $auditActions.WrapContents = $false
+    $btnRefreshAudit = New-Button 'Actualizar registro' 0 0 165 36 'Secondary'
+    $btnRefreshAudit.Margin = New-Object System.Windows.Forms.Padding(0,5,10,4)
+    $auditActions.Controls.Add($btnRefreshAudit)
+    $auditLayout.Controls.Add($auditActions,0,3)
 
     $loadAudit = {
         $lines = @()
@@ -1333,14 +1561,17 @@ try {
             Set-Status 'No se pudieron validar los usuarios; revisa Estado del sistema' 'Warning'
         }
 
-        $lblModeValue.Text = if ($radEnforce.Checked) {'Protección activa'} else {'Modo seguro: auditoría'}
+        $lblModeValue.Text = if ($radEnforce.Checked) {'Activa'} else {'Auditoría'}
         $lblAppsValue.Text = [string]$lstPrograms.Items.Count
+        $lblQuickAudit.Text = if ($radEnforce.Checked) {'Revisa auditoría antes de mantener bloqueo'} else {'Recomendado: Auditoría'}
+        $lblQuickAudit.ForeColor = if ($radEnforce.Checked) {$Warning} else {$Success}
     }
 
     $btnGoProtect.Add_Click({$tabs.SelectedTab = $tabProtection})
     $btnGoApps.Add_Click({$tabs.SelectedTab = $tabPrograms})
 
     $navHome.Add_Click({$tabs.SelectedTab = $tabHome})
+    $btnGoHealth.Add_Click({$tabs.SelectedTab = $tabHealth})
     $navHealth.Add_Click({$tabs.SelectedTab = $tabHealth})
     $navProtection.Add_Click({$tabs.SelectedTab = $tabProtection})
     $navPrograms.Add_Click({$tabs.SelectedTab = $tabPrograms})
@@ -1822,7 +2053,7 @@ try {
 
     & $resizeProtection
     Set-NavActive $navHome
-    Write-AulaGuardAudit -Action 'APP_STARTED' -Detail 'v0.5.0' -Root $root
+    Write-AulaGuardAudit -Action 'APP_STARTED' -Detail 'v0.5.1' -Root $root
     Refresh-Dashboard
     & $loadAudit
     & $loadAppEvents
@@ -1836,6 +2067,20 @@ try {
 
     # Optional WinForms construction self-test; do not show a blocking dialog.
     if ($script:AulaGuardUiTest) {
+        # Exercise the complete responsive screen tree before testing actions.
+        foreach ($layout in @($homeLayout,$healthLayout,$programLayout,$appLayout,$webLayout,$desktopLayout,$usbView,$auditLayout)) {
+            if ($layout.Dock -ne [System.Windows.Forms.DockStyle]::Fill) {
+                throw "Una pantalla profesional no ocupa el área disponible: $($layout.Name)"
+            }
+        }
+        if ($metrics.ColumnCount -ne 4 -or $quick.ColumnCount -ne 3) {
+            throw 'El panel de Inicio perdió su estructura adaptable.'
+        }
+        foreach ($page in @($tabHome,$tabHealth,$tabProtection,$tabPrograms,$tabAppControl,$tabWeb,$tabDesktop,$tabUsb,$tabAudit)) {
+            $tabs.SelectedTab = $page
+            $page.PerformLayout()
+        }
+
         # Exercise the actual inventory navigation and toggle event binding,
         # not merely the construction of otherwise inert WinForms controls.
         $tabs.SelectedTab = $tabPrograms

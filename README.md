@@ -8,7 +8,7 @@
 
 La descarga se mostrará directamente aquí cuando el instalador corregido
 haya pasado las comprobaciones de Microsoft Defender y firma digital.
-**Actualmente no hay un .exe verificado de v0.5.0**: no descargues v0.4.0
+**Actualmente no hay un .exe verificado de v0.5.1**: no descargues v0.4.0
 para probar las correcciones.
 
 El archivo final quedará en `main/downloads/AulaGuard-Setup-vX.Y.Z.exe`,
@@ -17,13 +17,24 @@ de prueba sin revisión antivirus.
 
 ## Versión actual
 
-**v0.5.0 (código corregido, pendiente de firma y revisión antivirus del instalador)**
+**v0.5.1 (código corregido, pendiente de firma y revisión antivirus del instalador)**
 
 El proyecto incorpora control USB por usuario estándar, la vista de Servidor Premium (preparación sin conexión real), interfaz verde y la desinstalación para retirar los directorios del programa en Program Files y corrige la carga de módulos del programa compilado y mantiene la corrección del error de elevación 740. Incluye DPAPI, HMAC-SHA-256, auditoría encadenada, permisos NTFS restrictivos y validación de integridad. Mantiene el control avanzado de aplicaciones con AppLocker, auditoría previa al bloqueo, eventos de ejecución, aislamiento de cuentas administradoras y sincronización automática de políticas al iniciar Windows.
 
-## AulaGuard 0.5.0 — base profesional
+## AulaGuard 0.5.1 — interfaz profesional
 
-La versión 0.5.0 introduce una capa de **prevalidación profesional** antes de modificar Windows:
+La fase 0.5.1 consolida la experiencia visual sin alterar las protecciones del sistema:
+
+- **Inicio adaptable** con estado real del equipo, métricas principales, acciones guiadas y tabla de usuarios.
+- Navegación lateral más clara, encabezado compacto y lenguaje visual uniforme.
+- **Protección**, **Programas** y **USB** utilizan estados visuales coherentes; una acción sensible se distingue de una opción segura.
+- **Internet**, **Escritorio** y **Registro** ya no dependen de coordenadas fijas: usan paneles adaptables para DPI y diferentes resoluciones.
+- El panel de Inicio refleja el resultado del diagnóstico: listo, advertencia o bloqueo crítico.
+- La prueba WinForms recorre todas las pantallas profesionales y CI evita regresiones hacia diseños de posición fija.
+
+## AulaGuard 0.5.1 — base profesional
+
+La versión 0.5.1 introduce una capa de **prevalidación profesional** antes de modificar Windows:
 
 - Nueva sección **Estado del sistema** con comprobaciones de administrador, Windows, perfiles estándar, integridad de configuración, AppLocker, Microsoft Defender, fondo institucional y estado USB.
 - Las operaciones se bloquean antes de aplicar cambios si un requisito crítico no está disponible.
@@ -33,7 +44,7 @@ La versión 0.5.0 introduce una capa de **prevalidación profesional** antes de 
 - Se puede **exportar un diagnóstico JSON** para soporte sin incluir contraseñas, claves HMAC ni el contenido de la bitácora.
 - El instalador público continúa condicionado a firma Authenticode y análisis antivirus real.
 
-## Correcciones funcionales 0.5.0
+## Correcciones funcionales 0.5.1
 
 - **Programas** detecta las aplicaciones al acceder desde el panel de Inicio, el menú lateral o cualquier cambio a su pestaña. Antes, algunos enlaces abrían la lista vacía.
 - **Importar perfil** actualiza inmediatamente todos los controles. Los perfiles externos se cargan siempre en **Auditoría**, sin habilitar bloqueo USB ni imponer fondos de otras máquinas, y mantienen el estado AppLocker registrado localmente.
@@ -43,7 +54,7 @@ La versión 0.5.0 introduce una capa de **prevalidación profesional** antes de 
 
 **El instalador público permanece condicionado a firma Authenticode y análisis Microsoft Defender.** Compilar en CI no equivale a certificar el software.
 
-## Fondo institucional seguro (v0.5.0)
+## Fondo institucional seguro (v0.5.1)
 
 La imagen seleccionada por el administrador ya no se usa directamente desde Descargas, Escritorio o una ruta privada. Al guardar, AulaGuard verifica y convierte imágenes JPG, PNG y BMP a JPEG y las coloca en `%ProgramData%\AulaGuardAssets\institutional.jpg`. La carpeta concede a los estudiantes solo lectura y ejecución, y reserva escritura para administradores y SYSTEM. Si la imagen es inválida o no puede publicarse, se muestra un error y no se aplican políticas que la utilicen.
 
@@ -51,7 +62,7 @@ La imagen seleccionada por el administrador ya no se usa directamente desde Desc
 
 Si no está disponible un instalador firmado y analizado, **no desactive Defender para forzar la actualización**.
 
-## Nuevo inventario de programas (v0.5.0)
+## Nuevo inventario de programas (v0.5.1)
 
 - La sección **Programas** detecta aplicaciones Win32 en el Registro de Windows, entradas **App Paths**, accesos directos del menú Inicio y paquetes Microsoft Store.
 - Cada programa compatible aparece con **interruptor verde**. Al activarlo, se añade su ejecutable verificable a la lista blanca **pendiente de guardar**; no se activan restricciones automáticamente.
@@ -61,7 +72,7 @@ Si no está disponible un instalador firmado y analizado, **no desactive Defende
 - Mantenga primero **Modo auditoría** y valide las reglas antes de aplicar bloqueos. Los programas no detectados no son necesariamente desautorizados por Windows hasta que una política AppLocker válida se aplique.
 - Para conservar las selecciones, use **Guardar cambios**. Para afectar el equipo, utilice **Aplicar control** y confirme expresamente.
 
-El instalador v0.5.0 **no se distribuye hasta superar las verificaciones de Defender y contar con una firma Authenticode válida**.
+El instalador v0.5.1 **no se distribuye hasta superar las verificaciones de Defender y contar con una firma Authenticode válida**.
 
 ## Funciones actuales
 
@@ -121,7 +132,7 @@ Las nuevas compilaciones requieren un análisis activo con Microsoft Defender de
 
 **No se recomienda instalar la versión v0.4.0** hasta investigar el aviso antivirus reportado en un equipo Windows. Una advertencia SmartScreen de reputación no es lo mismo que una detección real de Microsoft Defender; todavía falta el nombre exacto de la amenaza.
 
-El código de **v0.5.0** conserva los cambios para exigir:
+El código de **v0.5.1** conserva los cambios para exigir:
 
 - Certificado Authenticode real (instalador y EXE) con clave privada protegida en Windows.
 - Versión **ps2exe 1.0.18** fijada explícitamente.
@@ -134,7 +145,7 @@ Para revisar una detección y preparar el entorno, lea [Investigación con Defen
 
 ## Instalación
 
-1. Espere a que la revisión antivirus se complete y aparezca un instalador firmado de v0.5.0 o posterior en [Releases](https://github.com/JoseMorenoSalgado/aulaguard/releases). No instale una versión que Defender haya puesto en cuarentena.
+1. Espere a que la revisión antivirus se complete y aparezca un instalador firmado de v0.5.1 o posterior en [Releases](https://github.com/JoseMorenoSalgado/aulaguard/releases). No instale una versión que Defender haya puesto en cuarentena.
 2. Ejecute el instalador con permisos de administrador en Windows 10/11 Pro.
 3. Los binarios se instalan en `Program Files`; la configuración privada se almacena en `%ProgramData%\\AulaGuard`.
 4. Se instalarán los módulos de políticas, diagnóstico, seguridad y control de aplicaciones.
@@ -190,7 +201,7 @@ La primera implantación debe realizarse en un equipo de prueba antes de despleg
 
 El proyecto tiene preparado el código de un instalador de Windows:
 
-`AulaGuard-Setup-v0.5.0.exe` (pendiente de firma y verificación antivirus; no disponible todavía)
+`AulaGuard-Setup-v0.5.1.exe` (pendiente de firma y verificación antivirus; no disponible todavía)
 
 Características del instalador:
 
