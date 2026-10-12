@@ -106,7 +106,7 @@ function Clear-AulaGuardBrowserWhitelist {
     }
 }
 
-function Apply-AulaGuardPolicies {
+function Set-AulaGuardPolicies {
     param(
         [Parameter(Mandatory=$true)]$Settings,
         [switch]$WhatIfMode
