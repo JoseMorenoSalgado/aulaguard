@@ -264,18 +264,20 @@ try {
     }
 
     function Save-FromUi {
+        # "Guardar" stores staged configuration only. It must never change the
+        # recorded deployment state; applying policies is a separate action.
         $newSettings = Get-UiSettings
-        # Publish the file into a managed read-only student-accessible directory.
-        # Never store an administrator-only Downloads path as a student wallpaper.
         if (-not [string]::IsNullOrWhiteSpace([string]$newSettings.wallpaper)) {
             $newSettings.wallpaper = Publish-AulaGuardWallpaper -SourcePath $newSettings.wallpaper
             $txtWallpaper.Text = $newSettings.wallpaper
         }
+        $newSettings.policyMode = [string]$settings.policyMode
+        $newSettings.lastAppliedUtc = $settings.lastAppliedUtc
         $script:settings = $newSettings
         Backup-AulaGuardConfiguration -Root $root | Out-Null
         Save-AulaGuardSettings -Settings $script:settings -Root $root | Out-Null
-        Write-AulaGuardAudit -Action 'CONFIG_SAVED' -Detail "Profile=$($settings.profileName)" -Root $root
-        Set-Status "Cambios guardados a las $(Get-Date -Format 'HH:mm:ss')" 'Success'
+        Write-AulaGuardAudit -Action 'CONFIG_STAGED' -Detail "Profile=$($settings.profileName)" -Root $root
+        Set-Status "Configuración guardada a las $(Get-Date -Format 'HH:mm:ss') · todavía no aplicada" 'Success'
     }
 
     $form = New-Object System.Windows.Forms.Form
@@ -1405,10 +1407,12 @@ try {
             Set-Status 'No se pudieron validar los usuarios; revisa Estado del sistema' 'Warning'
         }
 
-        $lblModeValue.Text = if ($radEnforce.Checked) {'Protección activa'} else {'Modo seguro: auditoría'}
+        $lblModeValue.Text = if ($settings.policyMode -eq 'Enforce') {'Aplicada'} else {'Sin aplicar'}
+        $lblModeValue.ForeColor = if ($settings.policyMode -eq 'Enforce') {$Success} else {$Muted}
         $lblAppsValue.Text = [string]$lstPrograms.Items.Count
     }
 
+    $btnGoHealth.Add_Click({$tabs.SelectedTab = $tabHealth})
     $btnGoProtect.Add_Click({$tabs.SelectedTab = $tabProtection})
     $btnGoApps.Add_Click({$tabs.SelectedTab = $tabPrograms})
 
@@ -1613,6 +1617,11 @@ try {
             if ($errors.Count -gt 0) { throw "No se pudo restaurar en $($errors.Count) perfil(es): $($errors[0].Detail)" }
             $toggleUsb.Checked = $false
             Save-FromUi
+            $applied = Read-AulaGuardAppliedPolicy -Root $root
+            if ($null -ne $applied) {
+                $applied.usb.blockStorage = $false
+                [void](Save-AulaGuardAppliedPolicy -Settings $applied -Root $root)
+            }
             Write-AulaGuardAudit -Action 'USB_POLICY_RESTORED' -Level 'SECURITY' -Detail "Profiles=$($result.Count)" -Root $root
             Set-Status 'Acceso USB administrado restaurado; cierra y abre la sesión del estudiante.' 'Success'
         } catch {
@@ -1644,8 +1653,13 @@ try {
 
         try {
             Save-FromUi
+            $candidate = Get-UiSettings
+            # Save-FromUi may normalize the wallpaper into ProgramData.
+            $candidate.wallpaper = [string]$settings.wallpaper
+            $candidate.lastAppliedUtc = $settings.lastAppliedUtc
+
             if (-not $simulation) {
-                $checks = @(Test-AulaGuardReadiness -Root $root -Settings $settings)
+                $checks = @(Test-AulaGuardReadiness -Root $root -Settings $candidate)
                 $blocking = @($checks | Where-Object { -not $_.Passed -and $_.BlocksPolicies })
                 if ($blocking.Count -gt 0) {
                     $tabs.SelectedTab = $tabHealth
@@ -1654,13 +1668,12 @@ try {
                     throw "El equipo no está listo para aplicar políticas.$([Environment]::NewLine)$([Environment]::NewLine)$detail"
                 }
             }
-            Set-Status 'Aplicando protección...' 'Warning'
-            $result = @(Set-AulaGuardPolicies -Settings $settings -WhatIfMode:$simulation)
-            $usbResults = @(Sync-AulaGuardUsbPolicy -BlockStorage ([bool]$settings.usb.blockStorage) -Root $root -WhatIfMode:$simulation)
+            Set-Status $(if ($simulation) {'Simulando protección...'} else {'Aplicando protección...'}) 'Warning'
+            $result = @(Set-AulaGuardPolicies -Settings $candidate -WhatIfMode:$simulation)
+            $usbResults = @(Sync-AulaGuardUsbPolicy -BlockStorage ([bool]$candidate.usb.blockStorage) -Root $root -WhatIfMode:$simulation)
             $result += $usbResults
 
-
-            if (-not $simulation -and $settings.protections.protectPublicDesktop) {
+            if (-not $simulation -and $candidate.protections.protectPublicDesktop) {
                 Protect-AulaGuardPublicDesktop
             }
 
@@ -1668,9 +1681,12 @@ try {
             $errors = @($result | Where-Object {$_.Status -eq 'ERROR'}).Count
 
             if (-not $simulation -and $errors -eq 0) {
-                $settings.lastAppliedUtc = (Get-Date).ToUniversalTime().ToString('o')
+                $candidate.policyMode = 'Enforce'
+                $candidate.lastAppliedUtc = (Get-Date).ToUniversalTime().ToString('o')
+                [void](Save-AulaGuardAppliedPolicy -Settings $candidate -Root $root)
+                $script:settings = $candidate
+                Save-AulaGuardSettings -Settings $settings -Root $root | Out-Null
             }
-            Save-AulaGuardSettings -Settings $settings -Root $root | Out-Null
             Write-AulaGuardAudit -Action 'POLICIES_APPLIED' -Level $(if ($errors -gt 0) {'ERROR'} else {'SECURITY'}) -Detail "Simulation=$simulation;OK=$ok;Errors=$errors" -Root $root
 
             if ($errors -gt 0) {
@@ -1716,6 +1732,9 @@ try {
             $usbErrors = @($usbRestored | Where-Object {$_.Status -eq 'ERROR'})
             if ($usbErrors.Count -gt 0) { throw "Error restaurando USB: $($usbErrors[0].Detail)" }
             $toggleUsb.Checked = $false
+            $settings.policyMode = 'Audit'
+            $settings.lastAppliedUtc = $null
+            Clear-AulaGuardAppliedPolicy -Root $root
             Save-FromUi
             Protect-AulaGuardPublicDesktop -Restore
             Write-AulaGuardAudit -Action 'POLICIES_RESET' -Level 'SECURITY' -Detail "Profiles=$($r.Count)" -Root $root
