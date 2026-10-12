@@ -10,12 +10,20 @@ try {
     Import-Module (Join-Path $src 'AulaGuard.USB.psm1') -Force
     Import-Module (Join-Path $src 'AulaGuard.Wallpaper.psm1') -Force
     Import-Module (Join-Path $src 'AulaGuard.AppControl.psm1') -Force
+    Import-Module (Join-Path $src 'AulaGuard.Diagnostics.psm1') -Force
 
     # Do not create a new trust key or downgrade settings during unattended startup.
     $settings = Read-AulaGuardSettings -Root $root
 
     if ($settings.policyMode -eq 'Enforce') {
-        $result = @(Apply-AulaGuardPolicies -Settings $settings)
+        $checks = @(Test-AulaGuardReadiness -Root $root -Settings $settings)
+        $blocking = @($checks | Where-Object { -not $_.Passed -and $_.BlocksPolicies })
+        if ($blocking.Count -gt 0) {
+            $reason = ($blocking | Select-Object -First 3 | ForEach-Object { "$($_.Code): $($_.Detail)" }) -join ' | '
+            Write-AulaGuardAudit -Action 'STARTUP_PREFLIGHT_BLOCKED' -Level 'ERROR' -Detail $reason -Root $root
+            throw "Prevalidación bloqueó la sincronización automática: $reason"
+        }
+        $result = @(Set-AulaGuardPolicies -Settings $settings)
         $policyErrors = @($result | Where-Object { $_.Status -eq 'ERROR' })
         if ($policyErrors.Count -gt 0) { throw "No se pudieron sincronizar políticas: $($policyErrors[0].Detail)" }
         $usbResult = @(Sync-AulaGuardUsbPolicy -BlockStorage ([bool]$settings.usb.blockStorage) -Root $root)
@@ -33,6 +41,12 @@ try {
 
     if ($settings.appControl.enabled) {
         try {
+            $appChecks = @(Test-AulaGuardReadiness -Root $root -Settings $settings)
+            $appBlocking = @($appChecks | Where-Object { -not $_.Passed -and $_.BlocksAppControl })
+            if ($appBlocking.Count -gt 0) {
+                $reason = ($appBlocking | Select-Object -First 3 | ForEach-Object { "$($_.Code): $($_.Detail)" }) -join ' | '
+                throw "AppLocker no está listo: $reason"
+            }
             Enable-AulaGuardApplicationIdentity | Out-Null
             Sync-AulaGuardStudentsGroup | Out-Null
             Write-AulaGuardAudit -Action 'STARTUP_APPCONTROL_READY' -Level 'SECURITY' -Detail "Mode=$($settings.appControl.mode)" -Root $root

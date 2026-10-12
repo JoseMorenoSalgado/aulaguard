@@ -18,38 +18,54 @@ function Test-AulaGuardAppLockerSupport {
 
 function Sync-AulaGuardStudentsGroup {
     $groupName = 'AulaGuardStudents'
-
-    if (-not (Get-LocalGroup -Name $groupName -ErrorAction SilentlyContinue)) {
-        New-LocalGroup -Name $groupName -Description 'Usuarios estándar administrados por AulaGuard' | Out-Null
+    $group = Get-LocalGroup -Name $groupName -ErrorAction SilentlyContinue
+    if (-not $group) {
+        New-LocalGroup -Name $groupName -Description 'Usuarios estándar administrados por AulaGuard' -ErrorAction Stop | Out-Null
+        $group = Get-LocalGroup -Name $groupName -ErrorAction Stop
     }
 
-    $adminSids = @()
-    try {
-        $adminSids = @(Get-LocalGroupMember -Group (Get-LocalGroup -SID 'S-1-5-32-544').Name -ErrorAction Stop | ForEach-Object { $_.SID.Value })
-    } catch {}
+    $adminGroup = Get-LocalGroup -SID 'S-1-5-32-544' -ErrorAction Stop
+    $adminSids = @(Get-LocalGroupMember -Group $adminGroup.Name -ErrorAction Stop |
+        Where-Object { $null -ne $_.SID } | ForEach-Object { $_.SID.Value })
 
     $excluded = @('Administrator','Guest','DefaultAccount','WDAGUtilityAccount')
-    $users = @(Get-LocalUser | Where-Object {
+    $users = @(Get-LocalUser -ErrorAction Stop | Where-Object {
         $_.Enabled -and
         $excluded -notcontains $_.Name -and
         $adminSids -notcontains $_.SID.Value
     })
+    $desiredBySid = @{}
+    foreach ($user in $users) { $desiredBySid[$user.SID.Value] = $user }
 
-    $current = @()
-    try { $current = @(Get-LocalGroupMember -Group $groupName -ErrorAction Stop) } catch {}
-
+    $current = @(Get-LocalGroupMember -Group $groupName -ErrorAction Stop)
     foreach ($member in $current) {
-        try { Remove-LocalGroupMember -Group $groupName -Member $member -ErrorAction SilentlyContinue } catch {}
+        $sid = if ($member.SID) { $member.SID.Value } else { '' }
+        if (-not $sid -or -not $desiredBySid.ContainsKey($sid)) {
+            Remove-LocalGroupMember -Group $groupName -Member $member -ErrorAction Stop
+        }
     }
 
+    $currentSids = @(Get-LocalGroupMember -Group $groupName -ErrorAction Stop |
+        Where-Object { $null -ne $_.SID } | ForEach-Object { $_.SID.Value })
     foreach ($user in $users) {
-        try { Add-LocalGroupMember -Group $groupName -Member $user.Name -ErrorAction Stop } catch {}
+        if ($currentSids -notcontains $user.SID.Value) {
+            Add-LocalGroupMember -Group $groupName -Member $user -ErrorAction Stop
+        }
+    }
+
+    $final = @(Get-LocalGroupMember -Group $groupName -ErrorAction Stop)
+    $finalSids = @($final | Where-Object { $null -ne $_.SID } | ForEach-Object { $_.SID.Value })
+    $missing = @($desiredBySid.Keys | Where-Object { $finalSids -notcontains $_ })
+    $unexpected = @($finalSids | Where-Object { -not $desiredBySid.ContainsKey($_) })
+    if ($missing.Count -gt 0 -or $unexpected.Count -gt 0) {
+        throw "No se pudo sincronizar AulaGuardStudents. Faltantes=$($missing.Count); inesperados=$($unexpected.Count)."
     }
 
     return [pscustomobject]@{
         Group = $groupName
         Users = @($users | Select-Object -ExpandProperty Name)
         Count = $users.Count
+        Verified = $true
     }
 }
 

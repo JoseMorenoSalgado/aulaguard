@@ -28,7 +28,7 @@ function Get-AulaGuardSettingsPath {
 
 function New-AulaGuardSettings {
     [pscustomobject]@{
-        version = '0.4.4'
+        version = '0.5.0'
         profileName = 'Aula principal'
         policyMode = 'Audit'
         wallpaper = ''
@@ -117,7 +117,7 @@ function Read-AulaGuardSettings {
     if ($s.policyMode -notin @('Audit','Enforce') -or $s.appControl.mode -notin @('AuditOnly','Enabled')) {
         throw 'Modo de políticas inválido en configuración protegida.'
     }
-    $s.version = '0.4.4'
+    $s.version = '0.5.0'
     return $s
 }
 

@@ -44,7 +44,7 @@ try {
     $badSettings = New-AulaGuardSettings
     $badSettings.policyMode = 'Enforce'
     $badSettings.wallpaper = 'C:\Users\Administrator\Downloads\private.jpg'
-    MustThrow { Apply-AulaGuardPolicies -Settings $badSettings } 'Invalid wallpaper should fail before changes are applied'
+    MustThrow { Set-AulaGuardPolicies -Settings $badSettings } 'Invalid wallpaper should fail before changes are applied'
     Write-Host '[OK] Invalid / private wallpaper rejected before registry modification'
 
     Require ((Publish-AulaGuardWallpaper -SourcePath $installed -AssetsRoot $folder) -eq $installed) 'Cache path should be idempotent'

@@ -1,4 +1,4 @@
-# AulaGuard v0.4.4
+# AulaGuard v0.5.0
 # Friendly educational administration console for Windows classrooms.
 
 $ErrorActionPreference = 'Stop'
@@ -240,7 +240,7 @@ try {
         }
 
         return [pscustomobject]@{
-            version = '0.4.4'
+            version = '0.5.0'
             profileName = $txtProfileName.Text.Trim()
             policyMode = if ($radEnforce.Checked) {'Enforce'} else {'Audit'}
             wallpaper = $txtWallpaper.Text.Trim()
@@ -314,7 +314,7 @@ try {
     $header.Controls.Add((New-Label 'Protege el aula sin complicaciones' 94 48 10 $false ([System.Drawing.Color]::FromArgb(219,234,254))))
 
     $version = New-Object System.Windows.Forms.Label
-    $version.Text = 'v0.4.4'
+    $version.Text = 'v0.5.0'
     $version.TextAlign = 'MiddleCenter'
     $version.Location = New-Object System.Drawing.Point(1060,26)
     $version.Size = New-Object System.Drawing.Size(82,30)
@@ -382,33 +382,34 @@ try {
     $sidebar.Controls.Add((New-Label 'NAVEGACIÓN' 24 18 8 $true $Muted))
 
     $navHome = New-NavButton 'Inicio' 46
-    $navProtection = New-NavButton 'Protección' 92
-    $navPrograms = New-NavButton 'Programas' 138
-    $navAppControl = New-NavButton 'Control de apps' 184
-    $navInternet = New-NavButton 'Internet' 230
-    $navDesktop = New-NavButton 'Escritorio' 276
-    $navUsb = New-NavButton 'Memorias USB' 322
-    $navPremium = New-NavButton 'Servidor · Premium' 368
-    $navLog = New-NavButton 'Registro' 414
+    $navHealth = New-NavButton 'Estado del sistema' 92
+    $navProtection = New-NavButton 'Protección' 138
+    $navPrograms = New-NavButton 'Programas' 184
+    $navAppControl = New-NavButton 'Control de apps' 230
+    $navInternet = New-NavButton 'Internet' 276
+    $navDesktop = New-NavButton 'Escritorio' 322
+    $navUsb = New-NavButton 'Memorias USB' 368
+    $navPremium = New-NavButton 'Servidor · Premium' 414
+    $navLog = New-NavButton 'Registro' 460
 
-    foreach ($nav in @($navHome,$navProtection,$navPrograms,$navAppControl,$navInternet,$navDesktop,$navUsb,$navPremium,$navLog)) {
+    foreach ($nav in @($navHome,$navHealth,$navProtection,$navPrograms,$navAppControl,$navInternet,$navDesktop,$navUsb,$navPremium,$navLog)) {
         $sidebar.Controls.Add($nav)
     }
 
-    $sideInfo = New-Card 12 480 178 110 $SoftGreen
+    $sideInfo = New-Card 12 530 178 110 $SoftGreen
     $sideInfo.Controls.Add((New-Label 'Aula protegida' 12 12 9 $true $PrimaryDark))
     $sideInfo.Controls.Add((New-Label 'Configura primero' 12 42 8 $false $Muted))
     $sideInfo.Controls.Add((New-Label 'en auditoría y luego' 12 62 8 $false $Muted))
     $sideInfo.Controls.Add((New-Label 'activa la protección.' 12 82 8 $false $Muted))
     $sidebar.Controls.Add($sideInfo)
     $sidebar.Add_Resize({
-        $sideInfo.Visible = ($sidebar.ClientSize.Height -gt 610)
-        $sideInfo.Top = [Math]::Max(475,$sidebar.ClientSize.Height - $sideInfo.Height - 12)
+        $sideInfo.Visible = ($sidebar.ClientSize.Height -gt 690)
+        $sideInfo.Top = [Math]::Max(520,$sidebar.ClientSize.Height - $sideInfo.Height - 12)
     })
 
     function Set-NavActive {
         param($Active)
-        foreach ($nav in @($navHome,$navProtection,$navPrograms,$navAppControl,$navInternet,$navDesktop,$navUsb,$navPremium,$navLog)) {
+        foreach ($nav in @($navHome,$navHealth,$navProtection,$navPrograms,$navAppControl,$navInternet,$navDesktop,$navUsb,$navPremium,$navLog)) {
             $nav.BackColor = [System.Drawing.Color]::White
             $nav.ForeColor = $Muted
         }
@@ -491,6 +492,102 @@ try {
     [void]$gridUsers.Columns.Add('State','Estado')
     [void]$gridUsers.Columns.Add('SID','Identificador')
     $tabHome.Controls.Add($gridUsers)
+
+    # SYSTEM STATUS — professional preflight view.
+    $tabHealth = New-Object System.Windows.Forms.TabPage
+    $tabHealth.Text = 'Estado del sistema'
+    $tabHealth.BackColor = $Bg
+    $tabs.TabPages.Add($tabHealth)
+
+    $healthLayout = New-Object System.Windows.Forms.TableLayoutPanel
+    $healthLayout.Dock = 'Fill'
+    $healthLayout.Padding = New-Object System.Windows.Forms.Padding(22,16,22,14)
+    $healthLayout.ColumnCount = 1
+    $healthLayout.RowCount = 4
+    [void]$healthLayout.RowStyles.Add((New-Object System.Windows.Forms.RowStyle('Absolute',70)))
+    [void]$healthLayout.RowStyles.Add((New-Object System.Windows.Forms.RowStyle('Absolute',76)))
+    [void]$healthLayout.RowStyles.Add((New-Object System.Windows.Forms.RowStyle('Percent',100)))
+    [void]$healthLayout.RowStyles.Add((New-Object System.Windows.Forms.RowStyle('Absolute',52)))
+    $tabHealth.Controls.Add($healthLayout)
+
+    $healthHeader = New-Object System.Windows.Forms.Panel
+    $healthHeader.Dock = 'Fill'
+    $healthHeader.Controls.Add((New-Label 'Estado del sistema' 0 0 17 $true $Text))
+    $healthHeader.Controls.Add((New-Label 'Comprueba si Windows está listo antes de aplicar restricciones.' 0 35 9 $false $Muted))
+    $healthLayout.Controls.Add($healthHeader,0,0)
+
+    $healthSummaryCard = New-Object System.Windows.Forms.Panel
+    $healthSummaryCard.Dock = 'Fill'
+    $healthSummaryCard.Margin = New-Object System.Windows.Forms.Padding(0,0,0,12)
+    $healthSummaryCard.BackColor = $SoftGreen
+    $lblHealthTitle = New-Label 'Comprobación pendiente' 15 10 11 $true $PrimaryDark
+    $lblHealthDetail = New-Label 'Pulsa Actualizar diagnóstico para comprobar este equipo.' 15 38 9 $false $Muted
+    $healthSummaryCard.Controls.Add($lblHealthTitle)
+    $healthSummaryCard.Controls.Add($lblHealthDetail)
+    $healthLayout.Controls.Add($healthSummaryCard,0,1)
+
+    $gridHealth = New-Object System.Windows.Forms.DataGridView
+    $gridHealth.Dock = 'Fill'
+    $gridHealth.Margin = New-Object System.Windows.Forms.Padding(0,0,0,10)
+    Style-Grid $gridHealth
+    [void]$gridHealth.Columns.Add('HealthStatus','Estado')
+    [void]$gridHealth.Columns.Add('HealthCheck','Comprobación')
+    [void]$gridHealth.Columns.Add('HealthDetail','Detalle')
+    $gridHealth.Columns['HealthStatus'].FillWeight = 70
+    $gridHealth.Columns['HealthCheck'].FillWeight = 135
+    $gridHealth.Columns['HealthDetail'].FillWeight = 260
+    $healthLayout.Controls.Add($gridHealth,0,2)
+
+    $healthActions = New-Object System.Windows.Forms.FlowLayoutPanel
+    $healthActions.Dock = 'Fill'
+    $healthActions.FlowDirection = 'LeftToRight'
+    $healthActions.WrapContents = $false
+    $btnHealthRefresh = New-Button 'Actualizar diagnóstico' 0 0 190 38 'Primary'
+    $btnHealthExport = New-Button 'Exportar diagnóstico' 0 0 185 38 'Secondary'
+    $btnHealthRefresh.Margin = New-Object System.Windows.Forms.Padding(0,5,10,4)
+    $btnHealthExport.Margin = New-Object System.Windows.Forms.Padding(0,5,10,4)
+    $healthActions.Controls.Add($btnHealthRefresh)
+    $healthActions.Controls.Add($btnHealthExport)
+    $healthLayout.Controls.Add($healthActions,0,3)
+
+    $script:lastReadinessChecks = @()
+    $loadReadiness = {
+        try {
+            $candidateSettings = Get-UiSettings
+            $checks = @(Test-AulaGuardReadiness -Root $root -Settings $candidateSettings)
+            $summary = Get-AulaGuardReadinessSummary -Checks $checks
+            $script:lastReadinessChecks = $checks
+            $gridHealth.Rows.Clear()
+            foreach ($check in $checks) {
+                $state = if ($check.Passed) {'Correcto'} elseif ($check.Severity -eq 'Critical') {'Bloquea'} else {'Atención'}
+                $rowIndex = $gridHealth.Rows.Add($state,[string]$check.Name,[string]$check.Detail)
+                $row = $gridHealth.Rows[$rowIndex]
+                if (-not $check.Passed -and $check.Severity -eq 'Critical') {
+                    $row.DefaultCellStyle.ForeColor = $Danger
+                } elseif (-not $check.Passed) {
+                    $row.DefaultCellStyle.ForeColor = $Warning
+                }
+            }
+            if ($summary.Ready) {
+                $healthSummaryCard.BackColor = $SoftGreen
+                $lblHealthTitle.Text = 'Equipo listo'
+                $lblHealthTitle.ForeColor = $Success
+            } else {
+                $healthSummaryCard.BackColor = $SoftAmber
+                $lblHealthTitle.Text = "Requiere atención · $($summary.Critical) bloqueo(s)"
+                $lblHealthTitle.ForeColor = $Danger
+            }
+            $lblHealthDetail.Text = "Correctos: $($summary.Passed)/$($summary.Total) · Advertencias: $($summary.Warnings)"
+            return $summary
+        } catch {
+            $gridHealth.Rows.Clear()
+            [void]$gridHealth.Rows.Add('Error','Diagnóstico', $_.Exception.Message)
+            $lblHealthTitle.Text = 'No se pudo completar el diagnóstico'
+            $lblHealthTitle.ForeColor = $Danger
+            $lblHealthDetail.Text = $_.Exception.Message
+            return $null
+        }
+    }
 
     # PROTECTION
     $tabProtection = New-Object System.Windows.Forms.TabPage
@@ -1207,31 +1304,44 @@ try {
     }
 
     function Refresh-Dashboard {
-        $info = Get-AulaGuardSystemInfo
-        $users = @(Get-AulaGuardLocalUsers)
-        $standard = @($users | Where-Object {-not $_.IsAdministrator})
-
-        $lblPcValue.Text = $info.ComputerName
-        $lblWindowsValue.Text = "$($info.Windows) · build $($info.Build)"
-        $lblUsersValue.Text = "$($standard.Count) estudiante(s)"
-        $lblModeValue.Text = if ($radEnforce.Checked) {'Protección activa'} else {'Modo seguro: auditoría'}
-        $lblAppsValue.Text = [string]$lstPrograms.Items.Count
+        try {
+            $info = Get-AulaGuardSystemInfo
+            $lblPcValue.Text = $info.ComputerName
+            $lblWindowsValue.Text = "$($info.Windows) · build $($info.Build)"
+        } catch {
+            $lblPcValue.Text = $env:COMPUTERNAME
+            $lblWindowsValue.Text = 'No se pudo consultar Windows'
+            Set-Status 'Hay información del sistema que requiere revisión' 'Warning'
+        }
 
         $gridUsers.Rows.Clear()
-        foreach ($u in $users) {
-            [void]$gridUsers.Rows.Add(
-                $u.User,
-                $(if ($u.IsAdministrator) {'Administrador'} else {'Estudiante / estándar'}),
-                $(if ($u.Loaded) {'Sesión iniciada'} else {'Sin sesión'}),
-                $u.SID
-            )
+        try {
+            $users = @(Get-AulaGuardLocalUsers)
+            $standard = @($users | Where-Object {-not $_.IsAdministrator})
+            $lblUsersValue.Text = "$($standard.Count) estudiante(s)"
+            foreach ($u in $users) {
+                [void]$gridUsers.Rows.Add(
+                    $u.User,
+                    $(if ($u.IsAdministrator) {'Administrador'} else {'Estudiante / estándar'}),
+                    $(if ($u.Loaded) {'Sesión iniciada'} else {'Sin sesión'}),
+                    $u.SID
+                )
+            }
+        } catch {
+            $lblUsersValue.Text = 'Requiere atención'
+            [void]$gridUsers.Rows.Add('No disponible','Diagnóstico','No se pudieron enumerar los perfiles', $_.Exception.Message)
+            Set-Status 'No se pudieron validar los usuarios; revisa Estado del sistema' 'Warning'
         }
+
+        $lblModeValue.Text = if ($radEnforce.Checked) {'Protección activa'} else {'Modo seguro: auditoría'}
+        $lblAppsValue.Text = [string]$lstPrograms.Items.Count
     }
 
     $btnGoProtect.Add_Click({$tabs.SelectedTab = $tabProtection})
     $btnGoApps.Add_Click({$tabs.SelectedTab = $tabPrograms})
 
     $navHome.Add_Click({$tabs.SelectedTab = $tabHome})
+    $navHealth.Add_Click({$tabs.SelectedTab = $tabHealth})
     $navProtection.Add_Click({$tabs.SelectedTab = $tabProtection})
     $navPrograms.Add_Click({$tabs.SelectedTab = $tabPrograms})
     $navAppControl.Add_Click({$tabs.SelectedTab = $tabAppControl})
@@ -1243,6 +1353,7 @@ try {
 
     $tabs.Add_SelectedIndexChanged({
         if ($tabs.SelectedTab -eq $tabHome) {Set-NavActive $navHome}
+        elseif ($tabs.SelectedTab -eq $tabHealth) { Set-NavActive $navHealth; & $loadReadiness | Out-Null }
         elseif ($tabs.SelectedTab -eq $tabProtection) {Set-NavActive $navProtection}
         elseif ($tabs.SelectedTab -eq $tabPrograms) {
             Set-NavActive $navPrograms
@@ -1255,6 +1366,24 @@ try {
         elseif ($tabs.SelectedTab -eq $tabPremium) {Set-NavActive $navPremium}
         elseif ($tabs.SelectedTab -eq $tabAudit) {Set-NavActive $navLog}
     })
+
+    $btnHealthRefresh.Add_Click({ & $loadReadiness | Out-Null })
+    $btnHealthExport.Add_Click({
+        try {
+            $d = New-Object System.Windows.Forms.SaveFileDialog
+            $d.Filter = 'Diagnóstico AulaGuard (*.json)|*.json'
+            $d.FileName = "AulaGuard-diagnostico-$($env:COMPUTERNAME)-$(Get-Date -Format 'yyyyMMdd-HHmm').json"
+            if ($d.ShowDialog() -ne 'OK') { return }
+            $candidateSettings = Get-UiSettings
+            $saved = Export-AulaGuardDiagnosticReport -Path $d.FileName -Root $root -Settings $candidateSettings
+            Set-Status 'Diagnóstico exportado' 'Success'
+            [System.Windows.Forms.MessageBox]::Show("Diagnóstico guardado en:$([Environment]::NewLine)$saved",'AulaGuard · Diagnóstico','OK','Information') | Out-Null
+        } catch {
+            Set-Status 'No se pudo exportar el diagnóstico' 'Error'
+            [System.Windows.Forms.MessageBox]::Show($_.Exception.Message,'AulaGuard · Diagnóstico','OK','Error') | Out-Null
+        }
+    })
+
 
     $btnWallpaper.Add_Click({
         $d = New-Object System.Windows.Forms.OpenFileDialog
@@ -1399,6 +1528,7 @@ try {
 
     $btnUsbRefresh.Add_Click({
         & $refreshUsb
+    & $loadReadiness | Out-Null
         Set-Status 'Discos extraíbles actualizados' 'Success'
     })
     $btnUsbRestore.Add_Click({
@@ -1442,8 +1572,18 @@ try {
 
         try {
             Save-FromUi
+            if (-not $simulation) {
+                $checks = @(Test-AulaGuardReadiness -Root $root -Settings $settings)
+                $blocking = @($checks | Where-Object { -not $_.Passed -and $_.BlocksPolicies })
+                if ($blocking.Count -gt 0) {
+                    $tabs.SelectedTab = $tabHealth
+                    & $loadReadiness | Out-Null
+                    $detail = ($blocking | Select-Object -First 3 | ForEach-Object { "• $($_.Name): $($_.Detail)" }) -join [Environment]::NewLine
+                    throw "El equipo no está listo para aplicar políticas.$([Environment]::NewLine)$([Environment]::NewLine)$detail"
+                }
+            }
             Set-Status 'Aplicando protección...' 'Warning'
-            $result = @(Apply-AulaGuardPolicies -Settings $settings -WhatIfMode:$simulation)
+            $result = @(Set-AulaGuardPolicies -Settings $settings -WhatIfMode:$simulation)
             $usbResults = @(Sync-AulaGuardUsbPolicy -BlockStorage ([bool]$settings.usb.blockStorage) -Root $root -WhatIfMode:$simulation)
             $result += $usbResults
 
@@ -1455,11 +1595,19 @@ try {
             $ok = @($result | Where-Object {$_.Status -in @('OK','SIMULADO')}).Count
             $errors = @($result | Where-Object {$_.Status -eq 'ERROR'}).Count
 
-            $settings.lastAppliedUtc = (Get-Date).ToUniversalTime().ToString('o')
+            if (-not $simulation -and $errors -eq 0) {
+                $settings.lastAppliedUtc = (Get-Date).ToUniversalTime().ToString('o')
+            }
             Save-AulaGuardSettings -Settings $settings -Root $root | Out-Null
-            Write-AulaGuardAudit -Action 'POLICIES_APPLIED' -Level 'SECURITY' -Detail "Simulation=$simulation;OK=$ok;Errors=$errors" -Root $root
+            Write-AulaGuardAudit -Action 'POLICIES_APPLIED' -Level $(if ($errors -gt 0) {'ERROR'} else {'SECURITY'}) -Detail "Simulation=$simulation;OK=$ok;Errors=$errors" -Root $root
 
-            Set-Status "Protección procesada: $ok correcto(s)" 'Success'
+            if ($errors -gt 0) {
+                Set-Status "Protección incompleta: $errors error(es)" 'Warning'
+            } elseif ($simulation) {
+                Set-Status "Simulación completada: $ok comprobación(es)" 'Success'
+            } else {
+                Set-Status "Protección aplicada: $ok operación(es)" 'Success'
+            }
             Refresh-Dashboard
             & $loadAudit
 
@@ -1602,15 +1750,24 @@ try {
                 }
             }
 
-            Save-FromUi
-            Set-Status 'Configurando control de aplicaciones...' 'Warning'
+            $appChecks = @(Test-AulaGuardReadiness -Root $root -Settings $settings)
+            $appBlocking = @($appChecks | Where-Object { -not $_.Passed -and $_.BlocksAppControl })
+            if ($appBlocking.Count -gt 0) {
+                $tabs.SelectedTab = $tabHealth
+                & $loadReadiness | Out-Null
+                $detail = ($appBlocking | Select-Object -First 3 | ForEach-Object { "• $($_.Name): $($_.Detail)" }) -join [Environment]::NewLine
+                throw "El equipo no está listo para AppLocker.$([Environment]::NewLine)$([Environment]::NewLine)$detail"
+            }
 
+            Set-Status 'Configurando control de aplicaciones...' 'Warning'
+            $selectedPrograms = @(Get-ListItems $lstPrograms)
             $parameters = @{
-                AllowedPrograms = @(Get-ListItems $lstPrograms)
+                AllowedPrograms = $selectedPrograms
                 Mode = $mode
                 BackupDirectory = (Join-Path $root 'backup')
             }
             $result = Set-AulaGuardAppControlPolicy @parameters
+            $settings.allowedPrograms = $selectedPrograms
 
             $settings.appControl.mode = $mode
             $settings.appControl.enabled = $true
@@ -1640,6 +1797,10 @@ try {
         try {
             $restored = Restore-AulaGuardAppLockerPolicy -BackupDirectory (Join-Path $root 'backup')
             $settings.appControl.enabled = $false
+            $settings.appControl.mode = 'AuditOnly'
+            $settings.appControl.lastAppliedUtc = $null
+            $settings.appControl.lastBackup = $null
+            $radAppAudit.Checked = $true
             Save-AulaGuardSettings -Settings $settings -Root $root | Out-Null
             Write-AulaGuardAudit -Action 'APPLOCKER_RESTORED' -Level 'SECURITY' -Detail $restored.RestoredFrom -Root $root
             Set-Status 'Política anterior restaurada' 'Success'
@@ -1661,7 +1822,7 @@ try {
 
     & $resizeProtection
     Set-NavActive $navHome
-    Write-AulaGuardAudit -Action 'APP_STARTED' -Detail 'v0.4.4' -Root $root
+    Write-AulaGuardAudit -Action 'APP_STARTED' -Detail 'v0.5.0' -Root $root
     Refresh-Dashboard
     & $loadAudit
     & $loadAppEvents
