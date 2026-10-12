@@ -73,6 +73,10 @@ jobs:
         shell: powershell
         run: .\tests\ProfessionalReadiness.Tests.ps1
 
+      - name: Validate professional responsive interface
+        shell: powershell
+        run: .\tests\ProfessionalUi.Tests.ps1
+
       - name: Verify installer elevated launch and versions
         shell: powershell
         run: .\tests\InstallerElevatedLaunch.Tests.ps1
