@@ -708,6 +708,10 @@ try {
     $modeCard.Controls.Add($radEnforce)
     $toolTip.SetToolTip($radEnforce,'Aplica las restricciones reales a las cuentas estándar.')
 
+    $btnProtectionValidate = New-Button 'Validar configuración' 870 44 190 34 'Secondary'
+    $btnProtectionValidate.Anchor = 'Top,Right'
+    $modeCard.Controls.Add($btnProtectionValidate)
+
     if ($settings.policyMode -eq 'Enforce') {$radEnforce.Checked = $true} else {$radAudit.Checked = $true}
     $tabProtection.Controls.Add($modeCard)
 
@@ -806,6 +810,7 @@ try {
         $usable = [Math]::Max(600,$tabProtection.ClientSize.Width - 52)
         $modeCard.Width = $usable
         $profileCard.Width = $usable
+        $btnProtectionValidate.Left = [Math]::Max(390,$modeCard.ClientSize.Width - $btnProtectionValidate.Width - 18)
         if ($usable -lt 940) {
             $left.Size = New-Object System.Drawing.Size($usable,280)
             $right.Location = New-Object System.Drawing.Point(24,505)
@@ -1258,8 +1263,10 @@ try {
     $usbActions.WrapContents = $true
     $usbActions.Margin = New-Object System.Windows.Forms.Padding(0,0,0,12)
     $usbView.Controls.Add($usbActions,0,2)
-    $btnUsbRestore = New-Button 'Restaurar acceso USB' 0 0 188 40 'Secondary'
+    $btnUsbValidate = New-Button 'Validar configuración' 0 0 188 40 'Secondary'
+    $btnUsbRestore = New-Button 'Restaurar acceso USB' 0 0 188 40 'Neutral'
     $btnUsbRefresh = New-Button 'Actualizar dispositivos' 0 0 190 40 'Primary'
+    $usbActions.Controls.Add($btnUsbValidate)
     $usbActions.Controls.Add($btnUsbRestore)
     $usbActions.Controls.Add($btnUsbRefresh)
 
@@ -1659,6 +1666,56 @@ try {
     $btnRemoveShortcut.Add_Click({
         while ($lstShortcuts.SelectedIndices.Count -gt 0) {
             $lstShortcuts.Items.RemoveAt($lstShortcuts.SelectedIndices[0])
+        }
+    })
+
+    $btnProtectionValidate.Add_Click({
+        try {
+            $candidate = Get-UiSettings
+            # Validation never writes registry or USB policy.
+            $checks = @(Test-AulaGuardReadiness -Root $root -Settings $settings)
+            $blocking = @($checks | Where-Object { -not $_.Passed -and $_.BlocksPolicies })
+            $policyPreview = @(Set-AulaGuardPolicies -Settings $candidate -WhatIfMode)
+            $usbPreview = @(Sync-AulaGuardUsbPolicy -BlockStorage ([bool]$candidate.usb.blockStorage) -Root $root -WhatIfMode)
+            $previewErrors = @($policyPreview + $usbPreview | Where-Object { $_.Status -eq 'ERROR' })
+
+            if ($blocking.Count -gt 0 -or $previewErrors.Count -gt 0) {
+                $tabs.SelectedTab = $tabHealth
+                & $loadReadiness | Out-Null
+                throw "La configuración necesita revisión antes de aplicarse. Bloqueos=$($blocking.Count); errores de simulación=$($previewErrors.Count)."
+            }
+
+            $wallpaperNote = if ($candidate.protections.lockWallpaper -and
+                $candidate.wallpaper -and
+                -not ($candidate.wallpaper -like (Join-Path $env:ProgramData 'AulaGuardAssets\*'))) {
+                [Environment]::NewLine + 'La imagen se copiará al almacén institucional cuando guardes/apliques.'
+            } else { '' }
+
+            Set-Status 'Configuración general validada sin realizar cambios' 'Success'
+            [System.Windows.Forms.MessageBox]::Show(
+                "Validación correcta.$([Environment]::NewLine)$([Environment]::NewLine)Perfiles simulados: $($policyPreview.Count)$([Environment]::NewLine)USB simulado: $($usbPreview.Count)$wallpaperNote",
+                'AulaGuard · Validación','OK','Information'
+            ) | Out-Null
+        } catch {
+            Set-Status 'La protección necesita revisión' 'Warning'
+            [System.Windows.Forms.MessageBox]::Show($_.Exception.Message,'AulaGuard · Validación','OK','Warning') | Out-Null
+        }
+    })
+
+    $btnUsbValidate.Add_Click({
+        try {
+            $candidate = Get-UiSettings
+            $preview = @(Sync-AulaGuardUsbPolicy -BlockStorage ([bool]$candidate.usb.blockStorage) -Root $root -WhatIfMode)
+            $errors = @($preview | Where-Object { $_.Status -eq 'ERROR' })
+            if ($errors.Count -gt 0) { throw $errors[0].Detail }
+            Set-Status 'Configuración USB validada; no se realizaron cambios' 'Success'
+            [System.Windows.Forms.MessageBox]::Show(
+                "USB validado en modo simulación.$([Environment]::NewLine)$([Environment]::NewLine)Perfiles comprobados: $($preview.Count)$([Environment]::NewLine)Estado seleccionado: $(if ($candidate.usb.blockStorage) {'Bloquear'} else {'Permitir'})",
+                'AulaGuard · USB','OK','Information'
+            ) | Out-Null
+        } catch {
+            Set-Status 'No se pudo validar USB' 'Warning'
+            [System.Windows.Forms.MessageBox]::Show($_.Exception.Message,'AulaGuard · USB','OK','Warning') | Out-Null
         }
     })
 
