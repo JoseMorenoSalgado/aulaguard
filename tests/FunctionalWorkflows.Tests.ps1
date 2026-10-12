@@ -42,7 +42,16 @@ try {
     Require ($ui -match 'elseif \(\$tabs.SelectedTab -eq \$tabPrograms\) \{[\s\S]*?if \(-not \$script:inventoryLoaded\) \{ & \$loadPrograms \}') 'Dashboard tab navigation does not trigger inventory scan'
     Require ($ui -match '\$btnImport.Add_Click\(\{[\s\S]*?\$script:settings = Read-AulaGuardSettings -Root \$root') 'UI does not reload the imported settings'
     Require ($ui -match '\$btnApply.Add_Click\(\{[\s\S]*?MessageBox\]::Show\(\$message[\s\S]*?Save-FromUi') 'General Apply must ask for consent before saving'
-    Require ($ui -match '\$btnAppApply.Add_Click\(\{[\s\S]*?Show\(\$warningText[\s\S]*?Save-FromUi') 'AppLocker Apply must ask for consent before saving'
+    $appStart = $ui.IndexOf('$btnAppApply.Add_Click({')
+    $appEnd = $ui.IndexOf('$btnAppRestore.Add_Click({',$appStart)
+    Require ($appStart -ge 0 -and $appEnd -gt $appStart) 'AppLocker Apply handler not found'
+    $appApply = $ui.Substring($appStart,$appEnd-$appStart)
+    $confirmIndex = $appApply.IndexOf('[System.Windows.Forms.MessageBox]::Show')
+    $policyIndex = $appApply.IndexOf('Set-AulaGuardAppControlPolicy')
+    $saveIndex = $appApply.IndexOf('Save-AulaGuardSettings')
+    Require ($confirmIndex -ge 0 -and $policyIndex -gt $confirmIndex) 'AppLocker policy can run before administrator confirmation'
+    Require ($saveIndex -gt $policyIndex) 'AppLocker settings are persisted before Windows confirms the policy'
+    Require ($appApply -notmatch 'Save-FromUi') 'AppLocker Apply is still coupled to unrelated wallpaper/general settings'
     Require ($ui -match 'mode = \[string\]\$settings.appControl.mode') 'Saving selections must not invent an applied AppLocker mode'
     Require ($ui -match 'programCatalog\.Count -lt 1' -and $ui -match 'toggleProgramRow \$targetRow') 'WinForms selftest does not test the program inventory and switches'
     Write-Host '[OK] UI changes save only after confirmation and navigate into populated programs'
