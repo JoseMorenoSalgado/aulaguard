@@ -32,9 +32,9 @@ $status = Get-AulaGuardMaintenanceStatus -Settings $settings -NowUtc ([datetime]
 Require (-not $status.Enabled -and -not $status.Expired) 'Disabled maintenance reported active state.'
 
 $source = Get-Content -LiteralPath (Join-Path $repo 'src\AulaGuard.Maintenance.psm1') -Raw
-Require ($source -match "ValidateRange\(5,480\)") 'Maintenance duration is not bounded.'
-Require ($source -match "Reset-AulaGuardPolicies" -and $source -match "Sync-AulaGuardUsbPolicy -BlockStorage \$false") 'Maintenance does not relax owned local policies safely.'
-Require ($source -match "previousPolicyMode" -and $source -match "previousAppControlMode") 'Previous enforcement state is not preserved.'
-Require ($source -match "MAINTENANCE_STARTED" -and $source -match "MAINTENANCE_ENDED") 'Maintenance lifecycle is not audited.'
+Require ($source -match 'ValidateRange\(5,480\)') 'Maintenance duration is not bounded.'
+Require ($source -match 'Reset-AulaGuardPolicies' -and $source -match 'Sync-AulaGuardUsbPolicy -BlockStorage \$false') 'Maintenance does not relax owned local policies safely.'
+Require ($source -match 'previousPolicyMode' -and $source -match 'previousAppControlMode') 'Previous enforcement state is not preserved.'
+Require ($source -match 'MAINTENANCE_STARTED' -and $source -match 'MAINTENANCE_ENDED') 'Maintenance lifecycle is not audited.'
 
 Write-Host '[OK] Maintenance state and safety invariants passed.'
