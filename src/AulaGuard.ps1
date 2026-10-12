@@ -1,4 +1,4 @@
-# AulaGuard v0.4.3
+# AulaGuard v0.4.4
 # Friendly educational administration console for Windows classrooms.
 
 $ErrorActionPreference = 'Stop'
@@ -240,7 +240,7 @@ try {
         }
 
         return [pscustomobject]@{
-            version = '0.4.3'
+            version = '0.4.4'
             profileName = $txtProfileName.Text.Trim()
             policyMode = if ($radEnforce.Checked) {'Enforce'} else {'Audit'}
             wallpaper = $txtWallpaper.Text.Trim()
@@ -253,7 +253,7 @@ try {
             }
             premium = $settings.premium
             appControl = [pscustomobject]@{
-                mode = if ($radAppEnforce.Checked) {'Enabled'} else {'AuditOnly'}
+                mode = [string]$settings.appControl.mode
                 enabled = [bool]$settings.appControl.enabled
                 lastAppliedUtc = $settings.appControl.lastAppliedUtc
                 lastBackup = $settings.appControl.lastBackup
@@ -314,7 +314,7 @@ try {
     $header.Controls.Add((New-Label 'Protege el aula sin complicaciones' 94 48 10 $false ([System.Drawing.Color]::FromArgb(219,234,254))))
 
     $version = New-Object System.Windows.Forms.Label
-    $version.Text = 'v0.4.3'
+    $version.Text = 'v0.4.4'
     $version.TextAlign = 'MiddleCenter'
     $version.Location = New-Object System.Drawing.Point(1060,26)
     $version.Size = New-Object System.Drawing.Size(82,30)
@@ -1233,10 +1233,7 @@ try {
 
     $navHome.Add_Click({$tabs.SelectedTab = $tabHome})
     $navProtection.Add_Click({$tabs.SelectedTab = $tabProtection})
-    $navPrograms.Add_Click({
-        $tabs.SelectedTab = $tabPrograms
-        if (-not $script:inventoryLoaded) { & $loadPrograms }
-    })
+    $navPrograms.Add_Click({$tabs.SelectedTab = $tabPrograms})
     $navAppControl.Add_Click({$tabs.SelectedTab = $tabAppControl})
     $navInternet.Add_Click({$tabs.SelectedTab = $tabWeb})
     $navDesktop.Add_Click({$tabs.SelectedTab = $tabDesktop})
@@ -1247,7 +1244,10 @@ try {
     $tabs.Add_SelectedIndexChanged({
         if ($tabs.SelectedTab -eq $tabHome) {Set-NavActive $navHome}
         elseif ($tabs.SelectedTab -eq $tabProtection) {Set-NavActive $navProtection}
-        elseif ($tabs.SelectedTab -eq $tabPrograms) {Set-NavActive $navPrograms}
+        elseif ($tabs.SelectedTab -eq $tabPrograms) {
+            Set-NavActive $navPrograms
+            if (-not $script:inventoryLoaded) { & $loadPrograms }
+        }
         elseif ($tabs.SelectedTab -eq $tabAppControl) {Set-NavActive $navAppControl}
         elseif ($tabs.SelectedTab -eq $tabWeb) {Set-NavActive $navInternet}
         elseif ($tabs.SelectedTab -eq $tabDesktop) {Set-NavActive $navDesktop}
@@ -1429,12 +1429,6 @@ try {
     })
 
     $btnApply.Add_Click({
-        try { Save-FromUi }
-        catch {
-            Set-Status 'No se pudo validar el fondo institucional' 'Error'
-            [System.Windows.Forms.MessageBox]::Show($_.Exception.Message,'AulaGuard · Fondo institucional','OK','Error') | Out-Null
-            return
-        }
         $simulation = -not $radEnforce.Checked
         $message = if ($simulation) {
             'AulaGuard realizará una simulación y no hará cambios reales en Windows. ¿Continuar?'
@@ -1447,6 +1441,7 @@ try {
         }
 
         try {
+            Save-FromUi
             Set-Status 'Aplicando protección...' 'Warning'
             $result = @(Apply-AulaGuardPolicies -Settings $settings -WhatIfMode:$simulation)
             $usbResults = @(Sync-AulaGuardUsbPolicy -BlockStorage ([bool]$settings.usb.blockStorage) -Root $root -WhatIfMode:$simulation)
@@ -1482,7 +1477,7 @@ try {
 
     $btnReset.Add_Click({
         if ([System.Windows.Forms.MessageBox]::Show(
-            'Se retirarán las políticas administradas por AulaGuard de las cuentas estándar. ¿Continuar?',
+            'Se retirarán las políticas generales y USB de los estudiantes. AppLocker se restaura aparte desde Control de apps. ¿Continuar?',
             'AulaGuard','YesNo','Warning'
         ) -ne 'Yes') {
             return
@@ -1490,6 +1485,8 @@ try {
 
         try {
             $r = @(Reset-AulaGuardPolicies -ManagedWallpapers @([string]$settings.wallpaper,[string]$script:originalWallpaperPath))
+            $policyErrors = @($r | Where-Object { $_.Status -eq 'ERROR' })
+            if ($policyErrors.Count -gt 0) { throw "Error retirando políticas: $($policyErrors[0].Detail)" }
             $radAudit.Checked = $true
             # A reset must not fail while trying to re-import the very image path
             # that caused the black background. Re-select it deliberately later.
@@ -1558,7 +1555,6 @@ try {
 
     $btnAppApply.Add_Click({
         try {
-            Save-FromUi
             $mode = if ($radAppEnforce.Checked) {'Enabled'} else {'AuditOnly'}
 
             if ($mode -eq 'Enabled') {
@@ -1575,6 +1571,7 @@ try {
                 }
             }
 
+            Save-FromUi
             Set-Status 'Configurando control de aplicaciones...' 'Warning'
 
             $parameters = @{
@@ -1633,7 +1630,7 @@ try {
 
     & $resizeProtection
     Set-NavActive $navHome
-    Write-AulaGuardAudit -Action 'APP_STARTED' -Detail 'v0.4.3' -Root $root
+    Write-AulaGuardAudit -Action 'APP_STARTED' -Detail 'v0.4.4' -Root $root
     Refresh-Dashboard
     & $loadAudit
     & $loadAppEvents
