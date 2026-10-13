@@ -1,4 +1,4 @@
-# AulaGuard v0.5.1
+﻿# AulaGuard v0.5.5
 # Friendly educational administration console for Windows classrooms.
 
 $ErrorActionPreference = 'Stop'
@@ -304,7 +304,7 @@ try {
         }
 
         return [pscustomobject]@{
-            version = '0.5.1'
+            version = '0.5.5'
             profileName = $txtProfileName.Text.Trim()
             policyMode = if ($radEnforce.Checked) {'Enforce'} else {'Audit'}
             wallpaper = $txtWallpaper.Text.Trim()
@@ -379,7 +379,7 @@ try {
     $header.Controls.Add((New-Label 'Administración segura para aulas Windows' 94 43 9 $false ([System.Drawing.Color]::FromArgb(220,252,231))))
 
     $version = New-Object System.Windows.Forms.Label
-    $version.Text = 'v0.5.1'
+    $version.Text = 'v0.5.5'
     $version.TextAlign = 'MiddleCenter'
     $version.Location = New-Object System.Drawing.Point(1060,22)
     $version.Size = New-Object System.Drawing.Size(82,30)
@@ -646,14 +646,17 @@ try {
     $healthActions.WrapContents = $false
     $btnHealthRefresh = New-Button 'Actualizar diagnóstico' 0 0 190 38 'Primary'
     $btnHealthExport = New-Button 'Exportar diagnóstico' 0 0 185 38 'Secondary'
+    $btnVerifyStudents = New-Button 'Verificar estudiantes' 0 0 174 38 'Secondary'
     $btnMaintenanceStart = New-Button 'Mantenimiento 30 min' 0 0 180 38 'Secondary'
     $btnMaintenanceStop = New-Button 'Finalizar mantenimiento' 0 0 180 38 'Danger'
     $btnHealthRefresh.Margin = New-Object System.Windows.Forms.Padding(0,5,10,4)
     $btnHealthExport.Margin = New-Object System.Windows.Forms.Padding(0,5,10,4)
+    $btnVerifyStudents.Margin = New-Object System.Windows.Forms.Padding(0,5,10,4)
     $btnMaintenanceStart.Margin = New-Object System.Windows.Forms.Padding(0,5,10,4)
     $btnMaintenanceStop.Margin = New-Object System.Windows.Forms.Padding(0,5,10,4)
     $healthActions.Controls.Add($btnHealthRefresh)
     $healthActions.Controls.Add($btnHealthExport)
+    $healthActions.Controls.Add($btnVerifyStudents)
     $healthActions.Controls.Add($btnMaintenanceStart)
     $healthActions.Controls.Add($btnMaintenanceStop)
     $healthLayout.Controls.Add($healthActions,0,3)
@@ -739,16 +742,23 @@ try {
     $radAudit.Location = New-Object System.Drawing.Point(18,50)
     $radAudit.AutoSize = $true
     $modeCard.Controls.Add($radAudit)
-    $toolTip.SetToolTip($radAudit,'Recomendado para comenzar. No realiza cambios reales.')
+    $toolTip.SetToolTip($radAudit,'Auditoría: NO bloquea juegos, páginas ni el fondo de Windows.')
 
     $radEnforce = New-Object System.Windows.Forms.RadioButton
     $radEnforce.Text = 'Protección activa'
     $radEnforce.Location = New-Object System.Drawing.Point(210,50)
     $radEnforce.AutoSize = $true
     $modeCard.Controls.Add($radEnforce)
-    $toolTip.SetToolTip($radEnforce,'Aplica las restricciones reales a las cuentas estándar.')
+    $toolTip.SetToolTip($radEnforce,'Protección activa: aplica el fondo, sitios, restricciones de Windows y USB; los juegos/programas se activan por separado en Control de apps.')
 
     if ($settings.policyMode -eq 'Enforce') {$radEnforce.Checked = $true} else {$radAudit.Checked = $true}
+    $btnApply.Text = if ($radEnforce.Checked) { 'Aplicar protección' } else { 'Simular (no bloquea)' }
+    $radAudit.Add_CheckedChanged({
+        if ($radAudit.Checked) { $btnApply.Text = 'Simular (no bloquea)' }
+    })
+    $radEnforce.Add_CheckedChanged({
+        if ($radEnforce.Checked) { $btnApply.Text = 'Aplicar protección' }
+    })
     $radAudit.Font = New-Object System.Drawing.Font('Segoe UI Semibold',9)
     $radEnforce.Font = New-Object System.Drawing.Font('Segoe UI Semibold',9)
     $radAudit.ForeColor = $PrimaryDark
@@ -1620,6 +1630,35 @@ try {
     })
 
     $btnHealthRefresh.Add_Click({ & $loadReadiness | Out-Null })
+    $btnVerifyStudents.Add_Click({
+        try {
+            $appliedSettings = Read-AulaGuardSettings -Root $root
+            $observed = @(Get-AulaGuardProtectionStatus -Settings $appliedSettings)
+            $failed = @($observed | Where-Object { $_.Status -ne 'OK' })
+            $lines = @($observed | Select-Object -First 12 | ForEach-Object {
+                "[$($_.Status)] $($_.User): $($_.Detail)"
+            }) -join [Environment]::NewLine
+            $appSummary = if ($appliedSettings.appControl.enabled -and
+                $appliedSettings.appControl.mode -eq 'Enabled') {
+                'AppLocker configurado en bloqueo; comprueba también su ejecución con cuenta estándar.'
+            } else {
+                'JUEGOS Y PROGRAMAS NO BLOQUEADOS POR APPLOCKER: ve a Control de apps y selecciona Bloqueo activo.'
+            }
+            $headerText = if ($failed.Count -gt 0) {
+                'Protección NO verificada para todos los estudiantes.'
+            } else {
+                'Directivas generales verificadas en el Registro de los estudiantes.'
+            }
+            [System.Windows.Forms.MessageBox]::Show(
+                "$headerText$([Environment]::NewLine)$([Environment]::NewLine)$lines$([Environment]::NewLine)$([Environment]::NewLine)$appSummary$([Environment]::NewLine)Recuerda cerrar sesión del estudiante para actualizar el comportamiento de Windows.",
+                'AulaGuard · Comprobar protección real','OK',$(if ($failed.Count -gt 0) {'Warning'} else {'Information'})
+            ) | Out-Null
+            Set-Status $(if ($failed.Count -gt 0) {'Existen perfiles sin protección confirmada'} else {'Protección general verificada por perfil'}) $(if ($failed.Count -gt 0) {'Warning'} else {'Success'})
+        } catch {
+            Set-Status 'No se pudo verificar la protección de estudiantes' 'Error'
+            [System.Windows.Forms.MessageBox]::Show($_.Exception.Message,'AulaGuard · Verificación','OK','Error') | Out-Null
+        }
+    })
     $btnMaintenanceStart.Add_Click({
         try {
             if ([System.Windows.Forms.MessageBox]::Show(
@@ -1851,9 +1890,9 @@ try {
     $btnApply.Add_Click({
         $simulation = -not $radEnforce.Checked
         $message = if ($simulation) {
-            'AulaGuard realizará una simulación y no hará cambios reales en Windows. ¿Continuar?'
+            'MODO AUDITORÍA: esta acción NO bloquea nada en Windows. Para aplicar restricciones reales, selecciona Protección activa en la pestaña Protección. ¿Deseas ejecutar solamente la simulación?'
         } else {
-            'Se aplicarán las protecciones a las cuentas de estudiante. Las cuentas administradoras permanecerán excluidas. ¿Continuar?'
+            'Se aplicarán las restricciones de Windows y USB a estudiantes estándar. IMPORTANTE: el bloqueo de juegos y aplicaciones se configura aparte en Control de apps y selecciona Bloqueo activo. ¿Continuar?'
         }
 
         if ([System.Windows.Forms.MessageBox]::Show($message,'AulaGuard','YesNo','Question') -ne 'Yes') {
@@ -1885,6 +1924,9 @@ try {
             $usbResults = @(Sync-AulaGuardUsbPolicy -BlockStorage ([bool]$settings.usb.blockStorage) -Root $root -WhatIfMode:$simulation)
             $result += $usbResults
 
+            if (-not $simulation -and $result.Count -eq 0) {
+                throw 'No se pudo aplicar protección: no hay cuentas estándar de estudiantes a las que dirigir las restricciones.'
+            }
 
             if (-not $simulation -and $settings.protections.protectPublicDesktop) {
                 Protect-AulaGuardPublicDesktop
@@ -1902,15 +1944,24 @@ try {
             if ($errors -gt 0) {
                 Set-Status "Protección incompleta: $errors error(es)" 'Warning'
             } elseif ($simulation) {
-                Set-Status "Simulación completada: $ok comprobación(es)" 'Success'
+                Set-Status "Simulación terminada: no se bloquearon cuentas" 'Warning'
             } else {
-                Set-Status "Protección aplicada: $ok operación(es)" 'Success'
+                Set-Status "Registro de $ok operaciones verificado; reinicia sesión del estudiante" 'Success'
             }
             Refresh-Dashboard
             & $loadAudit
 
+            $details = @($result | Where-Object { $_.Status -eq 'ERROR' } |
+                Select-Object -First 3 | ForEach-Object { "$($_.User): $($_.Detail)" }) -join [Environment]::NewLine
+            $explanation = if ($simulation) {
+                'Solo simulación: NO existen bloqueos nuevos. Ve a Protección y selecciona Protección activa.'
+            } elseif ($errors -gt 0) {
+                "La protección NO está completa. Corrige los errores: $details"
+            } else {
+                'Directivas comprobadas en el Registro del estudiante. Cierra su sesión y vuelve a entrar para probar el bloqueo real. Juegos y aplicaciones se bloquean desde Control de apps.'
+            }
             [System.Windows.Forms.MessageBox]::Show(
-                "Proceso completado.$([Environment]::NewLine)$([Environment]::NewLine)Usuarios procesados: $($result.Count)$([Environment]::NewLine)Correctos: $ok$([Environment]::NewLine)Errores: $errors",
+                "$explanation$([Environment]::NewLine)$([Environment]::NewLine)Operaciones procesadas: $($result.Count)$([Environment]::NewLine)Verificadas: $ok$([Environment]::NewLine)Errores: $errors",
                 'AulaGuard','OK',$(if ($errors -gt 0) {'Warning'} else {'Information'})
             ) | Out-Null
         }
@@ -2120,7 +2171,7 @@ try {
 
     & $resizeProtection
     Set-NavActive $navHome
-    Write-AulaGuardAudit -Action 'APP_STARTED' -Detail 'v0.5.1' -Root $root
+    Write-AulaGuardAudit -Action 'APP_STARTED' -Detail 'v0.5.5' -Root $root
     Refresh-Dashboard
     & $loadAudit
     & $loadAppEvents

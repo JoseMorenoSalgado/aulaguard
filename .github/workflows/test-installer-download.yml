@@ -1,0 +1,140 @@
+name: AulaGuard Trial EXE (NO RELEASE)
+# Trial run only: no verified production release.
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/test-installer-download.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test-installer:
+    # Only this isolated opt-in source branch; never release or deploy.
+    if: github.event_name == 'pull_request' && github.head_ref == 'fix/v0.5.5-protection-verification'
+    runs-on: windows-latest
+    timeout-minutes: 40
+    steps:
+      - name: Checkout reviewable source
+        uses: actions/checkout@v4
+
+      - name: Parse all PowerShell sources
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $files = Get-ChildItem -Path .\src,.\build,.\tests -Include *.ps1,*.psm1 -Recurse
+          foreach ($file in $files) {
+            $tokens = $null
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile($file.FullName,[ref]$tokens,[ref]$errors) | Out-Null
+            if ($errors.Count -gt 0) { throw "Invalid PowerShell: $($file.FullName): $($errors -join '; ')" }
+          }
+
+      - name: Run all source and security regressions
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          foreach ($test in @(
+            'Security','Usb','InstalledApps','Wallpaper','FunctionalWorkflows',
+            'ProfessionalReadiness','PolicyLab','EndToEndHarness',
+            'ProfessionalUi','Maintenance','InstallerElevatedLaunch','ReleaseSecurity'
+          )) {
+            & ".\tests\$test.Tests.ps1"
+            if (-not $?) { throw "Failed: $test" }
+          }
+
+      - name: Generate icon and installer branding
+        shell: powershell
+        run: |
+          .\build\GenerateIcon.ps1
+          .\build\GenerateBranding.ps1
+
+      - name: Build Windows AulaGuard.exe
+        shell: powershell
+        run: .\build\Build-App.ps1
+
+      - name: Install Inno Setup
+        shell: powershell
+        run: choco install innosetup -y --no-progress
+
+      - name: Package AulaGuard installer
+        shell: powershell
+        run: |
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" ".\installer\AulaGuard.iss"
+
+      - name: Smoke test actual installation
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $setup = (Resolve-Path '.\dist\installer\AulaGuard-Setup-v0.5.5.exe').Path
+          $process = Start-Process -FilePath $setup -ArgumentList '/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-' -Wait -PassThru
+          if ($process.ExitCode -ne 0) { throw "Installer exit code $($process.ExitCode)" }
+          $root = Join-Path $env:ProgramFiles 'AulaGuard\src'
+          foreach ($name in @('AulaGuard.exe','AulaGuard.Core.psm1','AulaGuard.Security.psm1','AulaGuard.Maintenance.psm1')) {
+            if (-not (Test-Path -LiteralPath (Join-Path $root $name) -PathType Leaf)) {
+              throw "Required installed file missing: $name"
+            }
+          }
+          $env:AULAGUARD_EXE_SELFTEST = '1'
+          try {
+            & powershell.exe -NoProfile -STA -ExecutionPolicy RemoteSigned -File (Join-Path $root 'AulaGuard.ps1')
+            if ($LASTEXITCODE -ne 0) { throw 'Installed PowerShell startup self-test failed.' }
+          } finally {
+            Remove-Item Env:\AULAGUARD_EXE_SELFTEST -ErrorAction SilentlyContinue
+          }
+
+      - name: Validate clean uninstall
+        shell: powershell
+        run: .\tests\Uninstall.Tests.ps1
+
+      - name: Create short-lived test-only package and disclose Defender status
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          New-Item -ItemType Directory -Path .\dist\trial -Force | Out-Null
+          Copy-Item .\dist\installer\AulaGuard-Setup-v0.5.5.exe .\dist\trial\AulaGuard-Setup-PRUEBA-v0.5.5.exe
+          $exe = (Resolve-Path .\dist\trial\AulaGuard-Setup-PRUEBA-v0.5.5.exe).Path
+          $scan = 'No se verifico con Defender en GitHub Actions. Escanear con Defender activo en VM antes de ejecutar.'
+          try {
+            $status = Get-MpComputerStatus -ErrorAction Stop
+            if ($status.AMServiceEnabled -and $status.AntivirusEnabled -and $status.RealTimeProtectionEnabled) {
+              Start-MpScan -ScanType CustomScan -ScanPath $exe -ErrorAction Stop
+              $detections = @(Get-MpThreatDetection -ErrorAction Stop | Where-Object {
+                @($_.Resources) -match 'AulaGuard'
+              })
+              if ($detections.Count -gt 0 -or -not (Test-Path -LiteralPath $exe)) {
+                throw 'Microsoft Defender ha marcado el programa. Se cancela toda distribucion de prueba.'
+              }
+              $scan = 'Escaneo local con Microsoft Defender activo en runner: completado sin detecciones asociadas.'
+            }
+          } catch {
+            # A reported threat must stop, but lack of Defender is disclosed without bypass.
+            if ($_.Exception.Message -like '*marcado el programa*') { throw }
+            $scan = 'Microsoft Defender no estaba disponible para escanear en runner. Escaneo local obligatorio antes de ejecutar.'
+          }
+          @(
+            'AulaGuard EXPERIMENTAL para Windows 10/11 Pro - NO PARA PRODUCCION.',
+            'Solo usar en maquina virtual de laboratorio con snapshot y usuario administrador de recuperacion.',
+            'Archivo compilado desde la rama v0.5.5 que valida protección real por perfiles.',
+            'Los metadatos internos del instalador indican la version 0.5.5.',
+            'No tiene firma digital Authenticode confiable. No omitir SmartScreen ni desactivar Microsoft Defender.',
+            "Antivirus en GitHub Actions: $scan",
+            'La validacion real de restricciones y recuperacion del equipo aun esta pendiente.',
+            'No instalar en el aula real ni en equipos con datos importantes.',
+            "Commit: $env:GITHUB_SHA"
+          ) | Set-Content -LiteralPath .\dist\trial\LEER-ANTES-DE-INSTALAR.txt -Encoding UTF8
+          $hash = (Get-FileHash -LiteralPath $exe -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  AulaGuard-Setup-PRUEBA-v0.5.5.exe" | Set-Content .\dist\trial\SHA256SUMS.txt -Encoding ASCII
+          Write-Host "SHA256: $hash"
+
+      - name: Upload temporary test installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: AulaGuard-PRUEBA-v0.5.5-SOLO-VM
+          path: dist/trial/*
+          retention-days: 3
+          if-no-files-found: error

@@ -1,4 +1,4 @@
-$ErrorActionPreference = 'Stop'
+﻿$ErrorActionPreference = 'Stop'
 $repo = Resolve-Path (Join-Path $PSScriptRoot '..')
 Import-Module (Join-Path $repo 'src\AulaGuard.Security.psm1') -Force
 Import-Module (Join-Path $repo 'src\AulaGuard.Core.psm1') -Force

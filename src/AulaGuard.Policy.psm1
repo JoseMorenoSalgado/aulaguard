@@ -1,4 +1,4 @@
-Set-StrictMode -Version Latest
+﻿Set-StrictMode -Version Latest
 
 function Get-TargetUserProfiles {
     $adminSids = @()
@@ -203,6 +203,74 @@ function Test-AulaGuardPolicyEngine {
     }
 }
 
+
+# Verify the actual target user's registry hive, not only the isolated
+# preflight registry tree. This proves settings were written to the correct
+# profile, but Windows may still require a sign-out for UI policy refresh.
+function Test-AulaGuardAppliedPolicyForHive {
+    param(
+        [Parameter(Mandatory=$true)][string]$HiveRoot,
+        [Parameter(Mandatory=$true)]$Settings
+    )
+
+    $errors = New-Object 'System.Collections.Generic.List[string]'
+    $checked = 0
+    $policies = @(
+        @{ Name='NoChangingWallPaper'; Path=(Join-Path $HiveRoot 'Software\Microsoft\Windows\CurrentVersion\Policies\ActiveDesktop'); Enabled=[bool]$Settings.protections.lockWallpaper },
+        @{ Name='NoThemesTab'; Path=(Join-Path $HiveRoot 'Software\Microsoft\Windows\CurrentVersion\Policies\Explorer'); Enabled=[bool]$Settings.protections.disablePersonalization },
+        @{ Name='NoControlPanel'; Path=(Join-Path $HiveRoot 'Software\Microsoft\Windows\CurrentVersion\Policies\Explorer'); Enabled=[bool]$Settings.protections.blockControlPanel },
+        @{ Name='DisableRegistryTools'; Path=(Join-Path $HiveRoot 'Software\Microsoft\Windows\CurrentVersion\Policies\System'); Enabled=[bool]$Settings.protections.blockRegistryTools },
+        @{ Name='DisableTaskMgr'; Path=(Join-Path $HiveRoot 'Software\Microsoft\Windows\CurrentVersion\Policies\System'); Enabled=[bool]$Settings.protections.blockTaskManager }
+    )
+
+    foreach ($policy in $policies) {
+        $value = $null
+        $exists = $false
+        if (Test-Path -LiteralPath $policy.Path) {
+            $properties = Get-ItemProperty -LiteralPath $policy.Path -ErrorAction Stop
+            $exists = @($properties.PSObject.Properties.Name) -contains $policy.Name
+            if ($exists) { $value = $properties.($policy.Name) }
+        }
+        $checked++
+        $correct = if ($policy.Enabled) { $exists -and $value -eq 1 } else { -not $exists }
+        if (-not $correct) { $errors.Add("$($policy.Name): el Registro no refleja la restricción solicitada.") }
+    }
+
+    foreach ($browser in @('Microsoft\Edge','Google\Chrome')) {
+        $root = Join-Path $HiveRoot "Software\Policies\$browser"
+        $blockPath = Join-Path $root 'URLBlocklist'
+        $allowPath = Join-Path $root 'URLAllowlist'
+        $checked++
+        if ($Settings.protections.browserWhitelist) {
+            $blocked = if (Test-Path -LiteralPath $blockPath) {
+                (Get-ItemProperty -LiteralPath $blockPath -Name '1' -ErrorAction SilentlyContinue).'1'
+            } else { $null }
+            if ($blocked -cne '*' -or -not (Test-Path -LiteralPath $allowPath)) {
+                $errors.Add("$browser : no se confirmó la lista blanca de sitios.")
+                continue
+            }
+            $expected = @($Settings.allowedWebsites | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) })
+            $actual = Get-ItemProperty -LiteralPath $allowPath -ErrorAction Stop
+            for ($i = 0; $i -lt $expected.Count; $i++) {
+                $name = [string]($i + 1)
+                if (($actual.PSObject.Properties.Name -notcontains $name) -or
+                    ([string]$actual.$name -cne ([string]$expected[$i]).Trim())) {
+                    $errors.Add("$browser : sitio permitido $($i+1) ausente o diferente.")
+                }
+            }
+        } else {
+            if (Test-Path -LiteralPath $blockPath) { $errors.Add("$browser : quedó un bloqueo anterior.") }
+            if (Test-Path -LiteralPath $allowPath) { $errors.Add("$browser : quedó una lista de excepciones anterior.") }
+        }
+    }
+
+    return [pscustomobject]@{
+        Passed = ($errors.Count -eq 0)
+        CheckCount = $checked
+        Errors = @($errors.ToArray())
+    }
+}
+
 function Set-AulaGuardPolicies {
     param(
         [Parameter(Mandatory=$true)]$Settings,
@@ -216,25 +284,81 @@ function Set-AulaGuardPolicies {
         [void](Test-AulaGuardWallpaperFile -Path ([string]$Settings.wallpaper))
     }
     $results = New-Object System.Collections.Generic.List[object]
-    foreach ($profile in Get-TargetUserProfiles) {
+    $profiles = @(Get-TargetUserProfiles)
+    if ($profiles.Count -eq 0 -and -not $WhatIfMode) {
+        throw 'No se encontraron perfiles estándar de estudiantes. Crea o inicia sesión al menos una vez con un usuario estándar y vuelve a aplicar la protección.'
+    }
+    foreach ($profile in $profiles) {
         if ($WhatIfMode) {
             $results.Add([pscustomobject]@{User=(Split-Path $profile.LocalPath -Leaf); Status='SIMULADO'; Detail='No se realizaron cambios.'})
             continue
         }
 
         try {
+            $verified = $null
             Invoke-WithUserHive -Profile $profile -Script {
                 param($hive)
                 Set-AulaGuardPolicyForHive -HiveRoot $hive -Settings $Settings
+                $verified = Test-AulaGuardAppliedPolicyForHive -HiveRoot $hive -Settings $Settings
+                if (-not $verified.Passed) { throw ($verified.Errors -join ' | ') }
             }
 
-            $results.Add([pscustomobject]@{User=(Split-Path $profile.LocalPath -Leaf); Status='OK'; Detail='Políticas aplicadas.'})
+            $results.Add([pscustomobject]@{User=(Split-Path $profile.LocalPath -Leaf); Status='OK'; Detail='Restricciones verificadas en el Registro del estudiante; cerrar sesión para actualizar Windows.'})
         } catch {
             $results.Add([pscustomobject]@{User=(Split-Path $profile.LocalPath -Leaf); Status='ERROR'; Detail=$_.Exception.Message})
         }
     }
 
     return $results
+}
+
+
+# Read-only support diagnostics. Never infer successful protection from the
+# saved configuration alone: inspect every standard user's actual registry hive.
+function Get-AulaGuardProtectionStatus {
+    param([Parameter(Mandatory=$true)]$Settings)
+
+    $results = New-Object 'System.Collections.Generic.List[object]'
+    if ($Settings.policyMode -ne 'Enforce') {
+        $results.Add([pscustomobject]@{
+            User = '(aula)'
+            Status = 'AUDITORIA'
+            Detail = 'Modo Auditoría: las restricciones generales NO están activas.'
+        })
+        return $results.ToArray()
+    }
+
+    $profiles = @(Get-TargetUserProfiles)
+    if ($profiles.Count -eq 0) {
+        $results.Add([pscustomobject]@{
+            User = '(sin estudiantes)'
+            Status = 'ERROR'
+            Detail = 'No se encontró ningún perfil estándar. El alumno debe iniciar sesión una vez.'
+        })
+        return $results.ToArray()
+    }
+    foreach ($profile in $profiles) {
+        $name = Split-Path $profile.LocalPath -Leaf
+        try {
+            Invoke-WithUserHive -Profile $profile -Script {
+                param([string]$hive)
+                $verify = Test-AulaGuardAppliedPolicyForHive -HiveRoot $hive -Settings $Settings
+                if (-not $verify.Passed) { throw ($verify.Errors -join ' | ') }
+            }
+            $results.Add([pscustomobject]@{
+                User = $name
+                Status = 'OK'
+                Detail = 'Directivas generales presentes en el perfil. Comprobar comportamiento tras nuevo inicio de sesión.'
+            })
+        } catch {
+            $results.Add([pscustomobject]@{
+                User = $name
+                Status = 'ERROR'
+                Detail = $_.Exception.Message
+            })
+        }
+    }
+    return $results.ToArray()
 }
 
 function Reset-AulaGuardPolicies {
