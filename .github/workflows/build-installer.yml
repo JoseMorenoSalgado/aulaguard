@@ -192,48 +192,8 @@ jobs:
           $hash = (Get-FileHash -Path $exe -Algorithm SHA256).Hash.ToLowerInvariant()
           "$hash  AulaGuard-Setup-v0.5.1.exe" | Set-Content dist/installer/SHA256SUMS.txt -Encoding ASCII
 
-      # Experimental and short-lived: do not publish a release.
-      # Only emit a downloadable artifact when Defender is actively protecting
-      # the Windows builder and a scan of both binaries succeeds.
-      - name: Scan trial binaries with active Microsoft Defender
-        shell: powershell
-        run: |
-          $ErrorActionPreference = 'Stop'
-          $status = Get-MpComputerStatus -ErrorAction Stop
-          if (-not $status.AMServiceEnabled -or -not $status.AntivirusEnabled -or -not $status.RealTimeProtectionEnabled) {
-            throw 'Cannot distribute test executables: Microsoft Defender is not active on this build runner.'
-          }
-          $paths = @('dist/AulaGuard.exe','dist/installer/AulaGuard-Setup-v0.5.1.exe')
-          foreach ($path in $paths) {
-            if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { throw "Binary not found: $path" }
-            Start-MpScan -ScanType CustomScan -ScanPath (Resolve-Path $path).Path -ErrorAction Stop
-            if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { throw "Defender removed $path" }
-          }
-          $detections = @(Get-MpThreatDetection -ErrorAction Stop |
-            Where-Object { @($_.Resources) -match 'AulaGuard' })
-          if ($detections.Count -gt 0) {
-            throw 'Defender reported threat detections associated with AulaGuard. No artifact will be published.'
-          }
-          $status = Get-MpComputerStatus -ErrorAction Stop
-          if (-not $status.RealTimeProtectionEnabled) { throw 'Defender real-time protection is not active.' }
-          'PRUEBA EXCLUSIVAMENTE EN VM WINDOWS 10/11 PRO. NO USAR EN AULAS EN PRODUCCION.' |
-            Set-Content -LiteralPath dist/installer/LEER-ANTES-DE-INSTALAR.txt -Encoding UTF8
-          'Sin firma Authenticode de distribucion. No desactivar Microsoft Defender ni evadir SmartScreen.' |
-            Add-Content -LiteralPath dist/installer/LEER-ANTES-DE-INSTALAR.txt -Encoding UTF8
-          'Compilacion experimental, sin garantia de funcionamiento. Capturar logs de error para diagnostico.' |
-            Add-Content -LiteralPath dist/installer/LEER-ANTES-DE-INSTALAR.txt -Encoding UTF8
-
-      - name: Upload scanned AulaGuard test installer (not public release)
-        uses: actions/upload-artifact@v4
-        with:
-          name: AulaGuard-EXE-PRUEBA-NO-FIRMADO
-          path: |
-            dist/AulaGuard.exe
-            dist/installer/AulaGuard-Setup-v0.5.1.exe
-            dist/installer/SHA256SUMS.txt
-            dist/installer/LEER-ANTES-DE-INSTALAR.txt
-          if-no-files-found: error
-          retention-days: 3
+      # Windows GitHub-hosted runners may have Defender disabled. This job is
+      # a build/test only; it NEVER publishes or uploads unscanned binaries.
 
       - name: Verify Windows uninstallation and residual cleanup
         shell: powershell
