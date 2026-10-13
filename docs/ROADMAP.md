@@ -84,6 +84,18 @@
 - [ ] Verificar AppLocker, navegación, escritorio, USB físico y restauración.
 - [ ] Instalador firmado y revisado por Microsoft Defender.
 
+## v0.5.5 — Corrección de protección efectiva
+
+- [x] Distinguir simulación (Auditoría) de bloqueo real en la interfaz.
+- [x] Explicar que la protección general no activa el bloqueo AppLocker de aplicaciones.
+- [x] Rechazar aplicaciones sin perfiles estándar creados.
+- [x] Verificar valores de directivas generales en cada perfil de estudiante.
+- [x] Verificar directivas de USB después de escribirlas.
+- [x] Diagnóstico por alumno en Estado del sistema.
+- [x] Pruebas de regresión que detectan directivas alteradas.
+- [ ] Confirmar bloqueos reales y restauración en Windows 10 Pro y 11 Pro dedicados.
+- [ ] Completar cobertura AppLocker de aplicaciones empaquetadas Microsoft Store.
+
 ## v0.6 — Administración central
 
 - [ ] Agente AulaGuard por equipo.
