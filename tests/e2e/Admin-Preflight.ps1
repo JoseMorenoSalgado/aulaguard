@@ -174,6 +174,20 @@ public static class AulaGuardE2EBenign {
     Set-Acl -LiteralPath $fixturePath -AclObject $fileAcl -ErrorAction Stop
 }
 
+if (Test-Path -LiteralPath $fixturePath -PathType Leaf) {
+    $existingFixture = Get-Item -LiteralPath $fixturePath -Force -ErrorAction Stop
+    if (($existingFixture.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+        throw 'El ejecutable de prueba existente es un enlace inseguro.'
+    }
+    $fixtureOwner = (Get-Acl -LiteralPath $fixturePath).GetOwner([Security.Principal.SecurityIdentifier]).Value
+    if ($fixtureOwner -notin @('S-1-5-32-544','S-1-5-18',[Security.Principal.WindowsIdentity]::GetCurrent().User.Value)) {
+        throw 'El ejecutable de prueba existente tiene un propietario no confiable.'
+    }
+    Set-Acl -LiteralPath $fixturePath -AclObject $fileAcl -ErrorAction Stop
+    $manifest | Add-Member NoteProperty benignFixtureSha256 (Get-FileHash -LiteralPath $fixturePath -Algorithm SHA256).Hash -Force
+    $manifest | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $manifestPath -Encoding UTF8 -ErrorAction Stop
+    Set-Acl -LiteralPath $manifestPath -AclObject $fileAcl -ErrorAction Stop
+}
 $hash = (Get-FileHash -LiteralPath $manifestPath -Algorithm SHA256).Hash
 [pscustomobject]@{
     Ready = $true
