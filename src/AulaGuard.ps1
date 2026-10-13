@@ -646,14 +646,17 @@ try {
     $healthActions.WrapContents = $false
     $btnHealthRefresh = New-Button 'Actualizar diagnóstico' 0 0 190 38 'Primary'
     $btnHealthExport = New-Button 'Exportar diagnóstico' 0 0 185 38 'Secondary'
+    $btnVerifyStudents = New-Button 'Verificar estudiantes' 0 0 174 38 'Secondary'
     $btnMaintenanceStart = New-Button 'Mantenimiento 30 min' 0 0 180 38 'Secondary'
     $btnMaintenanceStop = New-Button 'Finalizar mantenimiento' 0 0 180 38 'Danger'
     $btnHealthRefresh.Margin = New-Object System.Windows.Forms.Padding(0,5,10,4)
     $btnHealthExport.Margin = New-Object System.Windows.Forms.Padding(0,5,10,4)
+    $btnVerifyStudents.Margin = New-Object System.Windows.Forms.Padding(0,5,10,4)
     $btnMaintenanceStart.Margin = New-Object System.Windows.Forms.Padding(0,5,10,4)
     $btnMaintenanceStop.Margin = New-Object System.Windows.Forms.Padding(0,5,10,4)
     $healthActions.Controls.Add($btnHealthRefresh)
     $healthActions.Controls.Add($btnHealthExport)
+    $healthActions.Controls.Add($btnVerifyStudents)
     $healthActions.Controls.Add($btnMaintenanceStart)
     $healthActions.Controls.Add($btnMaintenanceStop)
     $healthLayout.Controls.Add($healthActions,0,3)
@@ -1627,6 +1630,35 @@ try {
     })
 
     $btnHealthRefresh.Add_Click({ & $loadReadiness | Out-Null })
+    $btnVerifyStudents.Add_Click({
+        try {
+            $appliedSettings = Read-AulaGuardSettings -Root $root
+            $observed = @(Get-AulaGuardProtectionStatus -Settings $appliedSettings)
+            $failed = @($observed | Where-Object { $_.Status -ne 'OK' })
+            $lines = @($observed | Select-Object -First 12 | ForEach-Object {
+                "[$($_.Status)] $($_.User): $($_.Detail)"
+            }) -join [Environment]::NewLine
+            $appSummary = if ($appliedSettings.appControl.enabled -and
+                $appliedSettings.appControl.mode -eq 'Enabled') {
+                'AppLocker configurado en bloqueo; comprueba también su ejecución con cuenta estándar.'
+            } else {
+                'JUEGOS Y PROGRAMAS NO BLOQUEADOS POR APPLOCKER: ve a Control de apps y selecciona Bloqueo activo.'
+            }
+            $headerText = if ($failed.Count -gt 0) {
+                'Protección NO verificada para todos los estudiantes.'
+            } else {
+                'Directivas generales verificadas en el Registro de los estudiantes.'
+            }
+            [System.Windows.Forms.MessageBox]::Show(
+                "$headerText$([Environment]::NewLine)$([Environment]::NewLine)$lines$([Environment]::NewLine)$([Environment]::NewLine)$appSummary$([Environment]::NewLine)Recuerda cerrar sesión del estudiante para actualizar el comportamiento de Windows.",
+                'AulaGuard · Comprobar protección real','OK',$(if ($failed.Count -gt 0) {'Warning'} else {'Information'})
+            ) | Out-Null
+            Set-Status $(if ($failed.Count -gt 0) {'Existen perfiles sin protección confirmada'} else {'Protección general verificada por perfil'}) $(if ($failed.Count -gt 0) {'Warning'} else {'Success'})
+        } catch {
+            Set-Status 'No se pudo verificar la protección de estudiantes' 'Error'
+            [System.Windows.Forms.MessageBox]::Show($_.Exception.Message,'AulaGuard · Verificación','OK','Error') | Out-Null
+        }
+    })
     $btnMaintenanceStart.Add_Click({
         try {
             if ([System.Windows.Forms.MessageBox]::Show(
