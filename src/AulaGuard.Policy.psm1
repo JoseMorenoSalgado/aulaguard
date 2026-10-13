@@ -312,6 +312,55 @@ function Set-AulaGuardPolicies {
     return $results
 }
 
+
+# Read-only support diagnostics. Never infer successful protection from the
+# saved configuration alone: inspect every standard user's actual registry hive.
+function Get-AulaGuardProtectionStatus {
+    param([Parameter(Mandatory=$true)]$Settings)
+
+    $results = New-Object 'System.Collections.Generic.List[object]'
+    if ($Settings.policyMode -ne 'Enforce') {
+        $results.Add([pscustomobject]@{
+            User = '(aula)'
+            Status = 'AUDITORIA'
+            Detail = 'Modo Auditoría: las restricciones generales NO están activas.'
+        })
+        return $results.ToArray()
+    }
+
+    $profiles = @(Get-TargetUserProfiles)
+    if ($profiles.Count -eq 0) {
+        $results.Add([pscustomobject]@{
+            User = '(sin estudiantes)'
+            Status = 'ERROR'
+            Detail = 'No se encontró ningún perfil estándar. El alumno debe iniciar sesión una vez.'
+        })
+        return $results.ToArray()
+    }
+    foreach ($profile in $profiles) {
+        $name = Split-Path $profile.LocalPath -Leaf
+        try {
+            Invoke-WithUserHive -Profile $profile -Script {
+                param([string]$hive)
+                $verify = Test-AulaGuardAppliedPolicyForHive -HiveRoot $hive -Settings $Settings
+                if (-not $verify.Passed) { throw ($verify.Errors -join ' | ') }
+            }
+            $results.Add([pscustomobject]@{
+                User = $name
+                Status = 'OK'
+                Detail = 'Directivas generales presentes en el perfil. Comprobar comportamiento tras nuevo inicio de sesión.'
+            })
+        } catch {
+            $results.Add([pscustomobject]@{
+                User = $name
+                Status = 'ERROR'
+                Detail = $_.Exception.Message
+            })
+        }
+    }
+    return $results.ToArray()
+}
+
 function Reset-AulaGuardPolicies {
     param([string[]]$ManagedWallpapers = @())
     # When previous releases left an inaccessible wallpaper path, restore the
