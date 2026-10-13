@@ -7,7 +7,7 @@ function Require([bool]$Condition,[string]$Message) {
     if (-not $Condition) { throw "PROFESSIONAL UI TEST FAILED: $Message" }
 }
 
-Require ($ui -match "# AulaGuard v0\.5\.1") 'Source banner is not v0.5.1'
+Require ($ui -match "# AulaGuard v0\.5\.5") 'Source banner is not v0.5.5'
 Require ($ui -match '\$homeLayout = New-Object System\.Windows\.Forms\.TableLayoutPanel') 'Home is not using responsive TableLayoutPanel'
 Require ($ui -match '\$homeLayout\.Dock = ''Fill''') 'Home does not fill available workspace'
 Require ($ui -match '\$metrics\.ColumnCount = 4' -and $ui -match '\$quick\.ColumnCount = 3') 'Home metric/action structure missing'
@@ -31,9 +31,9 @@ Require ($ui -match 'foreach \(\$layout in @\(\$homeLayout,\$healthLayout,\$prog
 $core = Get-Content -LiteralPath (Join-Path $repo 'src\AulaGuard.Core.psm1') -Raw -Encoding UTF8
 $default = Get-Content -LiteralPath (Join-Path $repo 'config\default.json') -Raw -Encoding UTF8
 $installer = Get-Content -LiteralPath (Join-Path $repo 'installer\AulaGuard.iss') -Raw -Encoding UTF8
-Require ($core -match '0\.5\.1') 'Core version is not aligned to 0.5.1'
-Require ($default -match '"version"\s*:\s*"0\.5\.1"') 'Default settings version is not aligned to 0.5.1'
-Require ($installer -match '#define MyAppVersion "0\.5\.1"') 'Installer version is not aligned to 0.5.1'
+Require ($core -match '0\.5\.5') 'Core version is not aligned to 0.5.5'
+Require ($default -match '"version"\s*:\s*"0\.5\.5"') 'Default settings version is not aligned to 0.5.5'
+Require ($installer -match '#define MyAppVersion "0\.5\.5"') 'Installer version is not aligned to 0.5.5'
 
 Write-Host '[OK] Responsive Home, Internet, Desktop, USB and Audit visual structure verified'
 Write-Host '[OK] Semantic status, health feedback and version alignment verified'
