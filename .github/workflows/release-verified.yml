@@ -84,6 +84,8 @@ jobs:
           .\tests\Wallpaper.Tests.ps1
           .\tests\FunctionalWorkflows.Tests.ps1
           .\tests\ProfessionalReadiness.Tests.ps1
+          .\tests\PolicyLab.Tests.ps1
+          .\tests\EndToEndHarness.Tests.ps1
           .\tests\ProfessionalUi.Tests.ps1
           .\tests\Maintenance.Tests.ps1
           .\tests\InstallerElevatedLaunch.Tests.ps1
