@@ -1872,6 +1872,14 @@ try {
                     throw "El equipo no está listo para aplicar políticas.$([Environment]::NewLine)$([Environment]::NewLine)$detail"
                 }
             }
+            if (-not $simulation -and $settings.policyMode -eq 'Enforce') {
+                $labResult = Test-AulaGuardPolicyEngine -Settings $settings
+                if (-not $labResult.Passed) {
+                    $failedCodes = @($labResult.Checks | Where-Object { -not $_.Passed } | ForEach-Object { $_.Code }) -join ', '
+                    throw "La validación aislada del motor de políticas falló: $failedCodes"
+                }
+                Write-AulaGuardAudit -Action 'POLICY_LAB_PASSED' -Level 'SECURITY' -Detail 'Motor de políticas validado antes de Enforcement.' -Root $root
+            }
             Set-Status 'Aplicando protección...' 'Warning'
             $result = @(Set-AulaGuardPolicies -Settings $settings -WhatIfMode:$simulation)
             $usbResults = @(Sync-AulaGuardUsbPolicy -BlockStorage ([bool]$settings.usb.blockStorage) -Root $root -WhatIfMode:$simulation)
