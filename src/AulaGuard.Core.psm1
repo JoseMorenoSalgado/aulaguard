@@ -55,6 +55,13 @@ function New-AulaGuardSettings {
         usb = [pscustomobject]@{
             blockStorage = $false
         }
+        maintenance = [pscustomobject]@{
+            enabled = $false
+            expiresUtc = $null
+            previousPolicyMode = 'Audit'
+            previousAppControlMode = 'AuditOnly'
+            previousAppControlEnabled = $false
+        }
         premium = [pscustomobject]@{
             serverMode = 'LocalOnly'
             endpoint = ''
@@ -73,7 +80,7 @@ function Read-AulaGuardSettings {
     $defaults = New-AulaGuardSettings
     $s = Get-Content -LiteralPath $path -Raw -Encoding UTF8 -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop
 
-    foreach ($property in @('version','profileName','policyMode','wallpaper','allowedPrograms','allowedWebsites','protectedShortcuts','appControl','usb','premium','auditEnabled','lastAppliedUtc')) {
+    foreach ($property in @('version','profileName','policyMode','wallpaper','allowedPrograms','allowedWebsites','protectedShortcuts','appControl','usb','maintenance','premium','auditEnabled','lastAppliedUtc')) {
         if (-not ($s.PSObject.Properties.Name -contains $property)) {
             $s | Add-Member NoteProperty $property $defaults.$property
         }
@@ -100,6 +107,15 @@ function Read-AulaGuardSettings {
         $s | Add-Member NoteProperty usb $defaults.usb -Force
     } elseif (-not ($s.usb.PSObject.Properties.Name -contains 'blockStorage')) {
         $s.usb | Add-Member NoteProperty blockStorage $false
+    }
+    if ($null -eq $s.maintenance) {
+        $s | Add-Member NoteProperty maintenance $defaults.maintenance -Force
+    } else {
+        foreach ($property in $defaults.maintenance.PSObject.Properties.Name) {
+            if (-not ($s.maintenance.PSObject.Properties.Name -contains $property)) {
+                $s.maintenance | Add-Member NoteProperty $property $defaults.maintenance.$property
+            }
+        }
     }
     if ($null -eq $s.premium) {
         $s | Add-Member NoteProperty premium $defaults.premium -Force
@@ -131,6 +147,26 @@ function Save-AulaGuardSettings {
     if ($Settings.policyMode -notin @('Audit','Enforce') -or
         $Settings.appControl.mode -notin @('AuditOnly','Enabled')) {
         throw 'Modo de políticas inválido.'
+    }
+    if ($Settings.PSObject.Properties.Name -contains 'maintenance' -and $null -ne $Settings.maintenance) {
+        if ([bool]$Settings.maintenance.enabled) {
+            if ([string]::IsNullOrWhiteSpace([string]$Settings.maintenance.expiresUtc)) {
+                throw 'Modo mantenimiento activo sin fecha de expiración.'
+            }
+            try {
+                $expiry = [datetime]::Parse(
+                    [string]$Settings.maintenance.expiresUtc,
+                    [Globalization.CultureInfo]::InvariantCulture,
+                    [Globalization.DateTimeStyles]::RoundtripKind
+                )
+            } catch {
+                throw 'Fecha de expiración del modo mantenimiento inválida.'
+            }
+            if ($Settings.maintenance.previousPolicyMode -notin @('Audit','Enforce') -or
+                $Settings.maintenance.previousAppControlMode -notin @('AuditOnly','Enabled')) {
+                throw 'Estado previo del modo mantenimiento inválido.'
+            }
+        }
     }
     if ($Settings.PSObject.Properties.Name -contains 'premium') {
         if ($Settings.premium.serverMode -ne 'LocalOnly' -or
@@ -211,6 +247,7 @@ function Import-AulaGuardProfile {
     $settings.wallpaper = ''
     $settings.protections.lockWallpaper = $false
     $settings.usb = $defaults.usb
+    $settings.maintenance = $defaults.maintenance
     $settings.premium = $defaults.premium
     $settings.lastAppliedUtc = $previous.lastAppliedUtc
     $settings.version = $defaults.version

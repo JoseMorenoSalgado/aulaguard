@@ -77,6 +77,10 @@ jobs:
         shell: powershell
         run: .\tests\ProfessionalUi.Tests.ps1
 
+      - name: Validate expiring maintenance mode
+        shell: powershell
+        run: .\tests\Maintenance.Tests.ps1
+
       - name: Verify installer elevated launch and versions
         shell: powershell
         run: .\tests\InstallerElevatedLaunch.Tests.ps1
@@ -133,7 +137,7 @@ jobs:
         shell: powershell
         run: |
           $installedRoot = Join-Path $env:ProgramFiles 'AulaGuard\src'
-          foreach ($file in @('AulaGuard.exe', 'AulaGuard.ps1', 'AulaGuard.Launcher.ps1', 'AulaGuard.Core.psm1', 'AulaGuard.Security.psm1', 'AulaGuard.USB.psm1', 'AulaGuard.InstalledApps.psm1', 'AulaGuard.Wallpaper.psm1')) {
+          foreach ($file in @('AulaGuard.exe', 'AulaGuard.ps1', 'AulaGuard.Launcher.ps1', 'AulaGuard.Core.psm1', 'AulaGuard.Security.psm1', 'AulaGuard.USB.psm1', 'AulaGuard.InstalledApps.psm1', 'AulaGuard.Wallpaper.psm1', 'AulaGuard.Maintenance.psm1')) {
             if (-not (Test-Path -LiteralPath (Join-Path $installedRoot $file) -PathType Leaf)) {
               throw "Required application or recovery file missing from installation: $file"
             }

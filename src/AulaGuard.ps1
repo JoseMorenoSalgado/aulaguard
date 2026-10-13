@@ -34,7 +34,8 @@ try {
         'AulaGuard.AppControl.psm1',
         'AulaGuard.USB.psm1',
         'AulaGuard.InstalledApps.psm1',
-        'AulaGuard.Wallpaper.psm1'
+        'AulaGuard.Wallpaper.psm1',
+        'AulaGuard.Maintenance.psm1'
     )) {
         $modulePath = Join-Path $script:AulaGuardSourceDir $moduleName
         if (-not (Test-Path -LiteralPath $modulePath -PathType Leaf)) {
@@ -314,6 +315,7 @@ try {
             usb = [pscustomobject]@{
                 blockStorage = [bool]$toggleUsb.Checked
             }
+            maintenance = $settings.maintenance
             premium = $settings.premium
             appControl = [pscustomobject]@{
                 mode = [string]$settings.appControl.mode
@@ -644,10 +646,16 @@ try {
     $healthActions.WrapContents = $false
     $btnHealthRefresh = New-Button 'Actualizar diagnóstico' 0 0 190 38 'Primary'
     $btnHealthExport = New-Button 'Exportar diagnóstico' 0 0 185 38 'Secondary'
+    $btnMaintenanceStart = New-Button 'Mantenimiento 30 min' 0 0 180 38 'Secondary'
+    $btnMaintenanceStop = New-Button 'Finalizar mantenimiento' 0 0 180 38 'Danger'
     $btnHealthRefresh.Margin = New-Object System.Windows.Forms.Padding(0,5,10,4)
     $btnHealthExport.Margin = New-Object System.Windows.Forms.Padding(0,5,10,4)
+    $btnMaintenanceStart.Margin = New-Object System.Windows.Forms.Padding(0,5,10,4)
+    $btnMaintenanceStop.Margin = New-Object System.Windows.Forms.Padding(0,5,10,4)
     $healthActions.Controls.Add($btnHealthRefresh)
     $healthActions.Controls.Add($btnHealthExport)
+    $healthActions.Controls.Add($btnMaintenanceStart)
+    $healthActions.Controls.Add($btnMaintenanceStop)
     $healthLayout.Controls.Add($healthActions,0,3)
 
     $script:lastReadinessChecks = @()
@@ -685,7 +693,20 @@ try {
                 $lblHomeStateTitle.ForeColor = $(if ($summary.Critical -gt 0) {$Danger} else {$Warning})
                 $lblHomeStateDetail.Text = "Correctos: $($summary.Passed)/$($summary.Total) · Advertencias: $($summary.Warnings)"
             }
-            $lblHealthDetail.Text = "Correctos: $($summary.Passed)/$($summary.Total) · Advertencias: $($summary.Warnings)"
+            $maintenanceState = Get-AulaGuardMaintenanceStatus -Settings $settings
+            if ($maintenanceState.Enabled) {
+                $btnMaintenanceStart.Enabled = $false
+                $btnMaintenanceStop.Enabled = $true
+                $btnMaintenanceStop.Text = "Finalizar · $($maintenanceState.RemainingMinutes) min"
+                $healthSummaryCard.BackColor = $SoftAmber
+                $lblHealthTitle.Text = 'Modo mantenimiento activo'
+                $lblHealthTitle.ForeColor = $Warning
+                $lblHealthDetail.Text = "Las restricciones de AulaGuard están suspendidas temporalmente. Se restaurarán automáticamente."
+            } else {
+                $btnMaintenanceStart.Enabled = $true
+                $btnMaintenanceStop.Enabled = $false
+                $btnMaintenanceStop.Text = 'Finalizar mantenimiento'
+            }
             return $summary
         } catch {
             $gridHealth.Rows.Clear()
@@ -1599,6 +1620,44 @@ try {
     })
 
     $btnHealthRefresh.Add_Click({ & $loadReadiness | Out-Null })
+    $btnMaintenanceStart.Add_Click({
+        try {
+            if ([System.Windows.Forms.MessageBox]::Show(
+                'AulaGuard suspenderá temporalmente sus restricciones durante 30 minutos. Al vencer el tiempo, intentará restaurarlas automáticamente. ¿Continuar?',
+                'AulaGuard · Modo mantenimiento','YesNo','Warning'
+            ) -ne 'Yes') { return }
+
+            Save-FromUi
+            Start-AulaGuardMaintenanceMode -DurationMinutes 30 -Root $root | Out-Null
+            $settings = Read-AulaGuardSettings -Root $root
+            $script:settings = $settings
+            $radAudit.Checked = $true
+            $radAppAudit.Checked = $true
+            Set-Status 'Modo mantenimiento activo durante 30 minutos' 'Warning'
+            & $loadReadiness | Out-Null
+        } catch {
+            Write-AulaGuardAudit -Action 'MAINTENANCE_START_ERROR' -Level 'ERROR' -Detail $_.Exception.Message -Root $root
+            Set-Status 'No se pudo iniciar el modo mantenimiento' 'Error'
+            [System.Windows.Forms.MessageBox]::Show($_.Exception.Message,'AulaGuard · Mantenimiento','OK','Error') | Out-Null
+        }
+    })
+    $btnMaintenanceStop.Add_Click({
+        try {
+            Stop-AulaGuardMaintenanceMode -Reason 'Manual' -Root $root | Out-Null
+            $settings = Read-AulaGuardSettings -Root $root
+            $script:settings = $settings
+            $radEnforce.Checked = ($settings.policyMode -eq 'Enforce')
+            $radAudit.Checked = -not $radEnforce.Checked
+            $radAppEnforce.Checked = ($settings.appControl.mode -eq 'Enabled')
+            $radAppAudit.Checked = -not $radAppEnforce.Checked
+            Set-Status 'Modo mantenimiento finalizado y protección restaurada' 'Success'
+            & $loadReadiness | Out-Null
+        } catch {
+            Write-AulaGuardAudit -Action 'MAINTENANCE_STOP_ERROR' -Level 'ERROR' -Detail $_.Exception.Message -Root $root
+            Set-Status 'No se pudo finalizar el mantenimiento' 'Error'
+            [System.Windows.Forms.MessageBox]::Show($_.Exception.Message,'AulaGuard · Mantenimiento','OK','Error') | Out-Null
+        }
+    })
     $btnHealthExport.Add_Click({
         try {
             $d = New-Object System.Windows.Forms.SaveFileDialog

@@ -21,6 +21,19 @@ de prueba sin revisión antivirus.
 
 El proyecto incorpora control USB por usuario estándar, la vista de Servidor Premium (preparación sin conexión real), interfaz verde y la desinstalación para retirar los directorios del programa en Program Files y corrige la carga de módulos del programa compilado y mantiene la corrección del error de elevación 740. Incluye DPAPI, HMAC-SHA-256, auditoría encadenada, permisos NTFS restrictivos y validación de integridad. Mantiene el control avanzado de aplicaciones con AppLocker, auditoría previa al bloqueo, eventos de ejecución, aislamiento de cuentas administradoras y sincronización automática de políticas al iniciar Windows.
 
+## Próxima v0.5.2 — modo mantenimiento seguro
+
+La rama de desarrollo incorpora un **modo mantenimiento temporal** para tareas del administrador. Desde **Estado del sistema** se puede suspender durante 30 minutos las restricciones administradas por AulaGuard y finalizarlas manualmente antes del vencimiento.
+
+- Conserva en la configuración firmada el modo anterior de Protección y AppLocker.
+- Restaura temporalmente políticas generales, USB y protección del escritorio público administradas por AulaGuard.
+- Si AppLocker estaba activo, pasa temporalmente a auditoría.
+- Al vencer el plazo, la tarea de inicio detecta la expiración e intenta restaurar automáticamente el estado anterior.
+- Si la restauración no supera la prevalidación, AulaGuard no marca falsamente el mantenimiento como finalizado.
+- El ciclo queda registrado en la bitácora de seguridad.
+
+Esta función está en validación y **no convierte todavía v0.5.2 en un instalador público verificado**.
+
 ## AulaGuard 0.5.1 — interfaz profesional
 
 La fase 0.5.1 consolida la experiencia visual sin alterar las protecciones del sistema:
