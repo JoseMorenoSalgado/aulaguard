@@ -106,6 +106,103 @@ function Clear-AulaGuardBrowserWhitelist {
     }
 }
 
+
+function Set-AulaGuardPolicyForHive {
+    param(
+        [Parameter(Mandatory=$true)][string]$HiveRoot,
+        [Parameter(Mandatory=$true)]$Settings
+    )
+
+    $explorer = Join-Path $HiveRoot 'Software\Microsoft\Windows\CurrentVersion\Policies\Explorer'
+    $system = Join-Path $HiveRoot 'Software\Microsoft\Windows\CurrentVersion\Policies\System'
+    $activeDesktop = Join-Path $HiveRoot 'Software\Microsoft\Windows\CurrentVersion\Policies\ActiveDesktop'
+    $desktop = Join-Path $HiveRoot 'Control Panel\Desktop'
+
+    if ($Settings.protections.lockWallpaper) {
+        Set-RegistryDword $activeDesktop 'NoChangingWallPaper' 1
+        if ($Settings.wallpaper) {
+            if (-not (Test-Path $desktop)) { New-Item $desktop -Force | Out-Null }
+            New-ItemProperty $desktop -Name 'Wallpaper' -PropertyType String -Value $Settings.wallpaper -Force | Out-Null
+            New-ItemProperty $desktop -Name 'WallpaperStyle' -PropertyType String -Value '10' -Force | Out-Null
+            New-ItemProperty $desktop -Name 'TileWallpaper' -PropertyType String -Value '0' -Force | Out-Null
+        }
+    } else {
+        Remove-RegistryValueSafe $activeDesktop 'NoChangingWallPaper'
+    }
+
+    if ($Settings.protections.disablePersonalization) {
+        Set-RegistryDword $explorer 'NoThemesTab' 1
+    } else {
+        Remove-RegistryValueSafe $explorer 'NoThemesTab'
+    }
+
+    foreach ($pair in @(
+        @{Name='NoControlPanel'; Enabled=[bool]$Settings.protections.blockControlPanel},
+        @{Name='DisableRegistryTools'; Enabled=[bool]$Settings.protections.blockRegistryTools},
+        @{Name='DisableTaskMgr'; Enabled=[bool]$Settings.protections.blockTaskManager}
+    )) {
+        $target = if ($pair.Name -eq 'NoControlPanel') { $explorer } else { $system }
+        if ($pair.Enabled) { Set-RegistryDword $target $pair.Name 1 }
+        else { Remove-RegistryValueSafe $target $pair.Name }
+    }
+
+    if ($Settings.protections.browserWhitelist) {
+        Set-AulaGuardBrowserWhitelist -HiveRoot $HiveRoot -AllowedWebsites @($Settings.allowedWebsites)
+    } else {
+        Clear-AulaGuardBrowserWhitelist -HiveRoot $HiveRoot
+    }
+}
+
+function Test-AulaGuardPolicyEngine {
+    param([Parameter(Mandatory=$true)]$Settings)
+
+    $lab = "Registry::HKEY_CURRENT_USER\Software\AulaGuardPolicyLab_$([guid]::NewGuid().ToString('N'))"
+    try {
+        New-Item -Path $lab -Force | Out-Null
+        Set-AulaGuardPolicyForHive -HiveRoot $lab -Settings $Settings
+
+        $checks = New-Object 'System.Collections.Generic.List[object]'
+        $explorer = Join-Path $lab 'Software\Microsoft\Windows\CurrentVersion\Policies\Explorer'
+        $system = Join-Path $lab 'Software\Microsoft\Windows\CurrentVersion\Policies\System'
+        $activeDesktop = Join-Path $lab 'Software\Microsoft\Windows\CurrentVersion\Policies\ActiveDesktop'
+
+        $expected = @(
+            @{Code='WALLPAPER'; Path=$activeDesktop; Name='NoChangingWallPaper'; Enabled=[bool]$Settings.protections.lockWallpaper},
+            @{Code='PERSONALIZATION'; Path=$explorer; Name='NoThemesTab'; Enabled=[bool]$Settings.protections.disablePersonalization},
+            @{Code='CONTROL_PANEL'; Path=$explorer; Name='NoControlPanel'; Enabled=[bool]$Settings.protections.blockControlPanel},
+            @{Code='REGISTRY'; Path=$system; Name='DisableRegistryTools'; Enabled=[bool]$Settings.protections.blockRegistryTools},
+            @{Code='TASK_MANAGER'; Path=$system; Name='DisableTaskMgr'; Enabled=[bool]$Settings.protections.blockTaskManager}
+        )
+
+        foreach ($item in $expected) {
+            $value = $null
+            if (Test-Path $item.Path) {
+                $obj = Get-ItemProperty -LiteralPath $item.Path -Name $item.Name -ErrorAction SilentlyContinue
+                if ($null -ne $obj) { $value = $obj.($item.Name) }
+            }
+            $passed = if ($item.Enabled) { $value -eq 1 } else { $null -eq $value }
+            $checks.Add([pscustomobject]@{Code=$item.Code; Passed=$passed; Detail=$(if ($passed) {'Estado de registro correcto.'} else {'El motor no produjo el estado esperado.'})})
+        }
+
+        if ($Settings.protections.browserWhitelist) {
+            $edgeAllow = Join-Path $lab 'Software\Policies\Microsoft\Edge\URLAllowlist'
+            $edgeBlock = Join-Path $lab 'Software\Policies\Microsoft\Edge\URLBlocklist'
+            $browserPassed = (Test-Path $edgeAllow) -and (Test-Path $edgeBlock)
+        } else {
+            $browserPassed = -not (Test-Path (Join-Path $lab 'Software\Policies\Microsoft\Edge\URLAllowlist'))
+        }
+        $checks.Add([pscustomobject]@{Code='BROWSER'; Passed=$browserPassed; Detail=$(if ($browserPassed) {'Lista web coherente.'} else {'La política web no quedó en el estado esperado.'})})
+
+        return [pscustomobject]@{
+            Passed = (@($checks | Where-Object { -not $_.Passed }).Count -eq 0)
+            Checks = $checks.ToArray()
+        }
+    }
+    finally {
+        Remove-Item -LiteralPath $lab -Recurse -Force -ErrorAction SilentlyContinue
+    }
+}
+
 function Set-AulaGuardPolicies {
     param(
         [Parameter(Mandatory=$true)]$Settings,
@@ -128,44 +225,7 @@ function Set-AulaGuardPolicies {
         try {
             Invoke-WithUserHive -Profile $profile -Script {
                 param($hive)
-                $explorer = Join-Path $hive 'Software\Microsoft\Windows\CurrentVersion\Policies\Explorer'
-                $system = Join-Path $hive 'Software\Microsoft\Windows\CurrentVersion\Policies\System'
-                $activeDesktop = Join-Path $hive 'Software\Microsoft\Windows\CurrentVersion\Policies\ActiveDesktop'
-                $desktop = Join-Path $hive 'Control Panel\Desktop'
-
-                if ($Settings.protections.lockWallpaper) {
-                    Set-RegistryDword $activeDesktop 'NoChangingWallPaper' 1
-                    if ($Settings.wallpaper) {
-                        if (-not (Test-Path $desktop)) { New-Item $desktop -Force | Out-Null }
-                        New-ItemProperty $desktop -Name 'Wallpaper' -PropertyType String -Value $Settings.wallpaper -Force | Out-Null
-                        New-ItemProperty $desktop -Name 'WallpaperStyle' -PropertyType String -Value '10' -Force | Out-Null
-                        New-ItemProperty $desktop -Name 'TileWallpaper' -PropertyType String -Value '0' -Force | Out-Null
-                    }
-                } else {
-                    Remove-RegistryValueSafe $activeDesktop 'NoChangingWallPaper'
-                }
-
-                if ($Settings.protections.disablePersonalization) {
-                    Set-RegistryDword $explorer 'NoThemesTab' 1
-                } else {
-                    Remove-RegistryValueSafe $explorer 'NoThemesTab'
-                }
-
-                foreach ($pair in @(
-                    @{Name='NoControlPanel'; Enabled=[bool]$Settings.protections.blockControlPanel},
-                    @{Name='DisableRegistryTools'; Enabled=[bool]$Settings.protections.blockRegistryTools},
-                    @{Name='DisableTaskMgr'; Enabled=[bool]$Settings.protections.blockTaskManager}
-                )) {
-                    $target = if ($pair.Name -eq 'NoControlPanel') { $explorer } else { $system }
-                    if ($pair.Enabled) { Set-RegistryDword $target $pair.Name 1 }
-                    else { Remove-RegistryValueSafe $target $pair.Name }
-                }
-
-                if ($Settings.protections.browserWhitelist) {
-                    Set-AulaGuardBrowserWhitelist -HiveRoot $hive -AllowedWebsites @($Settings.allowedWebsites)
-                } else {
-                    Clear-AulaGuardBrowserWhitelist -HiveRoot $hive
-                }
+                Set-AulaGuardPolicyForHive -HiveRoot $hive -Settings $Settings
             }
 
             $results.Add([pscustomobject]@{User=(Split-Path $profile.LocalPath -Leaf); Status='OK'; Detail='Políticas aplicadas.'})

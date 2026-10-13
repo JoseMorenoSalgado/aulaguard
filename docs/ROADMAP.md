@@ -59,6 +59,17 @@
 - [x] Eventos de auditoría para inicio, expiración, finalización y errores.
 - [x] Pruebas CI del estado y de invariantes de seguridad.
 
+## v0.5.3 — Laboratorio de políticas
+
+- [x] Validación aislada del motor de políticas sobre un árbol temporal del Registro.
+- [x] Prueba de aplicación y reversión sin tocar perfiles reales de estudiantes.
+- [x] Validación de fondo, personalización, Panel de control, Registro, Administrador de tareas y lista web.
+- [x] Limpieza automática del entorno de laboratorio.
+- [x] Enforcement bloqueado si el laboratorio no produce el estado esperado.
+- [x] Prueba automática en CI antes de compilar el instalador.
+- [ ] Validación E2E en un equipo físico Windows 10 Pro.
+- [ ] Validación E2E en un equipo físico Windows 11 Pro.
+
 ## v0.6 — Administración central
 
 - [ ] Agente AulaGuard por equipo.
