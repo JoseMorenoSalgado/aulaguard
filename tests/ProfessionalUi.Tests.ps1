@@ -35,6 +35,10 @@ Require ($core -match '0\.5\.5') 'Core version is not aligned to 0.5.5'
 Require ($default -match '"version"\s*:\s*"0\.5\.5"') 'Default settings version is not aligned to 0.5.5'
 Require ($installer -match '#define MyAppVersion "0\.5\.5"') 'Installer version is not aligned to 0.5.5'
 
+Require ($ui -match 'Simular \(no bloquea\)' -and $ui -match 'MODO AUDITORÍA') 'UI must not imply that Audit blocks Windows'
+Require ($ui -match 'Verificar estudiantes' -and $ui -match 'Get-AulaGuardProtectionStatus') 'Per-student effective policy diagnostic is missing'
+Require ($ui -match 'bloqueo de juegos y aplicaciones se configura aparte') 'General protection must explain separate AppLocker application'
+
 Write-Host '[OK] Responsive Home, Internet, Desktop, USB and Audit visual structure verified'
 Write-Host '[OK] Semantic status, health feedback and version alignment verified'
 Write-Host 'PASS: professional UI regressions'
