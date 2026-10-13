@@ -2,6 +2,10 @@
 
 **AulaGuard** es una herramienta para administrar y proteger computadoras de aulas de informática con Windows 10/11 Pro.
 
+## Auditoría funcional — restricciones que requieren corrección
+
+La revisión de v0.5.5 ha identificado brechas de seguridad y funciones incompletas. **No desplegar en aulas de producción.** Consulte [auditoría funcional](docs/AUDITORIA-FUNCIONAL-v0.5.5.md) y el diagnóstico de solo lectura [ReadOnly-ProtectionAudit.ps1](tests/audit/ReadOnly-ProtectionAudit.ps1). La presencia de claves de Registro no demuestra por sí sola que un bloqueo funciona.
+
 ## Descargar AulaGuard (.exe) desde main
 
 **[Abrir carpeta de instaladores verificados](downloads/README.md)**
