@@ -77,6 +77,10 @@ jobs:
         shell: powershell
         run: .\tests\PolicyLab.Tests.ps1
 
+      - name: Validate Windows E2E laboratory harness safeguards
+        shell: powershell
+        run: .\tests\EndToEndHarness.Tests.ps1
+
       - name: Validate professional responsive interface
         shell: powershell
         run: .\tests\ProfessionalUi.Tests.ps1

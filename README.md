@@ -34,6 +34,12 @@ La rama de desarrollo incorpora un **modo mantenimiento temporal** para tareas d
 
 Esta función está en validación y **no convierte todavía v0.5.2 en un instalador público verificado**.
 
+## Próxima fase — v0.5.4 pruebas E2E en Windows
+
+La carpeta tests/e2e incorpora dos comprobadores para un laboratorio con Windows 10/11 Pro: Admin-Preflight.ps1 verifica la configuración protegida y prepara un manifiesto de solo lectura; Student-Probe.ps1 se ejecuta sin privilegios de administrador y verifica restricciones observables desde la sesión del estudiante. Un ejecutable de consola inofensivo puede servir como prueba real de AppLocker, verificado por SHA-256.
+
+**Todavía no se han completado pruebas funcionales en equipos Windows 10/11 Pro.** La prueba automática de CI solo revisa sintaxis, aislamiento y precauciones de estos comprobadores; no certifica las restricciones en un dispositivo real. Consulte [Protocolo E2E Windows](docs/E2E-WINDOWS-LAB.md). La descarga pública continúa supeditada a firma y análisis de Microsoft Defender.
+
 ## AulaGuard 0.5.1 — interfaz profesional
 
 La fase 0.5.1 consolida la experiencia visual sin alterar las protecciones del sistema:
