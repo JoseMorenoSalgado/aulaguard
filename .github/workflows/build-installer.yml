@@ -73,6 +73,10 @@ jobs:
         shell: powershell
         run: .\tests\ProfessionalReadiness.Tests.ps1
 
+      - name: Validate isolated policy application and reversal
+        shell: powershell
+        run: .\tests\PolicyLab.Tests.ps1
+
       - name: Validate professional responsive interface
         shell: powershell
         run: .\tests\ProfessionalUi.Tests.ps1
