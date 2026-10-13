@@ -70,6 +70,20 @@
 - [ ] Validación E2E en un equipo físico Windows 10 Pro.
 - [ ] Validación E2E en un equipo físico Windows 11 Pro.
 
+## v0.5.4 — Pruebas E2E Windows 10/11 Pro
+
+- [x] Comprobador elevado de solo diagnóstico para equipo y cuenta estándar.
+- [x] Manifiesto de laboratorio con ACL solo lectura para estudiantes.
+- [x] Ejecutable inofensivo opcional para comprobar bloqueo real AppLocker.
+- [x] Comprobador en sesión estudiante: Registro, USB y ejecución de procesos.
+- [x] Reporte diferenciando PASS, FAIL, INCONCLUSIVE y SKIP.
+- [x] Protocolo de recuperación y matriz de pruebas manuales.
+- [x] Validación estática y sintáctica de los scripts en CI.
+- [ ] Prueba E2E con evidencia en Windows 10 Pro real o VM.
+- [ ] Prueba E2E con evidencia en Windows 11 Pro real o VM.
+- [ ] Verificar AppLocker, navegación, escritorio, USB físico y restauración.
+- [ ] Instalador firmado y revisado por Microsoft Defender.
+
 ## v0.6 — Administración central
 
 - [ ] Agente AulaGuard por equipo.
