@@ -121,10 +121,25 @@ function Sync-AulaGuardUsbPolicy {
                     Save-AulaGuardUsbState -Root $Root -State $state
                 }
             }
+            # Confirm the *student hive* contains the intended USB deny values.
+            # An existing unmanaged GPO can already be restrictive; leave its
+            # ownership untouched, but still verify Windows received the block.
+            if ($BlockStorage) {
+                Invoke-WithUserHive -Profile $profile -Script {
+                    param([string]$hive)
+                    $confirmed = Get-AulaGuardUsbPolicyValue -HiveRoot $hive
+                    foreach ($name in $script:UsbPolicyValues) {
+                        if (-not $confirmed.Values[$name].exists -or $confirmed.Values[$name].value -ne 1) {
+                            throw "USB: no se pudo confirmar $name = 1 para la cuenta de estudiante."
+                        }
+                    }
+                }
+            }
+
             $results.Add([pscustomobject]@{
                 User=$username
                 Status='OK'
-                Detail=$(if ($BlockStorage) {'Lectura y escritura de discos USB extraíbles restringidas.'} else {'Valores USB originales restaurados.'})
+                Detail=$(if ($BlockStorage) {'Directivas USB verificadas en el Registro del estudiante; se requiere comprobar con un dispositivo extraíble.'} else {'Valores USB originales restaurados.'})
             })
         } catch {
             $results.Add([pscustomobject]@{ User=$username; Status='ERROR'; Detail=$_.Exception.Message })
