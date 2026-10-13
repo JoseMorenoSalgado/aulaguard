@@ -5,8 +5,6 @@
 param(
     [string]$ManifestPath = (Join-Path $env:ProgramData 'AulaGuardLab\manifest.json'),
     [string]$ReportPath = (Join-Path $env:TEMP 'AulaGuard-Student-E2E.json'),
-    [string]$DeniedFixturePath = '',
-    [string]$AllowedExecutable = '',
     [string]$UsbDrive = ''
 )
 
@@ -96,7 +94,6 @@ if ($manifest.expected.policyMode -ne 'Enforce') {
         $ok = $true
         foreach ($browser in @('Microsoft\Edge','Google\Chrome')) {
             $root = "Registry::HKEY_CURRENT_USER\Software\Policies\$browser"
-            $blocked = Read-PolicyDword -Path (Join-Path $root 'URLBlocklist') -Name '1'
             # URLBlocklist is REG_SZ; compare the string rather than interpreting as DWORD.
             $rawBlock = if (Test-Path -LiteralPath (Join-Path $root 'URLBlocklist')) {
                 (Get-ItemProperty -LiteralPath (Join-Path $root 'URLBlocklist') -Name '1' -ErrorAction SilentlyContinue).'1'
@@ -155,35 +152,48 @@ if ([bool]$manifest.expected.blockUsbStorage -and $manifest.expected.policyMode 
 # AppLocker: test actual child-process execution in student context.
 # A positive block is only claimed for Win32 error 1260 (blocked by group policy).
 if ([bool]$manifest.expected.appControlEnabled -and $manifest.expected.appControlMode -eq 'Enabled') {
-    if (-not $AllowedExecutable) { $AllowedExecutable = Join-Path $env:WINDIR 'System32\whoami.exe' }
-    if (-not (Test-Path -LiteralPath $AllowedExecutable -PathType Leaf)) {
+    $allowedExecutable = Join-Path $env:WINDIR 'System32\whoami.exe'
+    if (-not (Test-Path -LiteralPath $allowedExecutable -PathType Leaf)) {
         Add-ProbeResult 'APPLOCKER_ALLOWED_PROCESS' 'SKIP' 'No se encontró el programa de control permitido.'
     } else {
         try {
-            $run = Start-Process -FilePath $AllowedExecutable -NoNewWindow -Wait -PassThru -ErrorAction Stop
+            $run = Start-Process -FilePath $allowedExecutable -NoNewWindow -Wait -PassThru -ErrorAction Stop
             Add-ProbeResult 'APPLOCKER_ALLOWED_PROCESS' $(if ($run.ExitCode -eq 0) {'PASS'} else {'FAIL'}) "Ejecutable permitido: código $($run.ExitCode)."
         } catch {
             Add-ProbeResult 'APPLOCKER_ALLOWED_PROCESS' 'FAIL' "No se pudo iniciar el ejecutable permitido: $($_.Exception.Message)"
         }
     }
 
-    if (-not $DeniedFixturePath) {
-        $DeniedFixturePath = Join-Path $env:ProgramData 'AulaGuardLab\AulaGuard-E2E-Benign.exe'
-    }
-    if (-not (Test-Path -LiteralPath $DeniedFixturePath -PathType Leaf)) {
-        Add-ProbeResult 'APPLOCKER_DENIED_PROCESS' 'SKIP' 'No existe el programa inofensivo de prueba; no se afirmó un bloqueo.'
+    $deniedFixturePath = Join-Path $env:ProgramData 'AulaGuardLab\AulaGuard-E2E-Benign.exe'
+    if (-not (Test-Path -LiteralPath $deniedFixturePath -PathType Leaf) -or
+        [string]::IsNullOrWhiteSpace([string]$manifest.benignFixtureSha256)) {
+        Add-ProbeResult 'APPLOCKER_DENIED_PROCESS' 'SKIP' 'No hay fixture verificado por el administrador.'
     } else {
         try {
-            $run = Start-Process -FilePath $DeniedFixturePath -NoNewWindow -Wait -PassThru -ErrorAction Stop
-            Add-ProbeResult 'APPLOCKER_DENIED_PROCESS' 'FAIL' 'El ejecutable que debía bloquearse se inició.'
-        } catch [System.ComponentModel.Win32Exception] {
-            if ($_.Exception.NativeErrorCode -eq 1260) {
-                Add-ProbeResult 'APPLOCKER_DENIED_PROCESS' 'PASS' 'Windows rechazó el programa mediante directiva de grupo (1260).'
-            } else {
-                Add-ProbeResult 'APPLOCKER_DENIED_PROCESS' 'INCONCLUSIVE' "Error Win32 $($_.Exception.NativeErrorCode); revisa los eventos AppLocker."
+            $fixture = Get-Item -LiteralPath $deniedFixturePath -Force -ErrorAction Stop
+            if (($fixture.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+                throw 'El ejecutable de prueba es un enlace inseguro.'
+            }
+            $hash = (Get-FileHash -LiteralPath $deniedFixturePath -Algorithm SHA256).Hash
+            if ($hash -cne [string]$manifest.benignFixtureSha256) {
+                throw 'El hash SHA-256 del ejecutable no coincide con el manifiesto del administrador.'
+            }
+            try {
+                $run = Start-Process -FilePath $deniedFixturePath -NoNewWindow -Wait -PassThru -ErrorAction Stop
+                Add-ProbeResult 'APPLOCKER_DENIED_PROCESS' 'FAIL' 'El ejecutable inofensivo que debía bloquearse se inició.'
+            } catch {
+                $win = $_.Exception
+                while ($null -ne $win -and -not ($win -is [System.ComponentModel.Win32Exception])) {
+                    $win = $win.InnerException
+                }
+                if ($null -ne $win -and $win.NativeErrorCode -eq 1260) {
+                    Add-ProbeResult 'APPLOCKER_DENIED_PROCESS' 'PASS' 'Windows impidió la ejecución por directiva de grupo (Win32 1260).'
+                } else {
+                    Add-ProbeResult 'APPLOCKER_DENIED_PROCESS' 'INCONCLUSIVE' "No se pudo atribuir el error a AppLocker: $($_.Exception.Message)"
+                }
             }
         } catch {
-            Add-ProbeResult 'APPLOCKER_DENIED_PROCESS' 'INCONCLUSIVE' "Error de arranque: $($_.Exception.Message). Revisar eventos."
+            Add-ProbeResult 'APPLOCKER_DENIED_PROCESS' 'INCONCLUSIVE' $_.Exception.Message
         }
     }
 } else {
