@@ -1,4 +1,4 @@
-# AulaGuard v0.5.1
+# AulaGuard v0.5.5
 # Friendly educational administration console for Windows classrooms.
 
 $ErrorActionPreference = 'Stop'
@@ -304,7 +304,7 @@ try {
         }
 
         return [pscustomobject]@{
-            version = '0.5.1'
+            version = '0.5.5'
             profileName = $txtProfileName.Text.Trim()
             policyMode = if ($radEnforce.Checked) {'Enforce'} else {'Audit'}
             wallpaper = $txtWallpaper.Text.Trim()
@@ -379,7 +379,7 @@ try {
     $header.Controls.Add((New-Label 'Administración segura para aulas Windows' 94 43 9 $false ([System.Drawing.Color]::FromArgb(220,252,231))))
 
     $version = New-Object System.Windows.Forms.Label
-    $version.Text = 'v0.5.1'
+    $version.Text = 'v0.5.5'
     $version.TextAlign = 'MiddleCenter'
     $version.Location = New-Object System.Drawing.Point(1060,22)
     $version.Size = New-Object System.Drawing.Size(82,30)
@@ -2139,7 +2139,7 @@ try {
 
     & $resizeProtection
     Set-NavActive $navHome
-    Write-AulaGuardAudit -Action 'APP_STARTED' -Detail 'v0.5.1' -Root $root
+    Write-AulaGuardAudit -Action 'APP_STARTED' -Detail 'v0.5.5' -Root $root
     Refresh-Dashboard
     & $loadAudit
     & $loadAppEvents
