@@ -1892,7 +1892,7 @@ try {
         $message = if ($simulation) {
             'MODO AUDITORÍA: esta acción NO bloquea nada en Windows. Para aplicar restricciones reales, selecciona Protección activa en la pestaña Protección. ¿Deseas ejecutar solamente la simulación?'
         } else {
-            'Se aplicarán las restricciones de Windows y USB a estudiantes estándar. IMPORTANTE: el bloqueo de juegos y aplicaciones se configura aparte en Control de apps → Bloqueo activo. ¿Continuar?'
+            'Se aplicarán las restricciones de Windows y USB a estudiantes estándar. IMPORTANTE: el bloqueo de juegos y aplicaciones se configura aparte en Control de apps y selecciona Bloqueo activo. ¿Continuar?'
         }
 
         if ([System.Windows.Forms.MessageBox]::Show($message,'AulaGuard','YesNo','Question') -ne 'Yes') {
