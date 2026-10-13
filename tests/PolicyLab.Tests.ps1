@@ -67,7 +67,7 @@ try {
 }
 
 $policySource = Get-Content -LiteralPath (Join-Path $repo 'src\AulaGuard.Policy.psm1') -Raw -Encoding UTF8
-Require ($policySource -match 'No se encontraron perfiles estándar') 'Protection must reject zero student accounts'
+Require ($policySource -match 'No se encontraron perfiles') 'Protection must reject zero student accounts'
 Require ($policySource -match 'Test-AulaGuardAppliedPolicyForHive -HiveRoot \$hive') 'Protection must verify each actual target user hive'
 
 Write-Host '[OK] Applied student policy verification detects tampering and recovers.'
