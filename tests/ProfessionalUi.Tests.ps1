@@ -1,4 +1,4 @@
-$ErrorActionPreference = 'Stop'
+﻿$ErrorActionPreference = 'Stop'
 $repo = Resolve-Path (Join-Path $PSScriptRoot '..')
 $uiPath = Join-Path $repo 'src\AulaGuard.ps1'
 $ui = Get-Content -LiteralPath $uiPath -Raw -Encoding UTF8
