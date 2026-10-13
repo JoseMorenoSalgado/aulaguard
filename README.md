@@ -15,6 +15,14 @@ El archivo final quedará en `main/downloads/AulaGuard-Setup-vX.Y.Z.exe`,
 junto con un enlace directo y su SHA-256. No se publicará desde compilaciones
 de prueba sin revisión antivirus.
 
+## Corrección de protección v0.5.5 (pruebas)
+
+Las restricciones generales solo se aplican al elegir **Protección → Protección activa** y luego **Aplicar protección**. La opción inicial **Auditoría** es una simulación y no bloquea nada. Para bloquear ejecutables Win32 se requiere además abrir **Control de apps**, revisar la lista blanca, elegir **Bloqueo activo · avanzado** y pulsar **Aplicar control**. Algunas aplicaciones empaquetadas de Microsoft Store no están cubiertas por las reglas de ejecutables Win32.
+
+Esta versión verifica las reglas de Windows y USB en el Registro de **cada perfil estándar real**, informa errores por estudiante y rechaza un resultado falsamente correcto si no existen alumnos con sesión creada. El botón **Estado del sistema → Verificar estudiantes** permite comprobarlo de forma no destructiva. Cierra la sesión del estudiante y vuelve a entrar para probar las restricciones de Windows. La inspección del Registro no sustituye una prueba funcional real como estudiante.
+
+No utilices ninguna compilación experimental sin revisar en computadoras de producción. La distribución verificada sigue requiriendo firma Authenticode y análisis antivirus.
+
 ## Versión actual
 
 **v0.5.1 (código corregido, pendiente de firma y revisión antivirus del instalador)**
