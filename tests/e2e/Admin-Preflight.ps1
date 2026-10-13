@@ -4,7 +4,8 @@
 param(
     [Parameter(Mandatory=$true)][string]$StudentAccount,
     [string]$DataRoot = (Join-Path $env:ProgramData 'AulaGuard'),
-    [switch]$RequireEnforcement
+    [switch]$RequireEnforcement,
+    [switch]$CreateBenignFixture
 )
 
 $ErrorActionPreference = 'Stop'
@@ -151,6 +152,28 @@ foreach ($id in @($administrators,$system,$users)) {
     [void]$fileAcl.AddAccessRule((New-Object Security.AccessControl.FileSystemAccessRule($id,$rights,[Security.AccessControl.AccessControlType]::Allow)))
 }
 Set-Acl -LiteralPath $manifestPath -AclObject $fileAcl -ErrorAction Stop
+
+# Optional harmless console fixture. Built, but NEVER executed, by the administrator.
+# A student's attempt to launch it outside Windows/Program Files tests AppLocker enforcement.
+$fixturePath = Join-Path $labRoot 'AulaGuard-E2E-Benign.exe'
+if ($CreateBenignFixture) {
+    if (Test-Path -LiteralPath $fixturePath) {
+        $existingFixture = Get-Item -LiteralPath $fixturePath -Force -ErrorAction Stop
+        if (($existingFixture.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+            throw 'El ejecutable de pruebas no puede ser un enlace.'
+        }
+        throw 'El ejecutable de pruebas ya existe: no se sobrescribirá sin revisión del administrador.'
+    }
+    $fixtureSource = @'
+using System;
+public static class AulaGuardE2EBenign {
+    public static int Main(string[] args) { return 0; }
+}
+'@
+    Add-Type -TypeDefinition $fixtureSource -OutputAssembly $fixturePath -OutputType ConsoleApplication -ErrorAction Stop
+    Set-Acl -LiteralPath $fixturePath -AclObject $fileAcl -ErrorAction Stop
+}
+
 $hash = (Get-FileHash -LiteralPath $manifestPath -Algorithm SHA256).Hash
 [pscustomobject]@{
     Ready = $true
@@ -159,6 +182,7 @@ $hash = (Get-FileHash -LiteralPath $manifestPath -Algorithm SHA256).Hash
     Student = $student.Name
     Manifest = $manifestPath
     ManifestSHA256 = $hash
+    BenignFixture = if (Test-Path -LiteralPath $fixturePath -PathType Leaf) { $fixturePath } else { 'No creado' }
     AppLockerMembershipVerified = $isMember
     Notes = 'Sin cambios en las políticas. Inicia sesión como estudiante y ejecuta Student-Probe.ps1.'
 } | Format-List
