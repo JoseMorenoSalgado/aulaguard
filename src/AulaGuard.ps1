@@ -1,4 +1,4 @@
-# AulaGuard v0.5.5
+﻿# AulaGuard v0.5.5
 # Friendly educational administration console for Windows classrooms.
 
 $ErrorActionPreference = 'Stop'
