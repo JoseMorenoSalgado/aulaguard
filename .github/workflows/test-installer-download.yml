@@ -1,4 +1,5 @@
 name: AulaGuard Trial EXE (NO RELEASE)
+# Trial run only: no verified production release.
 
 on:
   pull_request:
