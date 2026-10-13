@@ -80,8 +80,8 @@ foreach ($profile in $profiles) {
         $denyWrite = $null
         if (Test-Path -LiteralPath $usbPath) {
             $props = Get-ItemProperty -LiteralPath $usbPath -ErrorAction Stop
-            $denyRead = $props.Deny_Read
-            $denyWrite = $props.Deny_Write
+            if (@($props.PSObject.Properties.Name) -contains 'Deny_Read') { $denyRead = $props.Deny_Read }
+            if (@($props.PSObject.Properties.Name) -contains 'Deny_Write') { $denyWrite = $props.Deny_Write }
         }
         if ($settings.policyMode -ne 'Enforce') {
             $entry.usbRegistryState = 'AUDIT_MODE'
